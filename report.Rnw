@@ -1,0 +1,151 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%  
+%  KCCG WGS Validation Reporter -- Report generator
+%  
+%  Usage: 
+%    Rscript -e "knitr::knit2pdf('report.Rnw')" [-d] <tp> <fp> <fn> 
+%        <genome>
+%  
+%  Flags:
+%    -d  			Turn on debug mode
+%  
+%  Positional parameters:
+%    tp, fp, fn		Paths to vcf or vcf.gz files containing calls on 
+%  					NA12878.
+%    genome			Genome label, as used by the VariantAnnotation
+%  					package (eg. "hg19")
+%  
+%  
+%  Mark Pinese
+%  25 May 2015	MP 	Started writing
+%  
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\documentclass{article}
+\usepackage{geometry}
+\usepackage{amsmath}
+\usepackage{lscape}
+\geometry{verbose,tmargin=2.5cm,bmargin=2.5cm,lmargin=2.5cm,rmargin=2.5cm}
+
+\begin{document}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% KNITR SETUP
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+<<setup, cache=FALSE, echo=FALSE>>=
+
+# Dumb command line parsing, to avoid pulling in a whole lib just for this
+usage = function() stop("Usage: Rscript -e 'knitr::knit2pdf(\"report.Rnw\")' [-d] <tp> <fp> <fn> <genome>")
+argv = commandArgs(TRUE)
+if (length(argv) > 5 || length(argv) < 4)
+	usage()
+path.tp = argv[length(argv) - 3]
+path.fp = argv[length(argv) - 2]
+path.fn = argv[length(argv) - 1]
+genome = argv[length(argv) - 0]
+DEBUG = FALSE
+if (length(argv) == 5)
+{
+	if (argv[1] == "-d")
+		DEBUG = TRUE
+	else
+		usage()
+}
+
+library(knitr)
+library(tikzDevice)
+options(
+	tikzDocumentDeclaration = "\\documentclass[11pt]{memoir}",
+	tikzLatexPackages = c(
+		getOption("tikzLatexPackages"),
+		"\\usepackage{amsmath}"),
+	tikzMetricsDictionary="tikzMetrics"
+)
+knit_hooks$set(crop = hook_pdfcrop)
+opts_chunk$set(
+	echo = DEBUG, results = 'markup', message = TRUE, warning = TRUE, error = FALSE, 
+	fig.keep = 'high', fig.align = 'center', dev = 'tikz', dev.args = list(pointsize = 16), fig.width = 6, fig.height = 6, dpi = 144, 
+	cache = FALSE, cache.lazy = FALSE)
+opts_knit$set(progress = TRUE, verbose = TRUE)
+options(warn = 1)
+@
+
+
+\title{WGS Validation Report}
+\date{\today}
+\maketitle
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% LIBRARIES
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+<<libs-load>>=
+library(VariantAnnotation)
+@
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% LOAD DATA
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+<<data-load>>=
+data.tp = readVcf(path.tp, genome)
+data.fp = readVcf(path.fp, genome)
+data.fn = readVcf(path.fn, genome)
+@
+
+<<data-validation>>=
+temp.sample.tp = header(data.tp)@samples
+temp.sample.fp = header(data.fp)@samples
+temp.sample.fn = header(data.fn)@samples
+stopifnot(temp.sample.tp == temp.sample.fp)
+stopifnot(temp.sample.tp == temp.sample.fn)
+stopifnot(length(temp.sample.tp) == 1)
+
+data.sampleid = header(data.tp)@samples
+@
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% VERSION
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Versions}
+Data label: \Sexpr{data.sampleid}
+% TODO:
+%   Validator version
+%     (Software versions implicit in the validator version)
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% SUMMARY
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% TODO: 
+%   Data version
+%   Validator version
+%   Overall pass-fail call, broken down into major sections
+
+<<summary>>=
+@
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% DEBUG ONLY: SESSIONINFO
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+`r if (DEBUG) {"\section{R session information}"}`
+<<sessioninfo>>=
+if (DEBUG)
+	sessionInfo()
+@
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% SUMMARY AND SIGN-OFF
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% TODO: 
+%   Data version
+%   Validator version
+%   Overall pass-fail call, broken down into major sections
+%   Sign-off
+
+
+\end{document}
