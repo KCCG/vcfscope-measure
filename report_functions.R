@@ -21,15 +21,36 @@ fileMD5 = function(path) {
 
 bed2GRanges = function(path, seqinfo)
 {
-	data = read.table(path, header = FALSE, stringsAsFactors = FALSE)
+	# Read first line, to get the number of columns
+	firstline = read.table(path, header = FALSE, stringsAsFactors = FALSE, nrows = 1)
+	ncols = length(firstline)
 
-	if (ncol(data) > 6)
-		data = data[,1:6]
-	else if (ncol(data) < 3)
-		stop(sprintf("#s is not a valid BED file: fewer than three columns", path))
+	if (ncols > 6)
+		warning("BED file %s contains more than 6 columns; discarding columns 7 and above.")
+	else if (ncols < 3)
+		stop(sprintf("%s is not a valid BED file: fewer than three columns.", path))
 
 	header = c("chr", "start", "end", "id", "score", "strand")
-	colnames(data) = header[1:ncol(data)]
+	column_types = list(character(), integer(), integer(), character(), double(), character())
+
+	if (ncols < length(column_types))
+	{
+		column_types = column_types[1:ncols]
+	}
+	else if (ncols > length(column_types))
+	{
+		for (i in (length(column_types)+1):ncols)
+			column_types[i] = NULL
+	}
+
+	data = scan(path, what = column_types, strip.white = TRUE)
+	data = data.frame(matrix(unlist(data), ncol = ncols, byrow = FALSE), stringsAsFactors = FALSE)
+	colnames(data) = header[1:ncols]
+
+	data$start = as.integer(data$start)
+	data$end = as.integer(data$end)
+	if (ncols >= 5)
+		data$score = as.numeric(data$score)
 
 	data$start = data$start + 1
 	
