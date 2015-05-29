@@ -45,17 +45,18 @@ EXEC_DIR=$(pwd)
 #####################################################################
 print_usage() {
 cat << EOF
-Usage: ${0##*/} [-d] [-o OUTFILE] <INFILE>
+Usage: ${0##*/} [-d CHROM] [-o OUTFILE] <INFILE>
 
 Create a WGS validation report.
 
     INFILE       Input NA12878 genotype calls, in vcf.gz format
     -o OUTFILE   Write the report to OUTFILE (default: report.pdf)
     -h           Display this help and exit
-    -d           Debug mode.  Currently, adds additional debug 
-                 information to the report.
+    -d CHROM     Debug mode.  Currently, adds additional debug 
+                 information to the report, and examines chromosome
+                 CHROM only.
 
-v20150528-1
+v20150529-1
 
 Mark Pinese
 EOF
@@ -64,9 +65,10 @@ EOF
 OPTIND=1
 input_vcfgz_path=""
 debug=0
+debug_chrom="-"
 output_pdf_path="${EXEC_DIR}/report.pdf"
 
-while getopts "dho:" opt; do
+while getopts "d:o:h" opt; do
 	case "$opt" in
 		h)
 			print_usage
@@ -74,6 +76,7 @@ while getopts "dho:" opt; do
 			;;
 		d)
 			debug=1
+			debug_chrom=$OPTARG
 			;;
 		o)
 			output_pdf_path=$OPTARG
@@ -211,7 +214,7 @@ cp -f report_calculations.R ${KNITR_SCRATCH}
 cd ${KNITR_SCRATCH}
 
 # Run the script
-${RSCRIPT} --vanilla report_calculations.R ${debug} ${input_vcfgz_path} ${RTG_OVERLAP_SCRATCH}/tp.vcf.gz ${RTG_OVERLAP_SCRATCH}/fp.vcf.gz ${RTG_OVERLAP_SCRATCH}/fn.vcf.gz ${REFERENCE_BSGENOME} ${GOLD_HARDMASK_VALID_REGIONS_BEDGZ} ${KCCG_HARDMASK_CALLABLE_REGIONS}
+${RSCRIPT} --vanilla report_calculations.R ${debug} ${debug_chrom} ${input_vcfgz_path} ${RTG_OVERLAP_SCRATCH}/tp.vcf.gz ${RTG_OVERLAP_SCRATCH}/fp.vcf.gz ${RTG_OVERLAP_SCRATCH}/fn.vcf.gz ${REFERENCE_BSGENOME} ${GOLD_HARDMASK_VALID_REGIONS_BEDGZ} ${KCCG_HARDMASK_CALLABLE_REGIONS}
 
 #####################################################################
 # REPORT GENERATION

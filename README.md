@@ -33,6 +33,7 @@ Running with the -d flag will dramatically speed things up (by only considering 
   * VariantAnnotation (Bioconductor)
   * GenomicRanges (Bioconductor)
   * BSgenome (Bioconductor)
+  * bit64 (CRAN)
   * ROCR (CRAN)
   * ggplot2 (CRAN)
   * knitr (CRAN)

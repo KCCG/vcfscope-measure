@@ -35,16 +35,17 @@ source("report_functions.R")
 ####################################################################
 argv = commandArgs(TRUE)
 if (length(argv) != 8)
-	stop("Usage: Rscript report_calculations.R <debugflag> <wd> <tp> <fp> <fn> <genome> <gold_regions> <call_regions>")
+	stop("Usage: Rscript report_calculations.R <debugflag> <debugchrom> <wd> <tp> <fp> <fn> <genome> <gold_regions> <call_regions>")
 
 DEBUG = argv[1] == "1"
-path.input = argv[2]
-path.tp = argv[3]
-path.fp = argv[4]
-path.fn = argv[5]
-genome = argv[6]
-path.gold_regions = argv[7]
-path.call_regions = argv[8]
+DEBUG.chrom = argv[2]
+path.input = argv[3]
+path.tp = argv[4]
+path.fp = argv[5]
+path.fn = argv[6]
+genome = argv[7]
+path.gold_regions = argv[8]
+path.call_regions = argv[9]
 
 
 
@@ -67,13 +68,14 @@ path.call_regions = argv[8]
 if (DEBUG)
 {
 	message(sprintf("Command line: %s", paste(argv, collapse = " ")))
+	message(sprintf("  DEBUG:             %s", DEBUG))
+	message(sprintf("  DEBUG.chrom:       %s", DEBUG.chrom))
 	message(sprintf("  path.tp:           %s", path.tp))
 	message(sprintf("  path.fp:           %s", path.fp))
 	message(sprintf("  path.fn:           %s", path.fn))
 	message(sprintf("  genome:            %s", genome))
 	message(sprintf("  path.gold_regions: %s", path.gold_regions))
 	message(sprintf("  path.call_regions: %s", path.call_regions))
-	message(sprintf("  DEBUG:             %s", DEBUG))
 }
 
 
@@ -83,6 +85,8 @@ if (DEBUG)
 library(VariantAnnotation)
 library(GenomicRanges)
 library(BSgenome)
+
+library(bit64)
 
 library(ROCR)
 
@@ -97,11 +101,11 @@ genome(genome.seqinfo) = genome 	# To get around disagreement
 		# between the vcfs (which by default use the genome name 
 		# abbreviation), and the beds (which use the full name).
 
-# The call overlaps.  If in debug mode, subset to chromosome 22
+# The call overlaps.  If in debug mode, subset to chromosome DEBUG.chrom
 if (DEBUG)
 {
 	temp = as.data.frame(seqinfo(genome.bsgenome))
-	debug.region = GRanges(seqnames = "22", IRanges(1, temp["22",]$seqlengths), seqinfo = genome.seqinfo)
+	debug.region = GRanges(seqnames = DEBUG.chrom, IRanges(1, temp[DEBUG.chrom,]$seqlengths), seqinfo = genome.seqinfo)
 	data.tp = readVcf(TabixFile(path.tp), genome, ScanVcfParam(which = debug.region))
 	data.fp = readVcf(TabixFile(path.fp), genome, ScanVcfParam(which = debug.region))
 	data.fn = readVcf(TabixFile(path.fn), genome, ScanVcfParam(which = debug.region))
@@ -123,7 +127,7 @@ data.sampleid = header(data.tp)@samples
 regions.gold = bed2GRanges(path.gold_regions, genome.seqinfo)
 regions.call = bed2GRanges(path.call_regions, genome.seqinfo)
 
-# If we're debugging (chr 22 only), subset these beds to just this area
+# If we're debugging (chr DEBUG.chrom only), subset these beds to just this area
 if (DEBUG)
 {
 	regions.gold = intersect(regions.gold, debug.region)
@@ -158,9 +162,7 @@ snv.tn = setdiff(regions.gold, union(rowData(data.tp.snv), rowData(data.fn.snv),
 snv.tp.count = nrow(data.tp.snv)
 snv.fp.count = nrow(data.fp.snv)
 snv.fn.count = nrow(data.fn.snv)
-# TODO: the following as.numeric & round malarky is needed to avoid integer overflow 
-# when analysing the whole genome... but seems a bit wrong.  Can I use bigger ints?
-snv.tn.count = round(sum(as.numeric(width(snv.tn))))
+snv.tn.count = sum(as.integer64(width(snv.tn)))
 
 snv.truth = makeTruthVector(snv.tp.count, snv.fp.count, snv.fn.count, snv.tn.count)
 snv.score.VQSLOD = makeScoreVector(data.tp.snv, data.fp.snv, snv.fn.count, snv.tn.count, function(x) info(x)$VQSLOD)
