@@ -34,7 +34,7 @@ source("report_functions.R")
 # COMMAND LINE PARSING
 ####################################################################
 argv = commandArgs(TRUE)
-if (length(argv) != 8)
+if (length(argv) != 9)
 	stop("Usage: Rscript report_calculations.R <debugflag> <debugchrom> <wd> <tp> <fp> <fn> <genome> <gold_regions> <call_regions>")
 
 DEBUG = argv[1] == "1"
@@ -53,15 +53,17 @@ path.call_regions = argv[9]
 # DEBUG SETTINGS -- REMOVE FOR PRODUCTION
 	# argv = "None -- debug settings used"
 	# DEBUG = TRUE
-	# path.input = "../../data/test_data/HiSeqX_v2_TKCC/calls.vcf.gz"
-	# path.tp = "../overlap/tp.vcf.gz"
-	# path.fp = "../overlap/fp.vcf.gz"
-	# path.fn = "../overlap/fn.vcf.gz"
+	# DEBUG.chrom = "22"
+	# path.input = "/directflow/ClinicalGenomicsPipeline/projects/validation-reporter/resources/test_data/HiSeqX_v2_TKCC/calls.vcf.gz"
+	# path.tp = "/directflow/ClinicalGenomicsPipeline/tmp/valrept.keep/overlap/tp.vcf.gz"
+	# path.fp = "/directflow/ClinicalGenomicsPipeline/tmp/valrept.keep/overlap/fp.vcf.gz"
+	# path.fn = "/directflow/ClinicalGenomicsPipeline/tmp/valrept.keep/overlap/fn.vcf.gz"
 	# genome = "BSgenome.HSapiens.1000g.37d5"
-	# path.gold_regions = "../../data/gold_standard/valid_regions.bed.gz"
-	# path.call_regions = "../../data/kccg/not_hardmasked.bed.gz"
+	# path.gold_regions = "/directflow/ClinicalGenomicsPipeline/projects/validation-reporter/resources/gold_standard/valid_regions.bed.gz"
+	# path.call_regions = "/directflow/ClinicalGenomicsPipeline/projects/validation-reporter/resources/kccg/not_hardmasked.bed.gz"
 # END DEBUG SETTINGS
 #####################################################################
+
 
 
 
@@ -85,8 +87,6 @@ if (DEBUG)
 library(VariantAnnotation)
 library(GenomicRanges)
 library(BSgenome)
-
-library(bit64)
 
 library(ROCR)
 
@@ -162,20 +162,27 @@ snv.tn = setdiff(regions.gold, union(rowData(data.tp.snv), rowData(data.fn.snv),
 snv.tp.count = nrow(data.tp.snv)
 snv.fp.count = nrow(data.fp.snv)
 snv.fn.count = nrow(data.fn.snv)
-snv.tn.count = sum(as.integer64(width(snv.tn)))
+snv.tn.count = sum(as.numeric(width(snv.tn)))
 
-snv.truth = makeTruthVector(snv.tp.count, snv.fp.count, snv.fn.count, snv.tn.count)
-snv.score.VQSLOD = makeScoreVector(data.tp.snv, data.fp.snv, snv.fn.count, snv.tn.count, function(x) info(x)$VQSLOD)
-snv.score.QUAL =   makeScoreVector(data.tp.snv, data.fp.snv, snv.fn.count, snv.tn.count, function(x) rowData(x)$QUAL)
-snv.score.GQ =     makeScoreVector(data.tp.snv, data.fp.snv, snv.fn.count, snv.tn.count, function(x) geno(x)$GQ)
-snv.score.DP =     makeScoreVector(data.tp.snv, data.fp.snv, snv.fn.count, snv.tn.count, function(x) info(x)$DP)
-snv.score.FILTER = makeScoreVector(data.tp.snv, data.fp.snv, snv.fn.count, snv.tn.count, function(x) (rowData(x)$FILTER == "PASS")*1)
+# Newfangled:
+snv.perf.VQSLOD = vcfPerf(data.tp.snv, data.fp.snv, snv.fn.count, snv.tn.count, function(x) info(x)$VQSLOD)
+snv.perf.QUAL =   vcfPerf(data.tp.snv, data.fp.snv, snv.fn.count, snv.tn.count, function(x) rowData(x)$QUAL)
+snv.perf.GQ =     vcfPerf(data.tp.snv, data.fp.snv, snv.fn.count, snv.tn.count, function(x) geno(x)$GQ)
+snv.perf.DP =     vcfPerf(data.tp.snv, data.fp.snv, snv.fn.count, snv.tn.count, function(x) info(x)$DP)
+snv.perf.FILTER = vcfPerf(data.tp.snv, data.fp.snv, snv.fn.count, snv.tn.count, function(x) (rowData(x)$FILTER == "PASS")*1)
 
-snv.pred.VQSLOD = prediction(snv.score.VQSLOD, snv.truth)
-snv.pred.QUAL =   prediction(snv.score.QUAL,   snv.truth)
-snv.pred.GQ =     prediction(snv.score.GQ,     snv.truth)
-snv.pred.DP =     prediction(snv.score.DP,     snv.truth)
-snv.pred.FILTER = prediction(snv.score.FILTER, snv.truth)
+# # Oldfangled:
+# snv.truth = makeTruthVector(snv.tp.count, snv.fp.count, snv.fn.count, sum(width(snv.tn)))
+# snv.score.VQSLOD = makeScoreVector(data.tp.snv, data.fp.snv, snv.fn.count, sum(width(snv.tn)), function(x) info(x)$VQSLOD)
+# snv.score.QUAL =   makeScoreVector(data.tp.snv, data.fp.snv, snv.fn.count, sum(width(snv.tn)), function(x) rowData(x)$QUAL)
+# snv.score.GQ =     makeScoreVector(data.tp.snv, data.fp.snv, snv.fn.count, sum(width(snv.tn)), function(x) geno(x)$GQ)
+# snv.score.DP =     makeScoreVector(data.tp.snv, data.fp.snv, snv.fn.count, sum(width(snv.tn)), function(x) info(x)$DP)
+# snv.score.FILTER = makeScoreVector(data.tp.snv, data.fp.snv, snv.fn.count, sum(width(snv.tn)), function(x) (rowData(x)$FILTER == "PASS")*1)
+# snv.pred.VQSLOD = prediction(snv.score.VQSLOD, snv.truth)
+# snv.pred.QUAL =   prediction(snv.score.QUAL,   snv.truth)
+# snv.pred.GQ =     prediction(snv.score.GQ,     snv.truth)
+# snv.pred.DP =     prediction(snv.score.DP,     snv.truth)
+# snv.pred.FILTER = prediction(snv.score.FILTER, snv.truth)
 
 
 #####################################################################

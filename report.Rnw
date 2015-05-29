@@ -147,6 +147,10 @@ plotROC(snv.pred.list) + ggtitle("SNV Receiver Operating Characteristic")
 plotROC(snv.pred.list) + ggtitle("SNV Receiver Operating Characteristic") + coord_cartesian(xlim = c(0, 2.5e-6))
 plotDET(snv.pred.list) + ggtitle("SNV Detection-Error Tradeoff")
 plotLR(snv.pred.list) + ggtitle("SNV Diagnostic Likelihood Ratios") + scale_x_log10(limits = c(1e-3, 1)) + scale_y_log10(limits = c(1e5, 1e8))
+
+snv.pred.list2 = list(VQSLOD = snv.perf.VQSLOD, QUAL = snv.perf.QUAL, GQ = snv.perf.GQ, DP = snv.perf.DP, FILTER = snv.perf.FILTER)
+plotROC2(snv.pred.list2) + ggtitle("SNV Receiver Operating Characteristic")
+plotROC2(snv.pred.list2) + ggtitle("SNV Receiver Operating Characteristic") + coord_cartesian(xlim = c(0, 2.5e-6))
 @
 SNV rate in gold-standard valid regions: \Sexpr{texquote(mean(snv.truth == "mut")*100)}\%
 
