@@ -7,12 +7,14 @@ A script to build a validation report from a VCF of NA12878 calls.
 ## Usage
 
 ```
-./validation_report.sh [-d] [-o OUTFILE] <INFILE>
+./validation_report.sh [-d CHROM] [-o OUTFILE] <INFILE>
 
     INFILE       Input NA12878 genotype calls, in vcf.gz format
     -o OUTFILE   Write the report to OUTFILE (default: report.pdf)
-    -h           Display help and exit
-    -d           Debug mode.  Currently, is more verbose during the running of the script, and adds additional debug information to the report.
+    -h           Display this help and exit
+    -d CHROM     Debug mode.  Currently, adds additional debug 
+                 information to the report, and examines chromosome
+                 CHROM only.
 ```
 
 
@@ -33,8 +35,8 @@ Running with the -d flag will dramatically speed things up (by only considering 
   * VariantAnnotation (Bioconductor)
   * GenomicRanges (Bioconductor)
   * BSgenome (Bioconductor)
-  * bit64 (CRAN)
-  * ROCR (CRAN)
+  * Rcpp (CRAN)
+  * inline (CRAN)
   * ggplot2 (CRAN)
   * knitr (CRAN)
   * BSgenome.HSapiens.1000g.37d5 (this is a custom package, for installation instructions see below)

@@ -68,53 +68,6 @@ bed2GRanges = function(path, seqinfo)
 }
 
 
-perflist2data = function(perf_list)
-{
-	xvals = do.call(c, lapply(perf_list, function(perf) perf@x.values[[1]]))
-	yvals = do.call(c, lapply(perf_list, function(perf) perf@y.values[[1]]))
-	cvals = do.call(c, lapply(perf_list, function(perf) perf@alpha.values[[1]]))
-	names = rep(names(perf_list), sapply(perf_list, function(perf) length(perf@x.values[[1]])))
-	data.frame(name = names, x = xvals, y = yvals, cutoff = cvals)
-}
-
-
-# Some necessary messing about as ROCR silently shits itself with -Inf and Inf scores.
-# Basically, finds the finite range of all scores, and defines extreme scores 
-# (smallest_score and largest_score) as just beyond this range.  Then, sets all
-# non-finite values to the appropriate extreme score, and also assigns these to
-# the TN samples.  Returns a concatenated score vector, combined as:
-#   TP, FN, FP, TN
-# This ordering agrees with that of makeTruthVector.
-makeScoreVector = function(vcf.tp, vcf.fp, n.fn, n.tn, field_access_func)
-{
-	scores.tp = field_access_func(vcf.tp)
-	scores.fp = field_access_func(vcf.fp)
-	# scores.fn not included, as those variants were not given scores at all by the genotyper
-
-	score_range = range(c(range(scores.tp, na.rm = TRUE), range(scores.fp, na.rm = TRUE)), na.rm = TRUE)
-	smallest_score = score_range[1] - 1
-	largest_score = score_range[1] + 1
-
-	scores.tp[scores.tp <= -Inf] = smallest_score
-	scores.tp[scores.tp >= Inf] = largest_score
-	scores.fp[scores.fp <= -Inf] = smallest_score
-	scores.fp[scores.fp >= Inf] = largest_score
-	scores.fn = rep(smallest_score, n.fn)
-	scores.tn = rep(smallest_score, n.tn)
-
-	c(scores.tp, scores.fn, scores.fp, scores.tn)
-}
-
-
-# Creates an ordered factor vector (values wt < mut) of true mutation status.
-# Returns concatenated values in the roder TP, FN, FP, TN, which matches the
-# ordering from makeScoreVector.
-makeTruthVector = function(n.tp, n.fp, n.fn, n.tn)
-{
-	ordered(c(rep("mut", n.tp), rep("mut", n.fn), rep("wt", n.fp), rep("wt", n.tn)), levels = c("wt", "mut"))
-}
-
-
 tabulatePositiveCallTruth = cxxfunction(
 	signature(scores_postruth = "numeric", scores_negtruth = "numeric", scores_uniq = "numeric"),
 	body = '
@@ -238,21 +191,7 @@ vcfPerf = function(vcf.tp, vcf.fp, n.fn.always, n.tn.always, field_access_func)
 }
 
 
-
-plotROC = function(pred_list)
-{
-	perf_list = lapply(pred_list, function(pred) performance(pred, measure = "tpr", x.measure = "fpr"))
-	data = perflist2data(perf_list)
-	colnames(data) = c("Name", "FPR", "TPR", "Cutoff")
-
-	ggplot(data, aes(x = FPR, y = TPR, colour = Name)) + geom_path() + 
-		xlim(0, 1) + ylim(0, 1) + 
-		coord_fixed() + geom_abline(intercept = 0, slope = 1, linetype = "dotted", alpha = 0.5) + 
-		xlab("False positive rate") + ylab("True positive rate")
-}
-
-
-plotROC2 = function(perf_list)
+plotROC = function(perf_list)
 {
 	perf2_list = lapply(perf_list, function(perf) data.frame(TPR = perf$tp / (perf$tp + perf$fn), FPR = perf$fp / (perf$fp + perf$tn), cutoff = perf$cutoff))
 	data = data.frame(Name = rep(names(perf2_list), sapply(perf2_list, nrow)), TPR = unlist(sapply(perf2_list, function(x) x$TPR)), FPR = unlist(sapply(perf2_list, function(x) x$FPR)), Cutoff = unlist(sapply(perf2_list, function(x) x$cutoff)))
@@ -264,27 +203,23 @@ plotROC2 = function(perf_list)
 }
 
 
-plotDET = function(pred_list)
+plotDET = function(perf_list)
 {
-	perf_list = lapply(pred_list, function(pred) performance(pred, measure = "fnr", x.measure = "fpr"))
-	data = perflist2data(perf_list)
-	colnames(data) = c("Name", "FPR", "FNR", "Cutoff")
+	perf2_list = lapply(perf_list, function(perf) data.frame(FNR = perf$fn / (perf$tp + perf$fn), FPR = perf$fp / (perf$fp + perf$tn), cutoff = perf$cutoff))
+	data = data.frame(Name = rep(names(perf2_list), sapply(perf2_list, nrow)), FPR = unlist(sapply(perf2_list, function(x) x$FPR)), FNR = unlist(sapply(perf2_list, function(x) x$FNR)), Cutoff = unlist(sapply(perf2_list, function(x) x$cutoff)))
 
-#	probit_trans = function() trans_new(name = "probit", transform = function(x) qnorm(x*0.99+0.005), inverse = function(y) (pnorm(y)-0.005)/0.99, domain = c(0, 1))
 	ggplot(data, aes(x = log10(FPR), y = log10(FNR), colour = Name)) + geom_path() + 
 		xlab("log10(False positive rate)") + ylab("log10(False negative rate)")
 }
 
 
-plotLR = function(pred_list)
+plotLR = function(perf_list)
 {
-	perf_list = lapply(pred_list, function(pred) performance(pred, measure = "sens", x.measure = "spec"))
-	data = perflist2data(perf_list)
-	colnames(data) = c("Name", "spec", "sens", "Cutoff")
+	perf2_list = lapply(perf_list, function(perf) data.frame(sens = perf$tp / (perf$tp + perf$fn), spec = perf$tn / (perf$fp + perf$tn), cutoff = perf$cutoff))
+	data = data.frame(Name = rep(names(perf2_list), sapply(perf2_list, nrow)), sens = unlist(sapply(perf2_list, function(x) x$sens)), spec = unlist(sapply(perf2_list, function(x) x$spec)), Cutoff = unlist(sapply(perf2_list, function(x) x$cutoff)))
 	data$LRP = data$sens / (1 - data$spec)
 	data$LRN = (1 - data$sens) / data$spec
 
 	ggplot(data, aes(x = LRN, y = LRP, colour = Name)) + geom_path() + 
 		xlab("LR-") + ylab("LR+") + scale_x_log10() + scale_y_log10()
 }
-

@@ -56,7 +56,7 @@ Create a WGS validation report.
                  information to the report, and examines chromosome
                  CHROM only.
 
-v20150529-1
+v20150530-1
 
 Mark Pinese
 EOF

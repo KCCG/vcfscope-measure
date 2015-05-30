@@ -20,8 +20,7 @@
 #    				be callable on the platform to be tested.
 #  
 #  
-#  Mark Pinese
-#  26 May 2015	MP 	Split off from report.Rnw
+#  Mark Pinese, 2015
 #  
 ####################################################################
 
@@ -87,8 +86,6 @@ if (DEBUG)
 library(VariantAnnotation)
 library(GenomicRanges)
 library(BSgenome)
-
-library(ROCR)
 
 
 #####################################################################
@@ -164,25 +161,11 @@ snv.fp.count = nrow(data.fp.snv)
 snv.fn.count = nrow(data.fn.snv)
 snv.tn.count = sum(as.numeric(width(snv.tn)))
 
-# Newfangled:
 snv.perf.VQSLOD = vcfPerf(data.tp.snv, data.fp.snv, snv.fn.count, snv.tn.count, function(x) info(x)$VQSLOD)
 snv.perf.QUAL =   vcfPerf(data.tp.snv, data.fp.snv, snv.fn.count, snv.tn.count, function(x) rowData(x)$QUAL)
 snv.perf.GQ =     vcfPerf(data.tp.snv, data.fp.snv, snv.fn.count, snv.tn.count, function(x) geno(x)$GQ)
 snv.perf.DP =     vcfPerf(data.tp.snv, data.fp.snv, snv.fn.count, snv.tn.count, function(x) info(x)$DP)
 snv.perf.FILTER = vcfPerf(data.tp.snv, data.fp.snv, snv.fn.count, snv.tn.count, function(x) (rowData(x)$FILTER == "PASS")*1)
-
-# # Oldfangled:
-# snv.truth = makeTruthVector(snv.tp.count, snv.fp.count, snv.fn.count, sum(width(snv.tn)))
-# snv.score.VQSLOD = makeScoreVector(data.tp.snv, data.fp.snv, snv.fn.count, sum(width(snv.tn)), function(x) info(x)$VQSLOD)
-# snv.score.QUAL =   makeScoreVector(data.tp.snv, data.fp.snv, snv.fn.count, sum(width(snv.tn)), function(x) rowData(x)$QUAL)
-# snv.score.GQ =     makeScoreVector(data.tp.snv, data.fp.snv, snv.fn.count, sum(width(snv.tn)), function(x) geno(x)$GQ)
-# snv.score.DP =     makeScoreVector(data.tp.snv, data.fp.snv, snv.fn.count, sum(width(snv.tn)), function(x) info(x)$DP)
-# snv.score.FILTER = makeScoreVector(data.tp.snv, data.fp.snv, snv.fn.count, sum(width(snv.tn)), function(x) (rowData(x)$FILTER == "PASS")*1)
-# snv.pred.VQSLOD = prediction(snv.score.VQSLOD, snv.truth)
-# snv.pred.QUAL =   prediction(snv.score.QUAL,   snv.truth)
-# snv.pred.GQ =     prediction(snv.score.GQ,     snv.truth)
-# snv.pred.DP =     prediction(snv.score.DP,     snv.truth)
-# snv.pred.FILTER = prediction(snv.score.FILTER, snv.truth)
 
 
 #####################################################################
