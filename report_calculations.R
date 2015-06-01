@@ -3,17 +3,21 @@
 #  KCCG WGS Validation Reporter -- Report calculations
 #  
 #  Usage: 
-#    Rscript report_calculations.R [-d] <infile> <tp> <fp> <fn> 
-#      <genome> <gold_regions> <call_regions>
-#  
-#  Flags:
-#    -d  			Turn on debug mode
+#    Rscript report_calculations.R <debugflag> <debugchrom>
+#      <input_vcf> <tp> <fp> <fn> <gold_vcf> <genome> 
+#      <gold_regions> <call_regions>
 #  
 #  Positional parameters:
-#    infile			Path to the input vcf.gz
+#    debugflag		Debug mode flag.  1 if this is a debug run,
+#    				any other value otherwise.
+#    debugchrom		If debugging, limit analysis to this chromosome.
+#    				If not in debug mode, this value is ignored.
+#    input_vcf		Path the the input VCF (can be .vcf or .vcf.gz)
 #    tp, fp, fn		Paths to the overlap files output by vcfeval
+#    gold_vcf		Path to the gold-standard VCF (can be .vcf or 
+#                   .vcf.gz)
 #    genome			Genome label, as used by the VariantAnnotation
-#  					package (eg. "hg19")
+#    				package (eg. "hg19")
 #    gold_regions	A bed or bed.gz of regions that are considered to
 #    				be callable in the gold standard NA12878 data.
 #    call_regions 	A bed or bed.gz of regions that are considered to
@@ -33,8 +37,8 @@ source("report_functions.R")
 # COMMAND LINE PARSING
 ####################################################################
 argv = commandArgs(TRUE)
-if (length(argv) != 9)
-	stop("Usage: Rscript report_calculations.R <debugflag> <debugchrom> <wd> <tp> <fp> <fn> <genome> <gold_regions> <call_regions>")
+if (length(argv) != 10)
+	stop("Usage: Rscript report_calculations.R <debugflag> <debugchrom> <input_vcf> <tp> <fp> <fn> <gold_vcf> <genome> <gold_regions> <call_regions>")
 
 DEBUG = argv[1] == "1"
 DEBUG.chrom = argv[2]
@@ -42,9 +46,10 @@ path.input = argv[3]
 path.tp = argv[4]
 path.fp = argv[5]
 path.fn = argv[6]
-genome = argv[7]
-path.gold_regions = argv[8]
-path.call_regions = argv[9]
+path.gold = argv[7]
+genome = argv[8]
+path.gold_regions = argv[9]
+path.call_regions = argv[10]
 
 
 
@@ -74,6 +79,7 @@ if (DEBUG)
 	message(sprintf("  path.tp:           %s", path.tp))
 	message(sprintf("  path.fp:           %s", path.fp))
 	message(sprintf("  path.fn:           %s", path.fn))
+	message(sprintf("  path.gold:         %s", path.gold))
 	message(sprintf("  genome:            %s", genome))
 	message(sprintf("  path.gold_regions: %s", path.gold_regions))
 	message(sprintf("  path.call_regions: %s", path.call_regions))
@@ -112,6 +118,14 @@ if (DEBUG)
 	data.fn = readVcf(TabixFile(path.fn), genome)
 }
 
+# The gold-standard calls.  If in debug mode, subset to chromosome DEBUG.chrom
+if (DEBUG)
+{
+	data.gold = readVcf(TabixFile(path.gold), genome, ScanVcfParam(which = debug.region))
+} else {
+	data.gold = readVcf(TabixFile(path.gold), genome)
+}
+
 # Simple data sanity check
 temp.sample.tp = header(data.tp)@samples
 temp.sample.fp = header(data.fp)@samples
@@ -140,6 +154,7 @@ if (DEBUG)
 data.tp = data.tp[queryHits(findOverlaps(rowData(data.tp), regions.gold, type = "within", maxgap = 0))]
 data.fp = data.fp[queryHits(findOverlaps(rowData(data.fp), regions.gold, type = "within", maxgap = 0))]
 data.fn = data.fn[queryHits(findOverlaps(rowData(data.fn), regions.gold, type = "within", maxgap = 0))]
+data.gold = data.gold[queryHits(findOverlaps(rowData(data.gold), regions.gold, type = "within", maxgap = 0))]
 
 
 
@@ -149,10 +164,12 @@ data.fn = data.fn[queryHits(findOverlaps(rowData(data.fn), regions.gold, type = 
 data.tp.snv = data.tp[isSNV(data.tp)]
 data.fp.snv = data.fp[isSNV(data.fp)]
 data.fn.snv = data.fn[isSNV(data.fn)]
+data.gold.snv = data.gold[isSNV(data.gold)]
 
 stopifnot(sum(width(data.tp.snv)) == nrow(data.tp.snv))
 stopifnot(sum(width(data.fp.snv)) == nrow(data.fp.snv))
 stopifnot(sum(width(data.fn.snv)) == nrow(data.fn.snv))
+stopifnot(sum(width(data.gold.snv)) == nrow(data.gold.snv))
 
 snv.tn = setdiff(regions.gold, union(rowData(data.tp.snv), rowData(data.fn.snv), rowData(data.fp.snv), ignore.strand = TRUE))
 

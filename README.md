@@ -32,19 +32,19 @@ Running with the -d flag will dramatically speed things up (by only considering 
 ## Requirements
 
 * R, with the following packages:
-  * VariantAnnotation (Bioconductor)
-  * GenomicRanges (Bioconductor)
-  * BSgenome (Bioconductor)
-  * Rcpp (CRAN)
-  * inline (CRAN)
-  * ggplot2 (CRAN)
-  * knitr (CRAN)
-  * BSgenome.HSapiens.1000g.37d5 (this is a custom package, for installation instructions see below)
+  - VariantAnnotation (Bioconductor)
+  - GenomicRanges (Bioconductor)
+  - BSgenome (Bioconductor)
+  - Rcpp (CRAN)
+  - inline (CRAN)
+  - ggplot2 (CRAN)
+  - knitr (CRAN)
+  - BSgenome.HSapiens.1000g.37d5 (this is a custom package, for installation instructions see below)
 * A functional LaTeX installation
 * Real Time Genomics Core (from [here](http://realtimegenomics.com/products/rtg-core-downloads/), currently included in the resources bundle)
 * The following resources (see below for how to access a ready-made resource bundle)
-  * NIST GIAB NA12878 VCF and valid region BED
-  * KCCG hardmask callable region BED (adapted from the mask described [here](https://ccg.garvan.org.au/confluence/display/TxGen/Depth+and+quality+requirements+for+clinical+sequencing))
+  - NIST GIAB NA12878 VCF and valid region BED
+  - KCCG hardmask callable region BED (adapted from the mask described [here](https://ccg.garvan.org.au/confluence/display/TxGen/Depth+and+quality+requirements+for+clinical+sequencing))
 
 
 

@@ -223,3 +223,19 @@ plotLR = function(perf_list)
 	ggplot(data, aes(x = LRN, y = LRP, colour = Name)) + geom_path() + 
 		xlab("LR-") + ylab("LR+") + scale_x_log10() + scale_y_log10()
 }
+
+
+plotTPRFNR = function(perf_list)
+{
+	perf2_list = lapply(perf_list, function(perf) data.frame(TPR = perf$tp / (perf$tp + perf$fn), FPR = perf$fp / (perf$fp + perf$tn), cutoff = perf$cutoff))
+	data = data.frame(
+		Name = rep(names(perf2_list), sapply(perf2_list, nrow)), 
+		Value = c(unlist(sapply(perf2_list, function(x) x$TPR)), unlist(sapply(perf2_list, function(x) x$FPR))), 
+		Type = rep(c("TPR", "FNR"), each = sum(sapply(perf2_list, nrow))),
+		Cutoff = unlist(sapply(perf2_list, function(x) x$cutoff)))
+
+	ggplot(data, aes(x = Cutoff, y = Value, colour = Name)) + geom_path() + 
+		ylim(0, 1) + 
+		xlab("Cutoff") + ylab("Performance value") + 
+		facet_wrap( ~ Type, scales = "free_x")
+}

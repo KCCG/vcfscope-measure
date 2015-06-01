@@ -214,7 +214,8 @@ cp -f report_calculations.R ${KNITR_SCRATCH}
 cd ${KNITR_SCRATCH}
 
 # Run the script
-${RSCRIPT} --vanilla report_calculations.R ${debug} ${debug_chrom} ${input_vcfgz_path} ${RTG_OVERLAP_SCRATCH}/tp.vcf.gz ${RTG_OVERLAP_SCRATCH}/fp.vcf.gz ${RTG_OVERLAP_SCRATCH}/fn.vcf.gz ${REFERENCE_BSGENOME} ${GOLD_HARDMASK_VALID_REGIONS_BEDGZ} ${KCCG_HARDMASK_CALLABLE_REGIONS}
+${RSCRIPT} --vanilla report_calculations.R ${debug} ${debug_chrom} ${input_vcfgz_path} ${RTG_OVERLAP_SCRATCH}/tp.vcf.gz ${RTG_OVERLAP_SCRATCH}/fp.vcf.gz ${RTG_OVERLAP_SCRATCH}/fn.vcf.gz ${GOLD_CALLS_VCFGZ} ${REFERENCE_BSGENOME} ${GOLD_HARDMASK_VALID_REGIONS_BEDGZ} ${KCCG_HARDMASK_CALLABLE_REGIONS}
+
 
 #####################################################################
 # REPORT GENERATION
