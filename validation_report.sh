@@ -155,6 +155,7 @@ mkdir -p ${SCRATCH}
 mkdir -p ${KNITR_SCRATCH}
 
 
+
 #####################################################################
 # VCF OVERLAP EVALUATION
 #####################################################################
@@ -184,7 +185,7 @@ fi
 #   TP for which FILT != PASS  -->  FN
 #   FP for which FILT != PASS  -->  TN
 #   FN for which FILT != PASS  -->  FN (no change)
-${RTG_VCFEVAL} --all-records -b ${GOLD_CALLS_VCFGZ} -c ${input_vcfgz_path} -t ${REFERENCE_SDF} -o ${RTG_OVERLAP_SCRATCH} > /dev/null 2>&1
+${RTG_VCFEVAL} --all-records --baseline-tp -b ${GOLD_CALLS_VCFGZ} -c ${input_vcfgz_path} -t ${REFERENCE_SDF} -o ${RTG_OVERLAP_SCRATCH} > /dev/null 2>&1
 
 
 # TODO: Parse ${RTG_OVERLAP_SCRATCH}/vcfeval.log to identify regions to exclude

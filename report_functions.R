@@ -243,15 +243,31 @@ vcfPerf = function(vcf.tp, vcf.fp, n.fn.always, n.tn.always, field_access_func)
 }
 
 
-plotROC = function(perf_list)
+plotROC = function(perf_list, type = c("rate", "count"))
 {
-	perf2_list = lapply(perf_list, function(perf) data.frame(TPR = perf$tp / (perf$tp + perf$fn), FPR = perf$fp / (perf$fp + perf$tn), cutoff = perf$cutoff))
-	data = data.frame(Name = rep(names(perf2_list), sapply(perf2_list, nrow)), TPR = unlist(sapply(perf2_list, function(x) x$TPR)), FPR = unlist(sapply(perf2_list, function(x) x$FPR)), Cutoff = unlist(sapply(perf2_list, function(x) x$cutoff)))
+	type = match.arg(type)
 
-	ggplot(data, aes(x = FPR, y = TPR, colour = Name)) + geom_path() + 
-		xlim(0, 1) + ylim(0, 1) + 
-		coord_fixed() + geom_abline(intercept = 0, slope = 1, linetype = "dotted", alpha = 0.5) + 
-		xlab("False positive rate") + ylab("True positive rate")
+	if (type == "rate")
+		perf2_list = lapply(perf_list, function(perf) data.frame(TP = perf$tp / (perf$tp + perf$fn), FP = perf$fp / (perf$fp + perf$tn), cutoff = perf$cutoff))
+	else
+		perf2_list = lapply(perf_list, function(perf) data.frame(TP = perf$tp, FP = perf$fp, cutoff = perf$cutoff))
+
+	data = data.frame(Name = rep(names(perf2_list), sapply(perf2_list, nrow)), TP = unlist(sapply(perf2_list, function(x) x$TPR)), FP = unlist(sapply(perf2_list, function(x) x$FPR)), Cutoff = unlist(sapply(perf2_list, function(x) x$cutoff)))
+
+	plot = ggplot(data, aes(x = FP, y = TP, colour = Name)) + geom_path()
+	
+	if (type == "rate")
+	{
+		plot = plot + xlim(0, 1) + ylim(0, 1) + coord_fixed() + 
+			geom_abline(intercept = 0, slope = 1, linetype = "dotted", alpha = 0.5) + 
+			xlab("False positive rate") + ylab("True positive rate")
+	}
+	else
+	{
+		plot = plot + xlab("False positive count") + ylab("True positive count")
+	}
+
+	plot
 }
 
 
