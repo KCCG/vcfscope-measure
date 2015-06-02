@@ -68,6 +68,68 @@ bed2GRanges = function(path, seqinfo)
 }
 
 
+classifyZygosity = function(genotypes)
+{
+	# Perform the following transformation:
+	# Genotype 					Output
+	# . 						NA
+	# 0 						R (shouldn't occur in GIAB VCF)
+	# 1 						A
+	# 0/0 or 0|0 				R/R (shouldn't occur in GIAB VCF)
+	# 0/[^0] or 0|[^0] 			R/A
+	# [^0]/[^0] or [^0]|[^0]	A/A if both genotypes the same, A/B otherwise
+
+	# Remove phasing information
+	genotypes = gsub("\\|", "/", genotypes)
+
+	# Split into pairs
+	genotypes = strsplit(genotypes, "/", fixed = TRUE)
+
+	# Convert components to numeric
+	genotypes = lapply(genotypes, as.numeric)
+
+	# Perfom the zygosity classification
+	result = sapply(genotypes, function(gt) {
+		if (length(gt) == 1)
+		{
+			if (gt == 0)
+			{
+				warning(sprintf("Hemizygous reference genotype found (%s); this should not occur in a GIAB VCF.", gt), gt)
+				return("R")
+			}
+			else if (is.na(gt))		# as.numeric(".") = NA, so this condition catches the GT = "." case
+				return(NA)
+			return("A")
+		}
+		else if (length(gt) == 2)
+		{
+			if (gt[1] == gt[2])
+			{
+				if (gt[1] == 0)
+				{
+					warning(sprintf("Homozygous reference genotype found (%s); this should not occur in a GIAB VCF.", gt), gt)
+					return("R/R")
+				}
+				return("A/A")
+			}
+			else
+			{
+				if (gt[1] == 0 || gt[2] == 0)
+					return("R/A")
+				return("A/B")
+			}
+		}
+		else
+		{
+			warning(sprintf("Multiallelic genotype found (%s); I cannot yet handle this case.", gt), gt)
+			return(NA)
+		}
+	})
+
+	factor(result, levels = c("R", "A", "R/R", "R/A", "A/A", "A/B"))
+}
+
+
 tabulatePositiveCallTruth = cxxfunction(
 	signature(scores_postruth = "numeric", scores_negtruth = "numeric", scores_uniq = "numeric"),
 	body = '
@@ -107,7 +169,7 @@ tabulatePositiveCallTruth = cxxfunction(
 	', plugin = "Rcpp")
 
 
-# An optimized function to calculate TPR, FPR, TNR, and FNR directly from
+# An optimized function to calculate nTP, nFP, nTN, and nFN directly from
 # VCF objects, without needing to convert them to score and truth vectors.
 # Also includes quite a bit of logic to deal with odd cases mostly unique 
 # to genome comparisons.
@@ -142,11 +204,10 @@ vcfPerf = function(vcf.tp, vcf.fp, n.fn.always, n.tn.always, field_access_func)
 			fp = c(        n.truth.neg + missing.fp,    n.truth.neg,        0,                           0),
 			tn = c(        0,                           0,                  n.truth.neg + missing.fp,    n.truth.neg + missing.fp),
 			fn = c(        0,                           0,                  n.truth.pos + missing.tp,    n.truth.pos + missing.tp))
-		total = result$tp + result$fp + result$tn + result$fn
-		result$tp = result$tp / total
-		result$fp = result$fp / total
-		result$tn = result$tn / total
-		result$fn = result$fn / total
+		result$tp = result$tp
+		result$fp = result$fp
+		result$tn = result$tn
+		result$fn = result$fn
 		return(result)
 	}
 
@@ -181,11 +242,10 @@ vcfPerf = function(vcf.tp, vcf.fp, n.fn.always, n.tn.always, field_access_func)
 	path.n.tp = n.truth.pos - path.n.fn
 
 	result = data.frame(cutoff = thresholds, tp = path.n.tp, fp = path.n.fp, tn = path.n.tn, fn = path.n.fn)
-	total = result$tp + result$fp + result$tn + result$fn
-	result$tp = result$tp / total
-	result$fp = result$fp / total
-	result$tn = result$tn / total
-	result$fn = result$fn / total
+	result$tp = result$tp
+	result$fp = result$fp
+	result$tn = result$tn
+	result$fn = result$fn
 
 	result
 }

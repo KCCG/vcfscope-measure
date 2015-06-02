@@ -159,6 +159,33 @@ data.gold = data.gold[queryHits(findOverlaps(rowData(data.gold), regions.gold, t
 
 
 #####################################################################
+# MATCH GOLD STANDARD CALLS
+#####################################################################
+# Match the calls in data.gold to those in data.tp, data.fp, and 
+# data.fn
+temp.ids.data.tp = paste(as.character(seqnames(data.tp)), ":", start(data.tp), "_", as.character(ref(data.tp)), "/", as.character(sapply(alt(data.tp), function(x) x[1])), sep = "")
+temp.ids.data.fp = paste(as.character(seqnames(data.fp)), ":", start(data.fp), "_", as.character(ref(data.fp)), "/", as.character(sapply(alt(data.fp), function(x) x[1])), sep = "")
+temp.ids.data.fn = paste(as.character(seqnames(data.fn)), ":", start(data.fn), "_", as.character(ref(data.fn)), "/", as.character(sapply(alt(data.fn), function(x) x[1])), sep = "")
+
+
+#####################################################################
+# CLASSIFY CALLS
+#####################################################################
+# By zygosity
+class.gold.zyg = classifyZygosity(geno(data.gold)$GT)
+class.tp.zyg = classifyZygosity(geno(data.tp)$GT)
+class.fp.zyg = classifyZygosity(geno(data.fp)$GT)
+class.fn.zyg = classifyZygosity(geno(data.fn)$GT)
+
+# By region (coding exonic, splice, intronic, NC exonic, intergenic)
+# (Let splice override NC exonic)
+# class.gold.region = classifyRegion()
+
+# By type: SNV, ins, del, complex
+# class.gold.muttype = classifyMutationType()
+
+
+#####################################################################
 # SNV PERFORMANCE
 #####################################################################
 data.tp.snv = data.tp[isSNV(data.tp)]
