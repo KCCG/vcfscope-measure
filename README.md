@@ -7,14 +7,23 @@ A script to build a validation report from a VCF of NA12878 calls.
 ## Usage
 
 ```
-./validation_report.sh [-d CHROM] [-o OUTFILE] <INFILE>
+./validation_report.sh [-d <CHROM>] [-f] [-o <OUTFILE>] <INFILE>
+
+Create a WGS validation report.
 
     INFILE       Input NA12878 genotype calls, in vcf.gz format
     -o OUTFILE   Write the report to OUTFILE (default: report.pdf)
-    -h           Display this help and exit
     -d CHROM     Debug mode.  Currently, adds additional debug 
                  information to the report, and examines chromosome
                  CHROM only.
+    -f           Force noninteractive mode; all Y/N prompts will be
+                 automatically answered Y.
+    -h           Display this help and exit
+
+v20150530-1
+
+Mark Pinese
+EOF
 ```
 
 

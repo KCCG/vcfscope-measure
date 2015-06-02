@@ -58,7 +58,7 @@ Create a WGS validation report.
                  automatically answered Y.
     -h           Display this help and exit
 
-v20150530-1
+v20150602-1
 
 Mark Pinese
 EOF
