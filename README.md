@@ -20,21 +20,24 @@ Create a WGS validation report.
                  automatically answered Y.
     -h           Display this help and exit
 
-v20150530-1
+v20150602-1
 
 Mark Pinese
-EOF
 ```
 
 
 
-### Example
+### Examples
 
+Interactive, debug restricted to chromosome 22:
 ```bash
-./validation_report.sh /directflow/ClinicalGenomicsPipeline/projects/validation-reporter/test_data/HiSeqX_v2_TKCC/R_150203_DAVMIL1_FGS_M001.hc.vqsr.vep.vcf.gz
+./validation_report.sh -d 22 /directflow/ClinicalGenomicsPipeline/projects/validation-reporter/test_data/HiSeqX_v2_TKCC/R_150203_DAVMIL1_FGS_M001.hc.vqsr.vep.vcf.gz
 ```
 
-Running with the -d flag will dramatically speed things up (by only considering chromosome 22 in calculations), but will also pollute the output pdf with debug messages.
+Non-interactive, full run:
+```bash
+qsub -pe smp 4 -cwd -b y -j y bash ./validation_report.sh -f /directflow/ClinicalGenomicsPipeline/projects/validation-reporter/test_data/HiSeqX_v2_TKCC/R_150203_DAVMIL1_FGS_M001.hc.vqsr.vep.vcf.gz
+```
 
 
 

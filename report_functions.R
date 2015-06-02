@@ -68,8 +68,9 @@ bed2GRanges = function(path, seqinfo)
 }
 
 
-classifyZygosity = function(genotypes)
+classifyZygosity = function(vcf)
 {
+	genotypes = geno(vcf)$GT
 	# Perform the following transformation:
 	# Genotype 					Output
 	# . 						NA
@@ -127,6 +128,34 @@ classifyZygosity = function(genotypes)
 	})
 
 	factor(result, levels = c("R", "A", "R/R", "R/A", "A/A", "A/B"))
+}
+
+
+classifyMutationType = function(vcf)
+{
+	snv = isSNV(vcf)
+	ins = isInsertion(vcf)
+	del = isDeletion(vcf)
+	other = !(snv | ins | del)
+
+	class = factor(c("SNV", "Insertion", "Deletion", "Other")[1*snv + 2*ins + 3*del + 4*other], levels = c("SNV", "Insertion", "Deletion", "Other"))
+	class
+}
+
+
+getMutationSize = function(vcf)
+{
+	# Return the 'size' of the mutation.
+	# For SNVs, this is always 1
+	# For insertions, the number of inserted bases (in the most likely genotype, if multiple)
+	# For deletions, the number of deleted bases
+	# For other, NA.
+	size = rep(NA, length(vcf))
+	size[isSNV(vcf)] = 1
+	size[isDeletion(vcf)] = width(vcf[isDeletion(vcf)])
+	temp = alt(vcf[isInsertion(vcf)])
+	size[isInsertion(vcf)] = nchar(unlist(temp)[start(PartitioningByEnd(temp))])
+	size
 }
 
 

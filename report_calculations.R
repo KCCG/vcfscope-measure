@@ -37,8 +37,8 @@ source("report_functions.R")
 # COMMAND LINE PARSING
 ####################################################################
 argv = commandArgs(TRUE)
-if (length(argv) != 10)
-	stop("Usage: Rscript report_calculations.R <debugflag> <debugchrom> <input_vcf> <tp> <fp> <fn> <gold_vcf> <genome> <gold_regions> <call_regions>")
+if (length(argv) != 11)
+	stop("Usage: Rscript report_calculations.R <debugflag> <debugchrom> <input_vcf> <tp> <fp> <fn> <tp_baseline> <gold_vcf> <genome> <gold_regions> <call_regions>")
 
 DEBUG = argv[1] == "1"
 DEBUG.chrom = argv[2]
@@ -46,10 +46,11 @@ path.input = argv[3]
 path.tp = argv[4]
 path.fp = argv[5]
 path.fn = argv[6]
-path.gold = argv[7]
-genome = argv[8]
-path.gold_regions = argv[9]
-path.call_regions = argv[10]
+path.tp.baseline = argv[7]
+path.gold = argv[8]
+genome = argv[9]
+path.gold_regions = argv[10]
+path.call_regions = argv[11]
 
 
 
@@ -57,11 +58,13 @@ path.call_regions = argv[10]
 # DEBUG SETTINGS -- REMOVE FOR PRODUCTION
 	# argv = "None -- debug settings used"
 	# DEBUG = TRUE
-	# DEBUG.chrom = "22"
+	# DEBUG.chrom = "X"
 	# path.input = "/directflow/ClinicalGenomicsPipeline/projects/validation-reporter/resources/test_data/HiSeqX_v2_TKCC/calls.vcf.gz"
-	# path.tp = "/directflow/ClinicalGenomicsPipeline/tmp/valrept.keep/overlap/tp.vcf.gz"
-	# path.fp = "/directflow/ClinicalGenomicsPipeline/tmp/valrept.keep/overlap/fp.vcf.gz"
-	# path.fn = "/directflow/ClinicalGenomicsPipeline/tmp/valrept.keep/overlap/fn.vcf.gz"
+	# path.tp = "/directflow/ClinicalGenomicsPipeline/tmp/valrept.bwifPHtQ1x/overlap/tp.vcf.gz"
+	# path.fp = "/directflow/ClinicalGenomicsPipeline/tmp/valrept.bwifPHtQ1x/overlap/fp.vcf.gz"
+	# path.fn = "/directflow/ClinicalGenomicsPipeline/tmp/valrept.bwifPHtQ1x/overlap/fn.vcf.gz"
+	# path.tp.baseline = "/directflow/ClinicalGenomicsPipeline/tmp/valrept.bwifPHtQ1x/overlap/tp-baseline.vcf.gz"
+	# path.gold = "/directflow/ClinicalGenomicsPipeline/projects/validation-reporter/resources/gold_standard/calls.vcf.gz"
 	# genome = "BSgenome.HSapiens.1000g.37d5"
 	# path.gold_regions = "/directflow/ClinicalGenomicsPipeline/projects/validation-reporter/resources/gold_standard/valid_regions.bed.gz"
 	# path.call_regions = "/directflow/ClinicalGenomicsPipeline/projects/validation-reporter/resources/kccg/not_hardmasked.bed.gz"
@@ -112,18 +115,12 @@ if (DEBUG)
 	data.tp = readVcf(TabixFile(path.tp), genome, ScanVcfParam(which = debug.region))
 	data.fp = readVcf(TabixFile(path.fp), genome, ScanVcfParam(which = debug.region))
 	data.fn = readVcf(TabixFile(path.fn), genome, ScanVcfParam(which = debug.region))
+	data.tp.baseline = readVcf(TabixFile(path.tp.baseline), genome, ScanVcfParam(which = debug.region))
 } else {
 	data.tp = readVcf(TabixFile(path.tp), genome)
 	data.fp = readVcf(TabixFile(path.fp), genome)
 	data.fn = readVcf(TabixFile(path.fn), genome)
-}
-
-# The gold-standard calls.  If in debug mode, subset to chromosome DEBUG.chrom
-if (DEBUG)
-{
-	data.gold = readVcf(TabixFile(path.gold), genome, ScanVcfParam(which = debug.region))
-} else {
-	data.gold = readVcf(TabixFile(path.gold), genome)
+	data.tp.baseline = readVcf(TabixFile(path.tp.baseline), genome)
 }
 
 # Simple data sanity check
@@ -154,24 +151,54 @@ if (DEBUG)
 data.tp = data.tp[queryHits(findOverlaps(rowData(data.tp), regions.gold, type = "within", maxgap = 0))]
 data.fp = data.fp[queryHits(findOverlaps(rowData(data.fp), regions.gold, type = "within", maxgap = 0))]
 data.fn = data.fn[queryHits(findOverlaps(rowData(data.fn), regions.gold, type = "within", maxgap = 0))]
-data.gold = data.gold[queryHits(findOverlaps(rowData(data.gold), regions.gold, type = "within", maxgap = 0))]
+data.tp.baseline = data.tp.baseline[queryHits(findOverlaps(rowData(data.tp.baseline), regions.gold, type = "within", maxgap = 0))]
 
 
 #####################################################################
 # CLASSIFY CALLS
 #####################################################################
-# By zygosity
-class.gold.zyg = classifyZygosity(geno(data.gold)$GT)
-class.tp.zyg = classifyZygosity(geno(data.tp)$GT)
-class.fp.zyg = classifyZygosity(geno(data.fp)$GT)
-class.fn.zyg = classifyZygosity(geno(data.fn)$GT)
+# By gold standard zygosity
+class.tp.zyg = classifyZygosity(data.tp.baseline)		# This works as data.tp and data.tp.baseline have identical entries, in the same order
+class.fn.zyg = classifyZygosity(data.fn)
+# class.fp.zyg and class.tn.zyg are not useful: there is no such 
+# thing as gold standard zygosity for FP samples, and TN samples are 
+# always homozygous reference.
 
 # By region (coding exonic, splice, intronic, NC exonic, intergenic)
 # (Let splice override NC exonic)
-# class.gold.region = classifyRegion()
+# TP and FP we have for free from the VEP calls, but TN and FN will
+# be much harder.  And if we need to recalculate TN and FN, we may
+# as well do everything, for consistency.
+# It's tempting to put the gold standard baseline VCF through VEP, but
+# the issue of VEP version matching could be serious.  I'd rather
+# not recode VEP, so perhaps just a very simple breakdown of location,
+# based on the UCSC tables or similar, will do.
+#class.tp.region = classifyRegion()
+#class.fn.region = 
+# SO Splice region: Within 1-3 bases of exon, or 3-8 bases of intron
 
-# By type: SNV, ins, del, complex
-# class.gold.muttype = classifyMutationType()
+# By type: SNV, insertion, deletion, other
+# Note a nuance here: tp and fn are based on the baseline alt allele, 
+# whereas fp is based on the called alt allele.  This is only relevant
+# in the fn vs fp case, as the tps will be the same between both 
+# baseline and the test calls.
+class.tp.muttype = classifyMutationType(data.tp.baseline)		# Based on baseline
+class.fn.muttype = classifyMutationType(data.fn)				# Based on baseline
+class.fp.muttype = classifyMutationType(data.fp)				# Based on calls
+
+# The following may be an interesting diagnostic:
+# table(data.frame(
+# 	CallType = rep(c("TP", "FN", "FP"), c(length(class.tp.muttype), length(class.fn.muttype), length(class.fp.muttype))), 
+# 	MutType = c(as.character(class.tp.muttype), as.character(class.fn.muttype), as.character(class.fp.muttype))))
+# It indicates that TPs are predominantly SNVs.  FP is enriched for
+# indels (particularly deletions), and FN for both classes of indels.
+
+# The 'size' of mutation (see getMutationSize for a definition of size
+# in this context).  As for muttype, measures slightly different 
+# quantities in the fn and fp groups.
+class.tp.mutsize = getMutationSize(data.tp.baseline)
+class.fn.mutsize = getMutationSize(data.fn)
+class.fp.mutsize = getMutationSize(data.fp)
 
 
 #####################################################################
