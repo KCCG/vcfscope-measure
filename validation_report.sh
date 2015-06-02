@@ -45,16 +45,18 @@ EXEC_DIR=$(pwd)
 #####################################################################
 print_usage() {
 cat << EOF
-Usage: ${0##*/} [-d CHROM] [-o OUTFILE] <INFILE>
+Usage: ${0##*/} [-d CHROM] [-f] [-o OUTFILE] <INFILE>
 
 Create a WGS validation report.
 
     INFILE       Input NA12878 genotype calls, in vcf.gz format
     -o OUTFILE   Write the report to OUTFILE (default: report.pdf)
-    -h           Display this help and exit
     -d CHROM     Debug mode.  Currently, adds additional debug 
                  information to the report, and examines chromosome
                  CHROM only.
+    -f           Force noninteractive mode; all Y/N prompts will be
+                 automatically answered Y.
+    -h           Display this help and exit
 
 v20150530-1
 
@@ -66,9 +68,10 @@ OPTIND=1
 input_vcfgz_path=""
 debug=0
 debug_chrom="-"
+noninteractive=0
 output_pdf_path="${EXEC_DIR}/report.pdf"
 
-while getopts "d:o:h" opt; do
+while getopts "d:o:hf" opt; do
 	case "$opt" in
 		h)
 			print_usage
@@ -80,6 +83,9 @@ while getopts "d:o:h" opt; do
 			;;
 		o)
 			output_pdf_path=$OPTARG
+			;;
+		f)
+			noninteractive=1
 			;;
 		'?')
 			print_usage >&2
@@ -106,10 +112,14 @@ if [ ! -e ${input_vcfgz_path} ]; then
 	exit 2
 fi
 
+
 if [ -e ${output_pdf_path} ]; then
 	echo -e "\033[1;33mOutput file ${output_pdf_path} already exists; if you continue this will be overwritten.\033[0m"
 	echo -en "\033[1;33mDo you wish to continue? [YES to continue; any other string to cancel] \033[0m"
-	read prompt
+	prompt="YES"
+	if [ ${noninteractive} -eq 0 ]; then
+		read prompt
+	fi
 	if [ "${prompt}" == "YES" ]; then
 		echo -e "\033[0;32mRemoving output file and continuing...\033[0m"
 		rm -f ${output_pdf_path}
@@ -163,7 +173,10 @@ echo -e "\033[0;32mComputing VCF overlaps...\033[0m"
 if [ -e ${RTG_OVERLAP_SCRATCH} ]; then
 	echo -e "\033[1;33mScratch directory ${RTG_OVERLAP_SCRATCH} already exists; if you continue this will be overwritten.\033[0m"
 	echo -en "\033[1;33mDo you wish to continue? [YES to continue; any other string to cancel] \033[0m"
-	read prompt
+	prompt="YES"
+	if [ ${noninteractive} -eq 0 ]; then
+		read prompt
+	fi
 	if [ "${prompt}" == "YES" ]; then
 		echo -e "\033[0;32mClearing scratch directory and continuing...\033[0m"
 		rm -rf ${RTG_OVERLAP_SCRATCH}

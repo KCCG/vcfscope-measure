@@ -3,3 +3,8 @@ report.aux
 report.log
 report.tex
 figure/*
+*.o*
+*.po*
+*.e*
+*.pe*
+
