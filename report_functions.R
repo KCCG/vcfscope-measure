@@ -204,10 +204,6 @@ vcfPerf = function(vcf.tp, vcf.fp, n.fn.always, n.tn.always, field_access_func)
 			fp = c(        n.truth.neg + missing.fp,    n.truth.neg,        0,                           0),
 			tn = c(        0,                           0,                  n.truth.neg + missing.fp,    n.truth.neg + missing.fp),
 			fn = c(        0,                           0,                  n.truth.pos + missing.tp,    n.truth.pos + missing.tp))
-		result$tp = result$tp
-		result$fp = result$fp
-		result$tn = result$tn
-		result$fn = result$fn
 		return(result)
 	}
 
@@ -242,10 +238,6 @@ vcfPerf = function(vcf.tp, vcf.fp, n.fn.always, n.tn.always, field_access_func)
 	path.n.tp = n.truth.pos - path.n.fn
 
 	result = data.frame(cutoff = thresholds, tp = path.n.tp, fp = path.n.fp, tn = path.n.tn, fn = path.n.fn)
-	result$tp = result$tp
-	result$fp = result$fp
-	result$tn = result$tn
-	result$fn = result$fn
 
 	result
 }
