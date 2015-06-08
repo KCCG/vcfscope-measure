@@ -142,9 +142,12 @@ writeBed = function(ranges, path)
 {
 	data = data.frame(
 		chrom = as.vector(seqnames(ranges)),
-		chromStart = as.vector(start(ranges)) - 1,
-		chromEnd = as.vector(end(ranges)))
+		chromStart = as.integer(as.vector(start(ranges))) - 1,
+		chromEnd = as.integer(as.vector(end(ranges))))
+	scipen = options()$scipen
+	options(scipen = 999)
 	write.table(data, file = path, quote = FALSE, sep = "\t", row.names = FALSE, col.names = FALSE)
+	options(scipen = scipen)
 }
 
 
