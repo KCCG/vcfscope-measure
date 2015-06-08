@@ -7,4 +7,5 @@ figure/*
 *.po*
 *.e*
 *.pe*
-
+*.bed.gz
+*.bed.gz.tbi
