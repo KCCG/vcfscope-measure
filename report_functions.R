@@ -238,10 +238,17 @@ tabulatePositiveCallTruth = cxxfunction(
 		int n_pos = _scores_postruth.length();
 		int n_neg = _scores_negtruth.length();
 
-		IntegerVector tally_postruth(n_uniq);
-		IntegerVector tally_negtruth(n_uniq);
+		// Use floating point variables here, even though these tallies
+		// are integers, to prevent overflow issues.
+		NumericVector tally_postruth(n_uniq);
+		NumericVector tally_negtruth(n_uniq);
+		
+		// The tally itself should still be an actual integer, to ensure that
+		// increment operations always work.  Explicitly cast the completed
+		// tallies to double, for assignation to the NumericVector objects.
+		unsigned long tally;
 
-		int i_uniq, i_pos, i_neg, tally;
+		int i_uniq, i_pos, i_neg;
 		i_pos = 0;
 		i_neg = 0;
 
@@ -250,12 +257,12 @@ tabulatePositiveCallTruth = cxxfunction(
 			tally = 0;
 			for (; i_pos < n_pos && _scores_postruth[i_pos] == _scores_uniq[i_uniq]; i_pos++)
 				tally++;
-			tally_postruth[i_uniq] = tally;
+			tally_postruth[i_uniq] = double(tally);
 
 			tally = 0;
 			for (; i_neg < n_neg && _scores_negtruth[i_neg] == _scores_uniq[i_uniq]; i_neg++)
 				tally++;
-			tally_negtruth[i_uniq] = tally;
+			tally_negtruth[i_uniq] = double(tally);
 		}
 
 		List ret;
