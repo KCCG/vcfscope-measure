@@ -50,7 +50,7 @@ path.tp.baseline = argv[7]
 path.gold = argv[8]
 genome = argv[9]
 path.gold_regions = argv[10]
-path.functional_regions_prefix = argv[11]
+path.function_regions_prefix = argv[11]
 path.mask_regions_prefix = argv[12]
 
 
@@ -68,7 +68,7 @@ path.mask_regions_prefix = argv[12]
 	path.gold = "/directflow/ClinicalGenomicsPipeline/projects/validation-reporter/resources/gold_standard/calls.vcf.gz"
 	genome = "BSgenome.HSapiens.1000g.37d5"
 	path.gold_regions = "/directflow/ClinicalGenomicsPipeline/projects/validation-reporter/resources/gold_standard/valid_regions.bed.gz"
-	path.functional_regions_prefix = "/directflow/ClinicalGenomicsPipeline/projects/validation-reporter/resources/functional_regions/grch37_ensembl."
+	path.function_regions_prefix = "/directflow/ClinicalGenomicsPipeline/projects/validation-reporter/resources/functional_regions/grch37_ensembl."
 	path.mask_regions_prefix = "/directflow/ClinicalGenomicsPipeline/projects/validation-reporter/resources/mask_regions/"
 # END DEBUG SETTINGS
 #####################################################################
@@ -87,8 +87,8 @@ if (DEBUG)
 	message(sprintf("  path.gold:         %s", path.gold))
 	message(sprintf("  genome:            %s", genome))
 	message(sprintf("  path.gold_regions: %s", path.gold_regions))
-	message(sprintf("  path.functional_regions_prefix: %s", path.functional_regions_prefix))
-	message(sprintf("  path.mask_regions_prefix:       %s", path.mask_regions_prefix))
+	message(sprintf("  path.function_regions_prefix: %s", path.function_regions_prefix))
+	message(sprintf("  path.mask_regions_prefix:     %s", path.mask_regions_prefix))
 }
 
 
@@ -140,15 +140,15 @@ regions.gold = bed2GRanges(path.gold_regions, genome.seqinfo)
 # The masking beds
 regions.mask = readMaskRegions(path.mask_regions_prefix, genome.seqinfo)
 
-# The 'functional classes' of the genome
-regions.functional = readFunctionalRegions(path.functional_regions_prefix, genome.seqinfo)
+# The 'function classes' of the genome
+regions.function = readfunctionRegions(path.function_regions_prefix, genome.seqinfo)
 
 # If we're debugging (chr DEBUG.chrom only), subset these beds to just this area
 if (DEBUG)
 {
 	regions.gold = intersect(regions.gold, DEBUG.region)
 	regions.mask = lapply(regions.mask, function(x) intersect(x, DEBUG.region))
-	regions.functional = lapply(regions.functional, function(x) intersect(x, DEBUG.region))
+	regions.function = lapply(regions.function, function(x) intersect(x, DEBUG.region))
 }
 
 
@@ -168,7 +168,7 @@ data.tp.baseline = data.tp.baseline[queryHits(findOverlaps(rowData(data.tp.basel
 #####################################################################
 # Perform this subsetting on the genome regions also
 regions.mask = lapply(regions.mask, function(x) intersect(x, regions.gold))
-regions.functional = lapply(regions.functional, function(x) intersect(x, regions.gold))
+regions.function = lapply(regions.function, function(x) intersect(x, regions.gold))
 
 
 #####################################################################
@@ -181,16 +181,24 @@ class.fn.zyg = classifyZygosity(data.fn)
 # thing as gold standard zygosity for FP samples, and TN samples are 
 # always homozygous reference.
 
+
 # By sequence function (coding exonic, splice, intronic, UTR, intergenic)
 # Although we have VEP calls for TP and FP, this will make some of the
 # validation dependent on the pipeline classifications, which is taboo.
 # To get around this problem, use fixed genome region BEDs, which have
 # been independently derived using the utils/makeGenomeRegions scripts.
-#class.tp.region = classifyRegion()
-#class.fn.region = 
+regions.function.min_overlap_levels = c("coding" = 1, "genic" = 1, "splice" = 1, "intronic" = 2, "utr" = 2, "intergenic" = 2)
+class.tp.function = simplifyRegionClass(classifyRegion(data.tp, regions.function), regions.function.min_overlap_levels)
+class.fp.function = simplifyRegionClass(classifyRegion(data.fp, regions.function), regions.function.min_overlap_levels)
+class.fn.function = simplifyRegionClass(classifyRegion(data.fn, regions.function), regions.function.min_overlap_levels)
+
 
 # By masking status
-# TODO
+regions.mask.min_overlap_levels = c("ambiguous" = 1, "low_complexity" = 1, "repetitive" = 1)
+class.tp.mask = simplifyRegionClass(classifyRegion(data.tp, regions.mask), regions.mask.min_overlap_levels)
+class.fp.mask = simplifyRegionClass(classifyRegion(data.fp, regions.mask), regions.mask.min_overlap_levels)
+class.fn.mask = simplifyRegionClass(classifyRegion(data.fn, regions.mask), regions.mask.min_overlap_levels)
+
 
 # By type: SNV, insertion, deletion, other
 # Note a nuance here: tp and fn are based on the baseline alt allele, 
@@ -208,7 +216,8 @@ class.fp.muttype = classifyMutationType(data.fp)				# Based on calls
 # It indicates that TPs are predominantly SNVs.  FP is enriched for
 # indels (particularly deletions), and FN for both classes of indels.
 
-# The 'size' of mutation (see getMutationSize for a definition of size
+
+# By the 'size' of mutation (see getMutationSize for a definition of size
 # in this context).  As for muttype, measures slightly different 
 # quantities in the fn and fp groups.
 class.tp.mutsize = getMutationSize(data.tp.baseline)

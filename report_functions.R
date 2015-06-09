@@ -168,6 +168,49 @@ classifyMutationType = function(vcf)
 }
 
 
+# Classifies the variants in vcf by their overlap with
+# the GRanges regions in the list regions.  Returns overlaps
+# as a factor matrix, with rows equal to the number of
+# elements in vcf, and columns equal to the number of
+# elements in regions.  Each cell will contain one of the
+# following values:
+#   0L	The feature in this row does not overlap
+#		any intervals in this column's GRanges, by
+#		any amount.
+#	1L	The feature in this row partially overlaps
+#		an interval of this column's GRanges.
+#	2L	The feature in this row is completely 
+#		contained in an interval of this column's 
+#		GRanges.
+classifyRegion = function(vcf, regions)
+{
+	result = matrix(NA, nrow = length(rowData(vcf)), ncol = length(regions))
+	colnames(result) = names(regions)
+	rownames(result) = names(rowData(vcf))
+
+	regions = lapply(regions, reduce)
+
+	for (region_name in names(regions))
+	{
+		overlap_full = overlapsAny(rowData(vcf), regions[[region_name]], maxgap = 0L, minoverlap = 1L, type = "within", ignore.strand = TRUE)
+		overlap_any = overlapsAny(rowData(vcf), regions[[region_name]], maxgap = 0L, minoverlap = 1L, type = "any", ignore.strand = TRUE)
+		overlap_partial = overlap_any & !overlap_full
+		overlap_none = !overlap_any
+		result[overlap_none, region_name] = 0L
+		result[overlap_partial, region_name] = 1L
+		result[overlap_full, region_name] = 2L
+	}
+
+	result
+}
+
+
+simplifyRegionClass = function(region_classes, min_overlap_levels)
+{
+	as.logical(t(t(region_classes) >= min_overlap_levels[names(region_classes)]))
+}
+
+
 getMutationSize = function(vcf)
 {
 	# Return the 'size' of the mutation.
