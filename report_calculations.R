@@ -5,7 +5,7 @@
 #  Usage: 
 #    Rscript report_calculations.R <debugflag> <debugchrom>
 #      <input_vcf> <tp> <fp> <fn> <gold_vcf> <genome> 
-#      <gold_regions> <call_regions>
+#      <gold_regions> <func_regions> <mask_regions>
 #  
 #  Positional parameters:
 #    debugflag		Debug mode flag.  1 if this is a debug run,
@@ -20,8 +20,8 @@
 #    				package (eg. "hg19")
 #    gold_regions	A bed or bed.gz of regions that are considered to
 #    				be callable in the gold standard NA12878 data.
-#    call_regions 	A bed or bed.gz of regions that are considered to
-#    				be callable on the platform to be tested.
+#    func_regions	A path prefix for the functional region BEDs. 
+#    mask_regions   A path prefix for the masking region BEDs. 
 #  
 #  
 #  Mark Pinese, 2015
@@ -37,8 +37,8 @@ source("report_functions.R")
 # COMMAND LINE PARSING
 ####################################################################
 argv = commandArgs(TRUE)
-if (length(argv) != 11)
-	stop("Usage: Rscript report_calculations.R <debugflag> <debugchrom> <input_vcf> <tp> <fp> <fn> <tp_baseline> <gold_vcf> <genome> <gold_regions> <call_regions>")
+if (length(argv) != 12)
+	stop("Usage: Rscript report_calculations.R <debugflag> <debugchrom> <input_vcf> <tp> <fp> <fn> <tp_baseline> <gold_vcf> <genome> <gold_regions> <func_regions> <mask_regions>")
 
 DEBUG = argv[1] == "1"
 DEBUG.chrom = argv[2]
@@ -50,24 +50,26 @@ path.tp.baseline = argv[7]
 path.gold = argv[8]
 genome = argv[9]
 path.gold_regions = argv[10]
-path.call_regions = argv[11]
-
+path.functional_regions_prefix = argv[11]
+path.mask_regions_prefix = argv[12]
 
 
 #####################################################################
 # DEBUG SETTINGS -- REMOVE FOR PRODUCTION
-	# argv = "None -- debug settings used"
-	# DEBUG = TRUE
-	# DEBUG.chrom = "X"
-	# path.input = "/directflow/ClinicalGenomicsPipeline/projects/validation-reporter/resources/test_data/HiSeqX_v2_TKCC/calls.vcf.gz"
-	# path.tp = "/directflow/ClinicalGenomicsPipeline/tmp/valrept.bwifPHtQ1x/overlap/tp.vcf.gz"
-	# path.fp = "/directflow/ClinicalGenomicsPipeline/tmp/valrept.bwifPHtQ1x/overlap/fp.vcf.gz"
-	# path.fn = "/directflow/ClinicalGenomicsPipeline/tmp/valrept.bwifPHtQ1x/overlap/fn.vcf.gz"
-	# path.tp.baseline = "/directflow/ClinicalGenomicsPipeline/tmp/valrept.bwifPHtQ1x/overlap/tp-baseline.vcf.gz"
-	# path.gold = "/directflow/ClinicalGenomicsPipeline/projects/validation-reporter/resources/gold_standard/calls.vcf.gz"
-	# genome = "BSgenome.HSapiens.1000g.37d5"
-	# path.gold_regions = "/directflow/ClinicalGenomicsPipeline/projects/validation-reporter/resources/gold_standard/valid_regions.bed.gz"
-	# path.call_regions = "/directflow/ClinicalGenomicsPipeline/projects/validation-reporter/resources/kccg/not_hardmasked.bed.gz"
+	source("~/repos/validation-reporter/report_functions.R")
+	argv = "None -- debug settings used"
+	DEBUG = TRUE
+	DEBUG.chrom = "X"
+	path.input = "/directflow/ClinicalGenomicsPipeline/projects/validation-reporter/resources/test_data/HiSeqX_v2_TKCC/calls.vcf.gz"
+	path.tp = "/directflow/ClinicalGenomicsPipeline/tmp/valrept.bwifPHtQ1x/overlap/tp.vcf.gz"
+	path.fp = "/directflow/ClinicalGenomicsPipeline/tmp/valrept.bwifPHtQ1x/overlap/fp.vcf.gz"
+	path.fn = "/directflow/ClinicalGenomicsPipeline/tmp/valrept.bwifPHtQ1x/overlap/fn.vcf.gz"
+	path.tp.baseline = "/directflow/ClinicalGenomicsPipeline/tmp/valrept.bwifPHtQ1x/overlap/tp-baseline.vcf.gz"
+	path.gold = "/directflow/ClinicalGenomicsPipeline/projects/validation-reporter/resources/gold_standard/calls.vcf.gz"
+	genome = "BSgenome.HSapiens.1000g.37d5"
+	path.gold_regions = "/directflow/ClinicalGenomicsPipeline/projects/validation-reporter/resources/gold_standard/valid_regions.bed.gz"
+	path.functional_regions_prefix = "/directflow/ClinicalGenomicsPipeline/projects/validation-reporter/resources/functional_regions/grch37_ensembl."
+	path.mask_regions_prefix = "/directflow/ClinicalGenomicsPipeline/projects/validation-reporter/resources/mask_regions/"
 # END DEBUG SETTINGS
 #####################################################################
 
@@ -85,7 +87,8 @@ if (DEBUG)
 	message(sprintf("  path.gold:         %s", path.gold))
 	message(sprintf("  genome:            %s", genome))
 	message(sprintf("  path.gold_regions: %s", path.gold_regions))
-	message(sprintf("  path.call_regions: %s", path.call_regions))
+	message(sprintf("  path.functional_regions_prefix: %s", path.functional_regions_prefix))
+	message(sprintf("  path.mask_regions_prefix:       %s", path.mask_regions_prefix))
 }
 
 
@@ -111,11 +114,11 @@ genome(genome.seqinfo) = genome 	# To get around disagreement
 if (DEBUG)
 {
 	temp = as.data.frame(seqinfo(genome.bsgenome))
-	debug.region = GRanges(seqnames = DEBUG.chrom, IRanges(1, temp[DEBUG.chrom,]$seqlengths), seqinfo = genome.seqinfo)
-	data.tp = readVcf(TabixFile(path.tp), genome, ScanVcfParam(which = debug.region))
-	data.fp = readVcf(TabixFile(path.fp), genome, ScanVcfParam(which = debug.region))
-	data.fn = readVcf(TabixFile(path.fn), genome, ScanVcfParam(which = debug.region))
-	data.tp.baseline = readVcf(TabixFile(path.tp.baseline), genome, ScanVcfParam(which = debug.region))
+	DEBUG.region = GRanges(seqnames = DEBUG.chrom, IRanges(1, temp[DEBUG.chrom,]$seqlengths), seqinfo = genome.seqinfo)
+	data.tp = readVcf(TabixFile(path.tp), genome, ScanVcfParam(which = DEBUG.region))
+	data.fp = readVcf(TabixFile(path.fp), genome, ScanVcfParam(which = DEBUG.region))
+	data.fn = readVcf(TabixFile(path.fn), genome, ScanVcfParam(which = DEBUG.region))
+	data.tp.baseline = readVcf(TabixFile(path.tp.baseline), genome, ScanVcfParam(which = DEBUG.region))
 } else {
 	data.tp = readVcf(TabixFile(path.tp), genome)
 	data.fp = readVcf(TabixFile(path.fp), genome)
@@ -131,15 +134,21 @@ stopifnot(length(temp.sample.tp) == 1)
 
 data.sampleid = header(data.tp)@samples
 
-# The region beds
+# The gold standard valid call regions
 regions.gold = bed2GRanges(path.gold_regions, genome.seqinfo)
-regions.call = bed2GRanges(path.call_regions, genome.seqinfo)
+
+# The masking beds
+regions.mask = readMaskRegions(path.mask_regions_prefix, genome.seqinfo)
+
+# The 'functional classes' of the genome
+regions.functional = readFunctionalRegions(path.functional_regions_prefix, genome.seqinfo)
 
 # If we're debugging (chr DEBUG.chrom only), subset these beds to just this area
 if (DEBUG)
 {
-	regions.gold = intersect(regions.gold, debug.region)
-	regions.call = intersect(regions.call, debug.region)
+	regions.gold = intersect(regions.gold, DEBUG.region)
+	regions.mask = lapply(regions.mask, function(x) intersect(x, DEBUG.region))
+	regions.functional = lapply(regions.functional, function(x) intersect(x, DEBUG.region))
 }
 
 
@@ -155,6 +164,14 @@ data.tp.baseline = data.tp.baseline[queryHits(findOverlaps(rowData(data.tp.basel
 
 
 #####################################################################
+# SUBSET REGIONS
+#####################################################################
+# Perform this subsetting on the genome regions also
+regions.mask = lapply(regions.mask, function(x) intersect(x, regions.gold))
+regions.functional = lapply(regions.functional, function(x) intersect(x, regions.gold))
+
+
+#####################################################################
 # CLASSIFY CALLS
 #####################################################################
 # By gold standard zygosity
@@ -164,18 +181,16 @@ class.fn.zyg = classifyZygosity(data.fn)
 # thing as gold standard zygosity for FP samples, and TN samples are 
 # always homozygous reference.
 
-# By region (coding exonic, splice, intronic, NC exonic, intergenic)
-# (Let splice override NC exonic)
-# TP and FP we have for free from the VEP calls, but TN and FN will
-# be much harder.  And if we need to recalculate TN and FN, we may
-# as well do everything, for consistency.
-# It's tempting to put the gold standard baseline VCF through VEP, but
-# the issue of VEP version matching could be serious.  I'd rather
-# not recode VEP, so perhaps just a very simple breakdown of location,
-# based on the UCSC tables or similar, will do.
+# By sequence function (coding exonic, splice, intronic, UTR, intergenic)
+# Although we have VEP calls for TP and FP, this will make some of the
+# validation dependent on the pipeline classifications, which is taboo.
+# To get around this problem, use fixed genome region BEDs, which have
+# been independently derived using the utils/makeGenomeRegions scripts.
 #class.tp.region = classifyRegion()
 #class.fn.region = 
-# SO Splice region: Within 1-3 bases of exon, or 3-8 bases of intron
+
+# By masking status
+# TODO
 
 # By type: SNV, insertion, deletion, other
 # Note a nuance here: tp and fn are based on the baseline alt allele, 

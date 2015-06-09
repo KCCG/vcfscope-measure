@@ -21,6 +21,7 @@ GOLD_HARDMASK_VALID_REGIONS_BEDGZ="${RESOURCES_HEAD}/gold_standard/valid_regions
 KCCG_HARDMASK_CALLABLE_REGIONS="${RESOURCES_HEAD}/kccg/not_hardmasked.bed.gz"		# From ~/software/bedops/bin/unstarch /home/marpin/analysis/53_seq_depth_requirements/results/ref/not_hardmasked.starch | sed -E 's/GL([0-9]+)/GL\1.1/g' | ~/software/htslib/bgzip > ~/repos/validation-reporter/data/kccg/not_hardmasked.bed.gz
 REFERENCE_SDF="${RESOURCES_HEAD}/reference/ref.sdf/"
 REFERENCE_BSGENOME="BSgenome.HSapiens.1000g.37d5"		# This is a custom package, available at /share/ClusterShare/biodata/contrib/marpin/reference/hs37d5/build/BSgenome.HSapiens.1000g.37d5_1.0.0.tar.gz
+GENOME_REGIONS_BEDGZ_PREFIX="${RESOURCES_HEAD}/functional_regions/grch37_ensembl."
 
 # Temporary locations
 SCRATCH=$(mktemp -d --tmpdir=/directflow/ClinicalGenomicsPipeline/tmp valrept.XXXXXXXXXX)
@@ -228,7 +229,7 @@ cp -f report_calculations.R ${KNITR_SCRATCH}
 cd ${KNITR_SCRATCH}
 
 # Run the script
-${RSCRIPT} --vanilla report_calculations.R ${debug} ${debug_chrom} ${input_vcfgz_path} ${RTG_OVERLAP_SCRATCH}/tp.vcf.gz ${RTG_OVERLAP_SCRATCH}/tp-baseline.vcf.gz ${RTG_OVERLAP_SCRATCH}/fp.vcf.gz ${RTG_OVERLAP_SCRATCH}/fn.vcf.gz ${GOLD_CALLS_VCFGZ} ${REFERENCE_BSGENOME} ${GOLD_HARDMASK_VALID_REGIONS_BEDGZ} ${KCCG_HARDMASK_CALLABLE_REGIONS}
+${RSCRIPT} --vanilla report_calculations.R ${debug} ${debug_chrom} ${input_vcfgz_path} ${RTG_OVERLAP_SCRATCH}/tp.vcf.gz ${RTG_OVERLAP_SCRATCH}/tp-baseline.vcf.gz ${RTG_OVERLAP_SCRATCH}/fp.vcf.gz ${RTG_OVERLAP_SCRATCH}/fn.vcf.gz ${GOLD_CALLS_VCFGZ} ${REFERENCE_BSGENOME} ${GOLD_HARDMASK_VALID_REGIONS_BEDGZ} ${KCCG_HARDMASK_CALLABLE_REGIONS} ${GENOME_REGIONS_BEDGZ_PREFIX}
 
 
 #####################################################################

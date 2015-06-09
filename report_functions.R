@@ -54,6 +54,8 @@ bed2GRanges = function(path, seqinfo)
 		data$score = as.numeric(data$score)
 
 	data$start = data$start + 1
+
+	data = data[data$chr %in% seqnames(seqinfo),]
 	
     if (ncol(data) == 3)
     	result = GRanges(data$chr, IRanges(data$start, data$end), seqinfo = seqinfo)
@@ -65,6 +67,29 @@ bed2GRanges = function(path, seqinfo)
       	result = GRanges(data$chr, IRanges(data$start, data$end), id = data$id, score = data$score, strand = gsub("[^+-]+", "*", data$strand), seqinfo = seqinfo)
 
     result
+}
+
+
+readMaskRegions = function(prefix, seqinfo)
+{
+	ambiguous = 		bed2GRanges(paste(prefix, "ambiguous.bed.gz", sep = ""), seqinfo)
+	low_complexity = 	bed2GRanges(paste(prefix, "mdust.bed.gz", sep = ""), seqinfo)
+	repetitive = 		bed2GRanges(paste(prefix, "repetitive.bed.gz", sep = ""), seqinfo)
+
+	list(ambiguous = ambiguous, low_complexity = low_complexity, repetitive = repetitive)
+}
+
+
+readFunctionalRegions = function(prefix, seqinfo)
+{
+	coding = 		bed2GRanges(paste(prefix, "exonic_coding.bed.gz", sep = ""), seqinfo)
+	intronic = 		bed2GRanges(paste(prefix, "intronic.bed.gz", sep = ""), seqinfo)
+	utr = 			bed2GRanges(paste(prefix, "exonic_utr.bed.gz", sep = ""), seqinfo)
+	intergenic = 	bed2GRanges(paste(prefix, "intergenic.bed.gz", sep = ""), seqinfo)
+	genic = 		bed2GRanges(paste(prefix, "genes.bed.gz", sep = ""), seqinfo)
+	splice = 		bed2GRanges(paste(prefix, "splice.bed.gz", sep = ""), seqinfo)
+
+	list(coding = coding, intronic = intronic, utr = utr, intergenic = intergenic, genic = genic, splice = splice)
 }
 
 
