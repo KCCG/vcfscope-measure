@@ -8,7 +8,7 @@ set -e
 RESOURCES_HEAD="/directflow/ClinicalGenomicsPipeline/projects/validation-reporter/resources"
 
 # Software
-RSCRIPT="Rscript"
+RSCRIPT="/home/marpin/bin/Rscript"
 JAVA="/usr/java/latest/bin/java"
 RTG_CORE="${RESOURCES_HEAD}/rtg-core/rtg-core.jar"
 RTG_THREADS=4
@@ -18,28 +18,17 @@ RTG_VCFEVAL="${JAVA} -Xmx8G -jar ${RTG_CORE} vcfeval -T ${RTG_THREADS}"
 GOLD_CALLS_VCFGZ="${RESOURCES_HEAD}/gold_standard/calls.vcf.gz"
 GOLD_CALLS_VCFGZTBI="${RESOURCES_HEAD}/gold_standard/calls.vcf.gz.tbi"
 GOLD_HARDMASK_VALID_REGIONS_BEDGZ="${RESOURCES_HEAD}/gold_standard/valid_regions.bed.gz"
-KCCG_HARDMASK_CALLABLE_REGIONS="${RESOURCES_HEAD}/kccg/not_hardmasked.bed.gz"		# From ~/software/bedops/bin/unstarch /home/marpin/analysis/53_seq_depth_requirements/results/ref/not_hardmasked.starch | sed -E 's/GL([0-9]+)/GL\1.1/g' | ~/software/htslib/bgzip > ~/repos/validation-reporter/data/kccg/not_hardmasked.bed.gz
 REFERENCE_SDF="${RESOURCES_HEAD}/reference/ref.sdf/"
+FUNCTIONAL_REGIONS_BEDGZ_PREFIX="${RESOURCES_HEAD}/functional_regions/"
+MASK_REGIONS_BEDGZ_PREFIX="${RESOURCES_HEAD}/mask_regions/"
 REFERENCE_BSGENOME="BSgenome.HSapiens.1000g.37d5"		# This is a custom package, available at /share/ClusterShare/biodata/contrib/marpin/reference/hs37d5/build/BSgenome.HSapiens.1000g.37d5_1.0.0.tar.gz
-GENOME_REGIONS_BEDGZ_PREFIX="${RESOURCES_HEAD}/functional_regions/grch37_ensembl."
 
 # Temporary locations
 SCRATCH=$(mktemp -d --tmpdir=/directflow/ClinicalGenomicsPipeline/tmp valrept.XXXXXXXXXX)
 RTG_OVERLAP_SCRATCH="${SCRATCH}/overlap"
 KNITR_SCRATCH="${SCRATCH}/knitr"
 
-
-#####################################################################
-# MAKE ALL DATA LOCS ABSOLUTE
-#####################################################################
-for var in GOLD_CALLS_VCFGZ GOLD_CALLS_VCFGZTBI GOLD_HARDMASK_VALID_REGIONS_BEDGZ KCCG_HARDMASK_CALLABLE_REGIONS REFERENCE_SDF; do
-	eval temp=\$$var
-	temp=$(readlink -f $temp)
-	eval $var="\"$temp\""
-done
-
 EXEC_DIR=$(pwd)
-
 
 #####################################################################
 # COMMAND LINE PARSING
@@ -59,7 +48,7 @@ Create a WGS validation report.
                  automatically answered Y.
     -h           Display this help and exit
 
-v20150602-1
+v20150609-1
 
 Mark Pinese
 EOF
@@ -229,7 +218,7 @@ cp -f report_calculations.R ${KNITR_SCRATCH}
 cd ${KNITR_SCRATCH}
 
 # Run the script
-${RSCRIPT} --vanilla report_calculations.R ${debug} ${debug_chrom} ${input_vcfgz_path} ${RTG_OVERLAP_SCRATCH}/tp.vcf.gz ${RTG_OVERLAP_SCRATCH}/tp-baseline.vcf.gz ${RTG_OVERLAP_SCRATCH}/fp.vcf.gz ${RTG_OVERLAP_SCRATCH}/fn.vcf.gz ${GOLD_CALLS_VCFGZ} ${REFERENCE_BSGENOME} ${GOLD_HARDMASK_VALID_REGIONS_BEDGZ} ${KCCG_HARDMASK_CALLABLE_REGIONS} ${GENOME_REGIONS_BEDGZ_PREFIX}
+${RSCRIPT} --vanilla report_calculations.R ${debug} ${debug_chrom} ${input_vcfgz_path} ${RTG_OVERLAP_SCRATCH}/tp.vcf.gz ${RTG_OVERLAP_SCRATCH}/tp-baseline.vcf.gz ${RTG_OVERLAP_SCRATCH}/fp.vcf.gz ${RTG_OVERLAP_SCRATCH}/fn.vcf.gz ${GOLD_CALLS_VCFGZ} ${REFERENCE_BSGENOME} ${GOLD_HARDMASK_VALID_REGIONS_BEDGZ} ${FUNCTIONAL_REGIONS_BEDGZ_PREFIX} ${MASK_REGIONS_BEDGZ_PREFIX}
 
 
 #####################################################################
@@ -266,12 +255,12 @@ echo -e "\033[0;32mReport generated successfully.\033[0m"
 
 # Clean up scratch if everything worked OK, and we're not a debug
 # run.
-if [ $debug -eq 0 ]; then
-	echo -e "\033[0;32mClearing scratch space...\033[0m"
-	rm -rf ${SCRATCH}
-else
-	echo -e "\033[1;36mDebug run; not clearing scratch space.\033[0m"
-	echo -e "\033[1;36mScratch can be found at: \"${SCRATCH}\"\033[0m"
-fi
+# if [ $debug -eq 0 ]; then
+# 	echo -e "\033[0;32mClearing scratch space...\033[0m"
+# 	rm -rf ${SCRATCH}
+# else
+# 	echo -e "\033[1;36mDebug run; not clearing scratch space.\033[0m"
+# 	echo -e "\033[1;36mScratch can be found at: \"${SCRATCH}\"\033[0m"
+# fi
 
 echo -e "\033[0;32mDone.\033[0m"

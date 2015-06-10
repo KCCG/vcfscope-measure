@@ -152,19 +152,48 @@ classifyZygosity = function(vcf)
 		}
 	})
 
-	factor(result, levels = c("R", "A", "R/R", "R/A", "A/A", "A/B"))
+	data.frame(
+		R = result == "R",
+		A = result == "A",
+		RR = result == "R/R",
+		RA = result == "R/A",
+		AA = result == "A/A",
+		AB = result == "A/B")
+}
+
+
+simplifyZygosityClass = function(class)
+{
+	data.frame(
+		R = class$R | class$RR,
+		A = class$A | class$AA,
+		RA = class$RA,
+		AB = class$AB)
+}
+
+
+classifySomy = function(vcf)
+{
+	result = as.data.frame(matrix(NA, nrow(vcf), 4))
+	colnames(result) = c("autosomal", "X", "Y", "MT")
+	result$autosomal = as.vector(seqnames(vcf) %in% as.character(1:22))
+	result$X = as.vector(seqnames(vcf) == "X")
+	result$Y = as.vector(seqnames(vcf) == "Y")
+	result$MT = as.vector(seqnames(vcf) %in% c("MT", "M"))
+	result
 }
 
 
 classifyMutationType = function(vcf)
 {
-	snv = isSNV(vcf)
-	ins = isInsertion(vcf)
-	del = isDeletion(vcf)
-	other = !(snv | ins | del)
-
-	class = factor(c("SNV", "Insertion", "Deletion", "Other")[1*snv + 2*ins + 3*del + 4*other], levels = c("SNV", "Insertion", "Deletion", "Other"))
-	class
+	result = as.data.frame(matrix(NA, nrow(vcf), 4))
+	colnames(result) = c("SNV", "Ins", "Del", "Other")
+	result$SNV = isSNV(vcf)
+	result$Ins = isInsertion(vcf)
+	result$Del = isDeletion(vcf)
+	result$Other = !(result$SNV | result$Ins | result$Del)
+	result$Indel = result$Ins | result$Del
+	result
 }
 
 
@@ -207,7 +236,7 @@ classifyRegion = function(vcf, regions)
 
 simplifyRegionClass = function(region_classes, min_overlap_levels)
 {
-	as.logical(t(t(region_classes) >= min_overlap_levels[names(region_classes)]))
+	t(t(region_classes) >= min_overlap_levels[colnames(region_classes)])
 }
 
 
@@ -224,6 +253,20 @@ getMutationSize = function(vcf)
 	temp = alt(vcf[isInsertion(vcf)])
 	size[isInsertion(vcf)] = nchar(unlist(temp)[start(PartitioningByEnd(temp))])
 	size
+}
+
+
+classifyMutationSize = function(size)
+{
+	result = as.data.frame(matrix(NA, nrow = length(size), ncol = 6))
+	colnames(result) = c("[1,2)", "[2,6)", "[6,11)", "[11,21)", "[21,inf)", "NA")
+	result[,"[1,2)"] = size == 1 & !is.na(size)
+	result[,"[2,6)"] = size >= 2 & size < 6 & !is.na(size)
+	result[,"[6,11)"] = size >= 6 & size < 11 & !is.na(size)
+	result[,"[11,21)"] = size >= 11 & size < 21 & !is.na(size)
+	result[,"[21,inf)"] = size >= 21 & !is.na(size)
+	result[,"NA"] = is.na(size)
+	result
 }
 
 
@@ -277,8 +320,13 @@ tabulatePositiveCallTruth = cxxfunction(
 # VCF objects, without needing to convert them to score and truth vectors.
 # Also includes quite a bit of logic to deal with odd cases mostly unique 
 # to genome comparisons.
-vcfPerf = function(vcf.tp, vcf.fp, n.fn.always, n.tn.always, field_access_func)
+vcfPerf = function(data, field_access_func)
 {
+	vcf.tp = data$vcf.tp
+	vcf.fp = data$vcf.fp
+	n.fn.always = data$n.fn
+	n.tn.always = data$n.tn
+
 	scores.tp = sort(field_access_func(vcf.tp))
 	scores.fp = sort(field_access_func(vcf.fp))
 
@@ -347,29 +395,58 @@ vcfPerf = function(vcf.tp, vcf.fp, n.fn.always, n.tn.always, field_access_func)
 }
 
 
-plotROC = function(perf_list, type = c("rate", "count"))
+vcfPerfGrouped = function(data, field_access_func, subgroups)
 {
-	type = match.arg(type)
+	group_names = unique(unlist(lapply(subgroups, colnames)))
+	result = lapply(group_names, function(subgroup_name) {
+		this_group_data = list(
+			vcf.tp = data$vcf.tp[subgroups$tp[,subgroup_name]],
+			vcf.fp = data$vcf.fp[subgroups$fp[,subgroup_name]],
+			n.fn = sum(subgroups$fn[,subgroup_name]),
+			n.tn = 0)
+		vcfPerf(this_group_data, field_access_func)
+	})
+	names(result) = group_names
+	result
+}
 
-	if (type == "rate")
-		perf2_list = lapply(perf_list, function(perf) data.frame(TP = perf$tp / (perf$tp + perf$fn), FP = perf$fp / (perf$fp + perf$tn), cutoff = perf$cutoff))
+
+plotROC = function(perf_list, type.fpr = c("rate", "count"), type.tpr = c("rate", "count"))
+{
+	type.tpr = match.arg(type.tpr)
+	type.fpr = match.arg(type.fpr)
+
+	if (type.tpr == "rate")
+	{
+		if (type.fpr == "rate")
+			perf2_list = lapply(perf_list, function(perf) data.frame(TP = perf$tp / (perf$tp + perf$fn), FP = perf$fp / (perf$fp + perf$tn), cutoff = perf$cutoff))
+		else
+			perf2_list = lapply(perf_list, function(perf) data.frame(TP = perf$tp / (perf$tp + perf$fn), FP = perf$fp, cutoff = perf$cutoff))
+	}
 	else
-		perf2_list = lapply(perf_list, function(perf) data.frame(TP = perf$tp, FP = perf$fp, cutoff = perf$cutoff))
+	{
+		if (type.fpr == "rate")
+			perf2_list = lapply(perf_list, function(perf) data.frame(TP = perf$tp, FP = perf$fp / (perf$fp + perf$tn), cutoff = perf$cutoff))
+		else
+			perf2_list = lapply(perf_list, function(perf) data.frame(TP = perf$tp, FP = perf$fp, cutoff = perf$cutoff))
+	}
 
-	data = data.frame(Name = rep(names(perf2_list), sapply(perf2_list, nrow)), TP = unlist(sapply(perf2_list, function(x) x$TPR)), FP = unlist(sapply(perf2_list, function(x) x$FPR)), Cutoff = unlist(sapply(perf2_list, function(x) x$cutoff)))
+	data = data.frame(Name = rep(names(perf2_list), sapply(perf2_list, nrow)), TP = unlist(sapply(perf2_list, function(x) x$TP)), FP = unlist(sapply(perf2_list, function(x) x$FP)), Cutoff = unlist(sapply(perf2_list, function(x) x$cutoff)))
 
 	plot = ggplot(data, aes(x = FP, y = TP, colour = Name)) + geom_path()
-	
-	if (type == "rate")
-	{
-		plot = plot + xlim(0, 1) + ylim(0, 1) + coord_fixed() + 
-			geom_abline(intercept = 0, slope = 1, linetype = "dotted", alpha = 0.5) + 
-			xlab("False positive rate") + ylab("True positive rate")
-	}
+
+	if (type.tpr == "rate")
+		plot = plot + ylim(0, 1) + ylab("True positive rate")
 	else
-	{
-		plot = plot + xlab("False positive count") + ylab("True positive count")
-	}
+		plot = plot + ylab("True positive count")
+
+	if (type.fpr == "rate")
+		plot = plot + xlim(0, 1) + xlab("False positive rate")
+	else
+		plot = plot + xlab("False positive count")
+	
+	if (type.tpr == "rate" && type.fpr == "rate")
+		plot = plot + coord_fixed() + geom_abline(intercept = 0, slope = 1, linetype = "dotted", alpha = 0.5)
 
 	plot
 }
