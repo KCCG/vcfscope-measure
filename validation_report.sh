@@ -13,6 +13,7 @@ JAVA="/usr/java/latest/bin/java"
 RTG_CORE="${RESOURCES_HEAD}/rtg-core/rtg-core.jar"
 RTG_THREADS=4
 RTG_VCFEVAL="${JAVA} -Xmx8G -jar ${RTG_CORE} vcfeval -T ${RTG_THREADS}"
+GIT="/home/marpin/bin/git"
 
 # Data
 GOLD_CALLS_VCFGZ="${RESOURCES_HEAD}/gold_standard/calls.vcf.gz"
@@ -121,6 +122,14 @@ fi
 
 
 #####################################################################
+# SOFTWARE VERSIONING
+#####################################################################
+VERSION_GIT_BRANCH=$(${GIT} rev-parse --abbrev-ref HEAD)
+VERSION_GIT_COMMIT=$(${GIT} rev-parse --verify HEAD)
+VERSION_EXEC_HOST=$(uname -a)
+
+
+#####################################################################
 # DEBUG REPORTING
 #####################################################################
 if [ $debug -eq 1 ]; then
@@ -217,9 +226,29 @@ cp -f report_debug.Rnw ${KNITR_SCRATCH}
 cp -f report_calculations.R ${KNITR_SCRATCH}
 cd ${KNITR_SCRATCH}
 
-# Run the script
-${RSCRIPT} --vanilla report_calculations.R ${debug} ${debug_chrom} ${input_vcfgz_path} ${RTG_OVERLAP_SCRATCH}/tp.vcf.gz ${RTG_OVERLAP_SCRATCH}/tp-baseline.vcf.gz ${RTG_OVERLAP_SCRATCH}/fp.vcf.gz ${RTG_OVERLAP_SCRATCH}/fn.vcf.gz ${GOLD_CALLS_VCFGZ} ${REFERENCE_BSGENOME} ${GOLD_HARDMASK_VALID_REGIONS_BEDGZ} ${FUNCTIONAL_REGIONS_BEDGZ_PREFIX} ${MASK_REGIONS_BEDGZ_PREFIX}
+# Echo versions into a text file for access by the script
+git rev-parse --abbrev-ref HEAD > versions.txt
+git rev-parse --verify HEAD >> versions.txt
+uname -a >> versions.txt
 
+# Run the script
+# SECURITY WARNING: Code injection possible in VERSION_ variables.
+# Ensure that git branch and execution host names can not be under
+# malicious control.
+${RSCRIPT} --vanilla report_calculations.R ${debug} ${debug_chrom} \
+	${input_vcfgz_path} \
+	${RTG_OVERLAP_SCRATCH}/tp.vcf.gz \ 
+	${RTG_OVERLAP_SCRATCH}/tp-baseline.vcf.gz \ 
+	${RTG_OVERLAP_SCRATCH}/fp.vcf.gz \ 
+	${RTG_OVERLAP_SCRATCH}/fn.vcf.gz \ 
+	${GOLD_CALLS_VCFGZ} \
+	${REFERENCE_BSGENOME} \
+	${GOLD_HARDMASK_VALID_REGIONS_BEDGZ} \
+	${FUNCTIONAL_REGIONS_BEDGZ_PREFIX} \
+	${MASK_REGIONS_BEDGZ_PREFIX} \
+	"${VERSION_GIT_BRANCH}" \
+	"${VERSION_GIT_COMMIT}" \
+	"${VERSION_EXEC_HOST}" \
 
 #####################################################################
 # REPORT GENERATION

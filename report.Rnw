@@ -28,16 +28,7 @@
 % LOAD PRECOMPUTED RESULTS
 %--------------------------------------------------------------------
 <<load-results, cache=FALSE, echo=FALSE>>=
-argv = commandArgs(TRUE)
-if (length(argv) == 0) {
-	load("report_data.rda")
-} else if (length(argv) == 1) {
-	load(paste(argv[1], "report_data.rda", sep = "/"))
-} else if (length(argv) > 1) {
-	stop("Usage: Rscript -e \"knitr::knit('report.Rnw')\" [data directory]")
-}
-
-DEBUG=FALSE
+load("report_data.rda")
 @
 
 
@@ -107,9 +98,9 @@ options(warn = 1)
 \item Sample ID: \texttt{\Sexpr{texquote(data.sampleid)}}
 % TODO: the following git business worked great when report.Rnw was in 
 % the repo root, but now is broken.  Come up with another approach.
-\item Validation script: branch \texttt{\Sexpr{readpipe("git rev-parse --abbrev-ref HEAD")}}, commit \texttt{\Sexpr{readpipe("git rev-parse --verify HEAD")}}
+\item Validation script: branch \texttt{\Sexpr{versions$branch}}, commit \texttt{\Sexpr{versions$commit}}
 \item R version: \texttt{\Sexpr{R.version$version.string}} (\texttt{\Sexpr{texquote(R.version$platform)}})
-\item Execution host: \texttt{\Sexpr{texquote(readpipe("uname -a"))}}
+\item Execution host: \texttt{\Sexpr{texquote(versions$host)}}
 \item Validation report generated at: \Sexpr{texquote(date())}
 \item Data: \begin{itemize}
 	\item NA12878 gold standard valid call regions: \texttt{\url{\Sexpr{path.gold_regions}}} (MD5 \texttt{\Sexpr{texquote(fileMD5(path.gold_regions))}})

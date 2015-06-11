@@ -5,7 +5,8 @@
 #  Usage: 
 #    Rscript report_calculations.R <debugflag> <debugchrom>
 #      <input_vcf> <tp> <tp_baseline> <fp> <fn> <gold_vcf> <genome> 
-#      <gold_regions> <func_regions> <mask_regions>
+#      <gold_regions> <func_regions> <mask_regions> <ver_branch> 
+#      <ver_commit> <ver_host>
 #  
 #  Positional parameters:
 #    debugflag      Debug mode flag.  1 if this is a debug run,
@@ -24,6 +25,7 @@
 #                   be callable in the gold standard NA12878 data.
 #    func_regions   A path prefix for the functional region BEDs. 
 #    mask_regions   A path prefix for the masking region BEDs. 
+#    ver_*          Version strings
 #  
 #  
 #  Mark Pinese, 2015
@@ -39,7 +41,7 @@ source("report_functions.R")
 # COMMAND LINE PARSING
 ####################################################################
 argv = commandArgs(TRUE)
-if (length(argv) != 12)
+if (length(argv) != 15)
     stop("Usage: Rscript report_calculations.R <debugflag> <debugchrom> <input_vcf> <tp> <tp_baseline> <fp> <fn> <gold_vcf> <genome> <gold_regions> <func_regions> <mask_regions>")
 
 DEBUG = argv[1] == "1"
@@ -54,6 +56,7 @@ genome = argv[9]
 path.gold_regions = argv[10]
 path.function_regions_prefix = argv[11]
 path.mask_regions_prefix = argv[12]
+versions = list(branch = argv[13], commit = argv[14], host = argv[15])
 
 
 #####################################################################
@@ -89,6 +92,10 @@ if (DEBUG)
     message(sprintf("  path.gold_regions: %s", path.gold_regions))
     message(sprintf("  path.function_regions_prefix: %s", path.function_regions_prefix))
     message(sprintf("  path.mask_regions_prefix:     %s", path.mask_regions_prefix))
+    message(        "  versions:")
+    message(sprintf("    branch:          %s", versions$branch))
+    message(sprintf("    commit:          %s", versions$commit))
+    message(sprintf("    host:            %s", versions$host))
 }
 
 
