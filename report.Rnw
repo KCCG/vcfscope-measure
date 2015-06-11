@@ -154,19 +154,19 @@ plotROC(snv.pred.list) + ggtitle("SNV Receiver Operating Characteristic: Detail"
 
 \section{Graph vomit}
 <<all-plots, fig.show='hold', fig.align='center', out.width='4cm', out.height='4cm', dpi = 144>>=
-# plotROC(snv.perf.zyg.VQSLOD, type.fpr = "count", type.tpr = "rate") + ggtitle("SNV Receiver Operating Characteristic: VQSLOD vs true zygosity") + theme_bw()
-# plotROC(snv.perf.zyg.VQSLOD, type.fpr = "count", type.tpr = "count") + ggtitle("SNV Receiver Operating Characteristic: VQSLOD vs true zygosity") + theme_bw()
-# plotROC(snv.perf.somy.VQSLOD, type.fpr = "count", type.tpr = "rate") + ggtitle("SNV Receiver Operating Characteristic: VQSLOD vs true somy") + theme_bw()
-# plotROC(snv.perf.somy.VQSLOD, type.fpr = "count", type.tpr = "count") + ggtitle("SNV Receiver Operating Characteristic: VQSLOD vs true somy") + theme_bw()
+plotROC(snv.perf.zyg.VQSLOD, type.fpr = "count", type.tpr = "rate") + ggtitle("SNV Receiver Operating Characteristic: VQSLOD vs true zygosity") + theme_bw()
+plotROC(snv.perf.zyg.VQSLOD, type.fpr = "count", type.tpr = "count") + ggtitle("SNV Receiver Operating Characteristic: VQSLOD vs true zygosity") + theme_bw()
+plotROC(snv.perf.somy.VQSLOD, type.fpr = "count", type.tpr = "rate") + ggtitle("SNV Receiver Operating Characteristic: VQSLOD vs true somy") + theme_bw()
+plotROC(snv.perf.somy.VQSLOD, type.fpr = "count", type.tpr = "count") + ggtitle("SNV Receiver Operating Characteristic: VQSLOD vs true somy") + theme_bw()
 plotROC(snv.perf.function.VQSLOD, type.fpr = "count", type.tpr = "rate") + ggtitle("SNV Receiver Operating Characteristic: VQSLOD vs functional role") + theme_bw()
 plotROC(snv.perf.function.VQSLOD, type.fpr = "count", type.tpr = "count") + ggtitle("SNV Receiver Operating Characteristic: VQSLOD vs functional role") + theme_bw()
 plotROC(snv.perf.mask.VQSLOD, type.fpr = "count", type.tpr = "rate") + ggtitle("SNV Receiver Operating Characteristic: VQSLOD vs masking status") + theme_bw()
 plotROC(snv.perf.mask.VQSLOD, type.fpr = "count", type.tpr = "count") + ggtitle("SNV Receiver Operating Characteristic: VQSLOD vs masking status") + theme_bw()
 
-# plotROC(all.perf.zyg.VQSLOD, type.fpr = "count", type.tpr = "rate") + ggtitle("All Type Receiver Operating Characteristic: VQSLOD vs true zygosity") + theme_bw()
-# plotROC(all.perf.zyg.VQSLOD, type.fpr = "count", type.tpr = "count") + ggtitle("All Type Receiver Operating Characteristic: VQSLOD vs true zygosity") + theme_bw()
-# plotROC(all.perf.somy.VQSLOD, type.fpr = "count", type.tpr = "rate") + ggtitle("All Type Operating Characteristic: VQSLOD vs true somy") + theme_bw()
-# plotROC(all.perf.somy.VQSLOD, type.fpr = "count", type.tpr = "count") + ggtitle("All Type Operating Characteristic: VQSLOD vs true somy") + theme_bw()
+plotROC(all.perf.zyg.VQSLOD, type.fpr = "count", type.tpr = "rate") + ggtitle("All Type Receiver Operating Characteristic: VQSLOD vs true zygosity") + theme_bw()
+plotROC(all.perf.zyg.VQSLOD, type.fpr = "count", type.tpr = "count") + ggtitle("All Type Receiver Operating Characteristic: VQSLOD vs true zygosity") + theme_bw()
+plotROC(all.perf.somy.VQSLOD, type.fpr = "count", type.tpr = "rate") + ggtitle("All Type Operating Characteristic: VQSLOD vs true somy") + theme_bw()
+plotROC(all.perf.somy.VQSLOD, type.fpr = "count", type.tpr = "count") + ggtitle("All Type Operating Characteristic: VQSLOD vs true somy") + theme_bw()
 plotROC(all.perf.function.VQSLOD, type.fpr = "count", type.tpr = "rate") + ggtitle("All Type Operating Characteristic: VQSLOD vs functional role") + theme_bw()
 plotROC(all.perf.function.VQSLOD, type.fpr = "count", type.tpr = "count") + ggtitle("All Type Operating Characteristic: VQSLOD vs functional role") + theme_bw()
 plotROC(all.perf.mask.VQSLOD, type.fpr = "count", type.tpr = "rate") + ggtitle("All Type Operating Characteristic: VQSLOD vs masking status") + theme_bw()

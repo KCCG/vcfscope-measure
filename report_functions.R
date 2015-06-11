@@ -259,10 +259,10 @@ getMutationSize = function(vcf)
 classifyMutationSize = function(size)
 {
 	result = as.data.frame(matrix(NA, nrow = length(size), ncol = 6))
-	colnames(result) = c("[1,2)", "[2,6)", "[6,11)", "[11,21)", "[21,inf)", "NA")
-	result[,"[1,2)"] = size == 1 & !is.na(size)
-	result[,"[2,6)"] = size >= 2 & size < 6 & !is.na(size)
-	result[,"[6,11)"] = size >= 6 & size < 11 & !is.na(size)
+	colnames(result) = c("[01,02)", "[02,06)", "[06,11)", "[11,21)", "[21,inf)", "NA")
+	result[,"[01,02)"] = size == 1 & !is.na(size)
+	result[,"[02,06)"] = size >= 2 & size < 6 & !is.na(size)
+	result[,"[06,11)"] = size >= 6 & size < 11 & !is.na(size)
 	result[,"[11,21)"] = size >= 11 & size < 21 & !is.na(size)
 	result[,"[21,inf)"] = size >= 21 & !is.na(size)
 	result[,"NA"] = is.na(size)
@@ -403,7 +403,7 @@ vcfPerfGrouped = function(data, field_access_func, subgroups)
 			vcf.tp = data$vcf.tp[subgroups$tp[,subgroup_name]],
 			vcf.fp = data$vcf.fp[subgroups$fp[,subgroup_name]],
 			n.fn = sum(subgroups$fn[,subgroup_name]),
-			n.tn = 0)
+			n.tn = sum(subgroups$tn[,subgroup_name]))
 		vcfPerf(this_group_data, field_access_func)
 	})
 	names(result) = group_names
