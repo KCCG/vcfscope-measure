@@ -164,11 +164,11 @@ classifyZygosity = function(vcf)
 
 simplifyZygosityClass = function(class)
 {
+	# For now, place haploid regions together with diploid.
 	data.frame(
-		R = class$R | class$RR,
-		A = class$A | class$AA,
-		RA = class$RA,
-		AB = class$AB)
+		RRvsAA = class$RR | class$R | class$AA | class$A,
+		RRvsRA = class$RR | class$R | class$RA,
+		RRvsAB = class$RR | class$R | class$AB)
 }
 
 
@@ -197,12 +197,11 @@ classifyMutationType = function(vcf)
 }
 
 
-# Classifies the variants in vcf by their overlap with
-# the GRanges regions in the list regions.  Returns overlaps
-# as a factor matrix, with rows equal to the number of
-# elements in vcf, and columns equal to the number of
-# elements in regions.  Each cell will contain one of the
-# following values:
+# Classifies the variants in vcf by their overlap with the GRanges 
+# regions in the list regions.  Returns overlaps as a factor matrix, 
+# with rows equal to the number of elements in vcf, and columns equal 
+# to the number of elements in regions.  Each cell will contain one of
+# the following values:
 #   0L	The feature in this row does not overlap
 #		any intervals in this column's GRanges, by
 #		any amount.
@@ -244,7 +243,8 @@ getMutationSize = function(vcf)
 {
 	# Return the 'size' of the mutation.
 	# For SNVs, this is always 1
-	# For insertions, the number of inserted bases (in the most likely genotype, if multiple)
+	# For insertions, the number of inserted bases (in the most likely
+	# genotype, if multiple)
 	# For deletions, the number of deleted bases
 	# For other, NA.
 	size = rep(NA, length(vcf))
@@ -268,6 +268,37 @@ classifyMutationSize = function(size)
 	result[,"NA"] = is.na(size)
 	result
 }
+
+
+
+# Subset the variant classes in class to just those variants for which
+# subset is TRUE, and return as a list.  class must be a list 
+# containing members "tp", "fp", and "fn"; each of these in turn is a 
+# list of Rle objects, encoding whether or not each variant (in one of
+# the classes TP, FP, or FN) is in that given list item's class.  
+# subset is a list that also contains named members "tp", "fp", and
+# "fn", each of which is also an Rle object encoding whether or not 
+# the variant is in the single subset of interest.  The result is a 
+# list of lists of logical Rle objects.  The outer list contains 
+# elements named "tp", "fp", "tn", and "fn", and each in turn contains 
+# corresponding elements from class, subset as per the elements in 
+# subset.  The "tn" element of the result is constructed from the tn
+# argument: if it is supplied, then result$tn is set to this value; if
+# it is missing, then result$tn is set to zero for all classes.
+subsetClass = function(class, subset, tn = NULL)
+{
+	result = list(
+		tp = sapply(names(class$tp), function(class_name) class$tp[[class_name]][subset$tp], USE.NAMES = TRUE),
+		fp = sapply(names(class$fp), function(class_name) class$fp[[class_name]][subset$fp], USE.NAMES = TRUE),
+		fn = sapply(names(class$fn), function(class_name) class$fn[[class_name]][subset$fn], USE.NAMES = TRUE))
+
+	if (is.null(tn))
+		tn = sapply(names(class$tp), function(class_name) Rle(), USE.NAMES = TRUE)
+
+	result$tn = tn
+	result
+}
+
 
 
 tabulatePositiveCallTruth = cxxfunction(
@@ -316,10 +347,10 @@ tabulatePositiveCallTruth = cxxfunction(
 	', plugin = "Rcpp")
 
 
-# An optimized function to calculate nTP, nFP, nTN, and nFN directly from
-# VCF objects, without needing to convert them to score and truth vectors.
-# Also includes quite a bit of logic to deal with odd cases mostly unique 
-# to genome comparisons.
+# An optimized function to calculate nTP, nFP, nTN, and nFN directly 
+# from Vcf objects, without needing to convert them to score and truth
+# vectors.  Also includes quite a bit of logic to deal with odd cases 
+# mostly unique to genome comparisons.
 vcfPerf = function(data, field_access_func)
 {
 	vcf.tp = data$vcf.tp
@@ -364,25 +395,27 @@ vcfPerf = function(data, field_access_func)
 	# Use the cumulative sums of the tallies to calculate numbers of 
 	# false negatives (fn), and true negatives (tn), then use these
 	# to in turn derive the numbers of false positives (fp) and true
-	# positives (tp).  Each quantity is calculated for a given threshold
-	# in thresholds.  The addition of two Inf values to each end of
-	# thresholds is to accomodate two extreme cases:
-	#  1) (inner Infs) a threshold so extreme, that every measured variant
-	#     falls beyond the threshold.  However, *structural zeros* 
-	#     (as in n.fn.always and n.tn.always) are not included.
+	# positives (tp).  Each quantity is calculated for a given 
+	# threshold in thresholds.  The addition of two Inf values to each
+	# end of thresholds is to accomodate two extreme cases:
+	#  1) (inner Infs) a threshold so extreme, that every measured 
+	#     variant falls beyond the threshold.  However, *structural 
+	#     zeros* (as in n.fn.always and n.tn.always) are not included.
 	#     For -Inf, this is equivalent to having no cutoffs at all: if
-	#     a variant is present in the final VCF at all, it is considered
-	#     to be present.  However, variants *not* in the VCF, are not
-	#     considered -- such sites are supposed to be reference.  
+	#     a variant is present in the final VCF at all, it is 
+	#     considered to be present.  However, variants *not* in the 
+	#     VCF, are not considered -- such sites are supposed to be 
+	#     reference.  
 	#     For +Inf, this is equivalent to accepting absolutely no 
-	#     variants, ignoring the genotyping output entirely (ie calling 
-	#     all sites as reference, always).
-	#  2) (outer Infs) thresholds so extreme that even structural zeros
-	#     are included.  For -Inf, this is equivalent to calling a variant
-	#     at every single valid site in the genome, regardless of whether
-	#     a VCF entry is present for that variant or not (ie calling all
-	#     sites as variant, always).  For +Inf, the result is that for the
-	#     inner +Inf, but now includes variants with NA scores.
+	#     variants, ignoring the genotyping output entirely (ie 
+	#     calling all sites as reference, always).
+	#  2) (outer Infs) thresholds so extreme that even structural 
+	#     zeros are included.  For -Inf, this is equivalent to calling
+	#     a variant at every single valid site in the genome, 
+	#     regardless of whether a VCF entry is present for that
+	#     variant or not (ie calling all sites as variant, always).  
+	#     For +Inf, the result is that for the inner +Inf, but now 
+	#     includes variants with NA scores.
 	thresholds = c(-Inf, -Inf, thresholds, Inf, Inf)
 	path.n.fn = c(0, c(0, cumsum(as.numeric(tallies$tally.pos))) + as.numeric(n.fn.always), n.truth.pos + missing.tp)
 	path.n.tn = c(0, c(0, cumsum(as.numeric(tallies$tally.neg))) + as.numeric(n.tn.always), n.truth.neg + missing.fp)
@@ -395,15 +428,20 @@ vcfPerf = function(data, field_access_func)
 }
 
 
+# Run vcfPerf on data, after subsetting it into groups defined
+# by subgroups.  subgroups is a list of lists, with each member
+# either being an Rle-logical vector of subgroup membership 
+# indicators, or a single numeric value containing the total count
+# of sites in the respective category.
 vcfPerfGrouped = function(data, field_access_func, subgroups)
 {
-	group_names = unique(unlist(lapply(subgroups, colnames)))
+	group_names = unique(unlist(lapply(subgroups, names)))
 	result = lapply(group_names, function(subgroup_name) {
 		this_group_data = list(
-			vcf.tp = data$vcf.tp[subgroups$tp[,subgroup_name]],
-			vcf.fp = data$vcf.fp[subgroups$fp[,subgroup_name]],
-			n.fn = sum(subgroups$fn[,subgroup_name]),
-			n.tn = sum(subgroups$tn[,subgroup_name]))
+			vcf.tp = data$vcf.tp[subgroups$tp[[subgroup_name]]],
+			vcf.fp = data$vcf.fp[subgroups$fp[[subgroup_name]]],
+			n.fn = sum(subgroups$fn[[subgroup_name]]),
+			n.tn = sum(subgroups$tn[[subgroup_name]]))
 		vcfPerf(this_group_data, field_access_func)
 	})
 	names(result) = group_names
@@ -411,80 +449,134 @@ vcfPerfGrouped = function(data, field_access_func, subgroups)
 }
 
 
-plotROC = function(perf_list, type.fpr = c("rate", "count"), type.tpr = c("rate", "count"))
+# Helper function to calculate the ROC axes (either TPR, TPN, FPR, or 
+# FPN), for plotROC.
+calcROCaxes = function(perf, type.fp = c("rate", "count"), type.tp = c("rate", "count"))
 {
-	type.tpr = match.arg(type.tpr)
-	type.fpr = match.arg(type.fpr)
+	type.tp = match.arg(type.tp)
+	type.fp = match.arg(type.fp)
 
-	if (type.tpr == "rate")
+	if (type.tp == "rate")
 	{
-		if (type.fpr == "rate")
-			perf2_list = lapply(perf_list, function(perf) data.frame(TP = perf$tp / (perf$tp + perf$fn), FP = perf$fp / (perf$fp + perf$tn), cutoff = perf$cutoff))
+		if (type.fp == "rate")
+			perf2 = data.frame(TP = perf$tp / (perf$tp + perf$fn), FP = perf$fp / (perf$fp + perf$tn), cutoff = perf$cutoff)
 		else
-			perf2_list = lapply(perf_list, function(perf) data.frame(TP = perf$tp / (perf$tp + perf$fn), FP = perf$fp, cutoff = perf$cutoff))
+			perf2 = data.frame(TP = perf$tp / (perf$tp + perf$fn), FP = perf$fp, cutoff = perf$cutoff)
 	}
 	else
 	{
-		if (type.fpr == "rate")
-			perf2_list = lapply(perf_list, function(perf) data.frame(TP = perf$tp, FP = perf$fp / (perf$fp + perf$tn), cutoff = perf$cutoff))
+		if (type.fp == "rate")
+			perf2 = data.frame(TP = perf$tp, FP = perf$fp / (perf$fp + perf$tn), cutoff = perf$cutoff)
 		else
-			perf2_list = lapply(perf_list, function(perf) data.frame(TP = perf$tp, FP = perf$fp, cutoff = perf$cutoff))
+			perf2 = data.frame(TP = perf$tp, FP = perf$fp, cutoff = perf$cutoff)
 	}
 
-	data = data.frame(Name = rep(names(perf2_list), sapply(perf2_list, nrow)), TP = unlist(sapply(perf2_list, function(x) x$TP)), FP = unlist(sapply(perf2_list, function(x) x$FP)), Cutoff = unlist(sapply(perf2_list, function(x) x$cutoff)))
+	perf2
+}
 
-	plot = ggplot(data, aes(x = FP, y = TP, colour = Name)) + geom_path()
 
-	if (type.tpr == "rate")
+# Convert the performance data in perf to a data frame, for use with 
+# ggplot2.  Parameters are as per plotROC.  Returns a list, with two 
+# items:
+#   data: the data frame for plotting
+#   case: a character denoting the type of the data.  Either "A", "B", 
+#         or "C"; definitions of these values are in the plotROC 
+#         comments.
+createROCData = function(perf, type.fp = c("rate", "count"), type.tp = c("rate", "count"))
+{
+	type.tp = match.arg(type.tp)
+	type.fp = match.arg(type.fp)
+
+	if (class(perf) == "data.frame")
+	{
+		# Case A
+		case = "A"
+		plotData = calcROCaxes(perf, type.fp, type.tp)
+		plotData$group1 = NA
+		plotData$group2 = NA
+	}
+	else if (class(perf) == "list" && length(perf) > 0 && all(sapply(perf, class) == "data.frame"))
+	{
+		# Case B
+		case = "B"
+		temp = lapply(perf, calcROCaxes, type.fp = type.fp, type.tp = type.tp)
+		plotData = do.call(rbind, temp)
+		plotData$group1 = factor(rep(names(temp), sapply(temp, nrow)))
+		plotData$group2 = NA
+	}
+	else if (class(perf) == "list" && length(perf) > 0 && all(sapply(perf, class) == "list") && min(sapply(perf, length)) > 0 && all(sapply(perf, function(p1) all(sapply(p1, class) == "data.frame"))))
+	{
+		# Case C
+		case = "C"
+		temp = lapply(perf, function(perf_sub) { 
+			temp = lapply(perf_sub, calcROCaxes, type.fp = type.fp, type.tp = type.tp)
+			plotData_sub = do.call(rbind, temp)
+			plotData_sub$group2 = rep(names(temp), sapply(temp, nrow))
+			plotData_sub 
+		})
+		plotData = do.call(rbind, temp)
+		plotData$group1 = factor(rep(names(temp), sapply(temp, nrow)))
+		plotData$group2 = factor(plotData$group2)
+	}
+	else
+	{
+		stop("Error: perf is not of a supported type.  Must be either data.frame, list(data.frame), or list(list(data.frame))")
+	}
+
+	list(data = plotData, case = case)
+}
+
+# Create a ggplot2 ROC plot of the performance data in perf.
+# perf may be one of three types:
+#   A) a data frame
+#   B) a list of data frames
+#   C) a list of lists of data frames
+# where each data frame contains the columns "cutoff", "tp", "fp", 
+# "tn", and "fn".
+#
+# In case A, a plot is generated with just one curve; that described 
+# by the single data frame.  In case B, one ROC curve is drawn per 
+# list item, with each curve in a different colour.  In case C, each
+# combination of upper-level and lower-level list is used to create
+# a ROC curve, with the upper level determining curve colour, and the
+# lower level curve line type.
+#
+# ROCs may use either total number, or rate, of true positives and
+# false positives, as axes.  This is controlled independently by the
+# type.fp and type.tp parameters.
+plotROC = function(perf, type.fp = c("rate", "count"), type.tp = c("rate", "count"))
+{
+	type.tp = match.arg(type.tp)
+	type.fp = match.arg(type.fp)
+
+	ROCData = createROCData(perf, type.fp, type.tp)
+
+	case = ROCData$case
+	plotData = ROCData$data
+
+	if (case == "A")
+		plot = ggplot(plotData, aes(x = FP, y = TP))
+	else if (case == "B")
+		plot = ggplot(plotData, aes(x = FP, y = TP, colour = group1))
+	else if (case == "C")
+		plot = ggplot(plotData, aes(x = FP, y = TP, colour = group1, linetype = group2))
+	else
+		stop("Assertion Error: execution should not have reached this point.  Check plotROC case logic.")
+
+ 	plot = plot + geom_path()
+
+	if (type.tp == "rate")
 		plot = plot + ylim(0, 1) + ylab("True positive rate")
 	else
 		plot = plot + ylab("True positive count")
 
-	if (type.fpr == "rate")
+	if (type.fp == "rate")
 		plot = plot + xlim(0, 1) + xlab("False positive rate")
 	else
 		plot = plot + xlab("False positive count")
 	
-	if (type.tpr == "rate" && type.fpr == "rate")
+	if (type.tp == "rate" && type.fp == "rate")
 		plot = plot + coord_fixed() + geom_abline(intercept = 0, slope = 1, linetype = "dotted", alpha = 0.5)
 
 	plot
-}
-
-
-plotDET = function(perf_list)
-{
-	perf2_list = lapply(perf_list, function(perf) data.frame(FNR = perf$fn / (perf$tp + perf$fn), FPR = perf$fp / (perf$fp + perf$tn), cutoff = perf$cutoff))
-	data = data.frame(Name = rep(names(perf2_list), sapply(perf2_list, nrow)), FPR = unlist(sapply(perf2_list, function(x) x$FPR)), FNR = unlist(sapply(perf2_list, function(x) x$FNR)), Cutoff = unlist(sapply(perf2_list, function(x) x$cutoff)))
-
-	ggplot(data, aes(x = log10(FPR), y = log10(FNR), colour = Name)) + geom_path() + 
-		xlab("log10(False positive rate)") + ylab("log10(False negative rate)")
-}
-
-
-plotLR = function(perf_list)
-{
-	perf2_list = lapply(perf_list, function(perf) data.frame(sens = perf$tp / (perf$tp + perf$fn), spec = perf$tn / (perf$fp + perf$tn), cutoff = perf$cutoff))
-	data = data.frame(Name = rep(names(perf2_list), sapply(perf2_list, nrow)), sens = unlist(sapply(perf2_list, function(x) x$sens)), spec = unlist(sapply(perf2_list, function(x) x$spec)), Cutoff = unlist(sapply(perf2_list, function(x) x$cutoff)))
-	data$LRP = data$sens / (1 - data$spec)
-	data$LRN = (1 - data$sens) / data$spec
-
-	ggplot(data, aes(x = LRN, y = LRP, colour = Name)) + geom_path() + 
-		xlab("LR-") + ylab("LR+") + scale_x_log10() + scale_y_log10()
-}
-
-
-plotTPRFNR = function(perf_list)
-{
-	perf2_list = lapply(perf_list, function(perf) data.frame(TPR = perf$tp / (perf$tp + perf$fn), FPR = perf$fp / (perf$fp + perf$tn), cutoff = perf$cutoff))
-	data = data.frame(
-		Name = rep(names(perf2_list), sapply(perf2_list, nrow)), 
-		Value = c(unlist(sapply(perf2_list, function(x) x$TPR)), unlist(sapply(perf2_list, function(x) x$FPR))), 
-		Type = rep(c("TPR", "FNR"), each = sum(sapply(perf2_list, nrow))),
-		Cutoff = unlist(sapply(perf2_list, function(x) x$cutoff)))
-
-	ggplot(data, aes(x = Cutoff, y = Value, colour = Name)) + geom_path() + 
-		ylim(0, 1) + 
-		xlab("Cutoff") + ylab("Performance value") + 
-		facet_wrap( ~ Type, scales = "free_x")
 }

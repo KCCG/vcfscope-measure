@@ -42,7 +42,9 @@ source("report_functions.R")
 ####################################################################
 argv = commandArgs(TRUE)
 if (length(argv) != 15)
-    stop("Usage: Rscript report_calculations.R <debugflag> <debugchrom> <input_vcf> <tp> <tp_baseline> <fp> <fn> <gold_vcf> <genome> <gold_regions> <func_regions> <mask_regions>")
+{
+    stop(sprintf("Usage: Rscript report_calculations.R <debugflag> <debugchrom> <input_vcf> <tp> <tp_baseline> <fp> <fn> <gold_vcf> <genome> <gold_regions> <func_regions> <mask_regions> <ver_branch> <ver_commit> <ver_host>\nargv = %s", paste(argv, sep = " ")))
+}
 
 DEBUG = argv[1] == "1"
 DEBUG.chrom = argv[2]
@@ -64,17 +66,18 @@ versions = list(branch = argv[13], commit = argv[14], host = argv[15])
     # source("~/repos/validation-reporter/report_functions.R")
     # argv = "None -- debug settings used"
     # DEBUG = TRUE
-    # DEBUG.chrom = "21"
+    # DEBUG.chrom = "13"
     # path.input = "/directflow/ClinicalGenomicsPipeline/projects/validation-reporter/resources/test_data/HiSeqX_v2_TKCC/calls.vcf.gz"
-    # path.tp = "/directflow/ClinicalGenomicsPipeline/tmp/valrept.0aVRkXV53Q/overlap/tp.vcf.gz"
-    # path.fp = "/directflow/ClinicalGenomicsPipeline/tmp/valrept.0aVRkXV53Q/overlap/fp.vcf.gz"
-    # path.fn = "/directflow/ClinicalGenomicsPipeline/tmp/valrept.0aVRkXV53Q/overlap/fn.vcf.gz"
-    # path.tp.baseline = "/directflow/ClinicalGenomicsPipeline/tmp/valrept.0aVRkXV53Q/overlap/tp-baseline.vcf.gz"
+    # path.tp = "/directflow/ClinicalGenomicsPipeline/tmp/valrept.UONTBAfcgH/overlap/tp.vcf.gz"
+    # path.fp = "/directflow/ClinicalGenomicsPipeline/tmp/valrept.UONTBAfcgH/overlap/fp.vcf.gz"
+    # path.fn = "/directflow/ClinicalGenomicsPipeline/tmp/valrept.UONTBAfcgH/overlap/fn.vcf.gz"
+    # path.tp.baseline = "/directflow/ClinicalGenomicsPipeline/tmp/valrept.UONTBAfcgH/overlap/tp-baseline.vcf.gz"
     # path.gold = "/directflow/ClinicalGenomicsPipeline/projects/validation-reporter/resources/gold_standard/calls.vcf.gz"
     # genome = "BSgenome.HSapiens.1000g.37d5"
     # path.gold_regions = "/directflow/ClinicalGenomicsPipeline/projects/validation-reporter/resources/gold_standard/valid_regions.bed.gz"
     # path.function_regions_prefix = "/directflow/ClinicalGenomicsPipeline/projects/validation-reporter/resources/functional_regions/"
     # path.mask_regions_prefix = "/directflow/ClinicalGenomicsPipeline/projects/validation-reporter/resources/mask_regions/"
+    # versions = list(branch = "feat-subsetvariants", commit = "90e89bba08e299dec789b91b2b44f340935d2e69", host = "Linux gamma02.local 2.6.32-504.8.1.el6.x86_64 #1 SMP Wed Jan 28 21:11:36 UTC 2015 x86_64 x86_64 x86_64 GNU/Linux")
 # END DEBUG SETTINGS
 #####################################################################
 
@@ -163,6 +166,10 @@ regions = list(
     gold = list(callable = bed2GRanges(path.gold_regions, genome.seqinfo)),             # Gold standard valid call regions
     mask = readMaskRegions(path.mask_regions_prefix, genome.seqinfo),                   # Masking beds
     functional = readFunctionalRegions(path.function_regions_prefix, genome.seqinfo)    # 'Function classes' of the genome
+    genome = GRanges(                                                                   # The whole genome, for set ops.
+        seqnames = seqnames(genome.seqinfo), 
+        ranges = IRanges(1, seqlengths(genome.seqinfo)), 
+        strand = "*", seqinfo = genome.seqinfo)
 )
 
 # Create a new function class, of coding +/- 10 bp
@@ -171,6 +178,10 @@ regions$functional$coding_10 = suppressWarnings(trim(reduce(
         regions$functional$coding, 
         trim(flank(regions$functional$coding, 10, start = TRUE)), ignore.strand = TRUE), 
         trim(flank(regions$functional$coding, 10, start = FALSE)), ignore.strand = TRUE))))
+
+# And a new mask class, of "unmasked"
+regions$mask$unmasked = setdiff(regions$genome, reduce(union(union(regions$mask$ambiguous, regions$mask$low_complexity), regions$mask$repetitive)))
+
 
 # If we're debugging (chr DEBUG.chrom only), subset all regions to just this area
 if (DEBUG)
@@ -191,10 +202,7 @@ class = list()
 class$zyg = list(
     tp = simplifyZygosityClass(classifyZygosity(calls$tp.baseline)),        # This works as data.tp and data.tp.baseline have identical entries, in the same order
     fn = simplifyZygosityClass(classifyZygosity(calls$fn)),
-    fp = data.frame("R" = rep(TRUE, nrow(calls$fp)))) #
-class$zyg$fp$A = FALSE                                # FP will always be hom ref in the baseline
-class$zyg$fp$RA = FALSE                               #
-class$zyg$fp$AB = FALSE                               #
+    fp = simplifyZygosityClass(classifyZygosity(calls$fp)))
 
 
 # By somy
@@ -207,11 +215,11 @@ class$somy = list(
 # By presence / absence in the gold standard callable regions
 class$goldcall = lapply(calls, function(.calls) simplifyRegionClass(classifyRegion(.calls, regions$gold), 
     c("callable" = 2)))
-class$goldcall = lapply(class.goldcall, function(x) cbind(x, "not_callable" = !x[,"callable"]))
+class$goldcall = lapply(class$goldcall, function(x) cbind(x, "not_callable" = !x[,"callable"]))
 
-# table(class.goldcall$tp[,1])
-# table(class.goldcall$fp[,1])
-# table(class.goldcall$fn[,1])
+# table(class$goldcall$tp[,1])
+# table(class$goldcall$fp[,1])
+# table(class$goldcall$fn[,1])
 
 
 # By sequence function (coding exonic, splice, intronic, UTR, intergenic)
@@ -233,7 +241,7 @@ class$mask = lapply(calls, function(.calls) simplifyRegionClass(classifyRegion(.
 # in the fn vs fp case, as the tps will be the same between both 
 # baseline and the test calls.
 class$muttype = list(
-    tp = classifyMutationType(calls$tp.baseline),       # Based on baseline
+    tp = classifyMutationType(calls$tp.baseline),       # Based on baseline (though *should* be the same for actual calls)
     fp = classifyMutationType(calls$fp),                # Based on calls
     fn = classifyMutationType(calls$fn))                # Based on baseline
 
@@ -253,6 +261,21 @@ class$mutsize = list(
     fp = classifyMutationSize(getMutationSize(calls$fp)),
     fn = classifyMutationSize(getMutationSize(calls$fn)))
 
+
+
+#####################################################################
+# COMPRESS CALL CLASSES
+#####################################################################
+# The class list gets pretty big.  Compress it.  As part of this,
+# unfortunately, the type of the class data changes, from
+#   list(list(data.frame(logical vector)))
+# to
+#   list(list(list(Rle)))
+# TODO: Re-engineer the above classification functions to return
+# their results in list(list(list(vector))) or list(list(list(Rle)))
+# form, so that pre-compressed and post-compressed data have a 
+# similar method of access.
+class = lapply(class, function(type) lapply(type, function(perf_categ) apply(perf_categ, 2, Rle)))
 
 
 # FYI for the following section: VariantAnnotation mutation classes:
@@ -282,14 +305,15 @@ class$mutsize = list(
 #   one-ring pyrimidines (C <-> T).
 
 
-
 #####################################################################
 # SNV METRIC COMPARISON AND CUTOFF DETERMINATION: CODING_10 REGIONS
 #####################################################################
 # Subset to SNVs in gold-callable regions
 # NOTE: subset.snv.regions, and subset.snv, MUST MATCH
-subset.snv.regions = intersect(regions$gold$callable, regions$functional$coding_10)
-subset.snv = sapply(names(calls), function(name) isSNV(calls[[name]]) & class$goldcall[[name]][,"callable"] & class$functional[[name]][,"coding_10"], simplify = FALSE, USE.NAMES = TRUE)
+# subset.snv.regions = intersect(regions$gold$callable, regions$functional$coding_10)
+# subset.snv = sapply(names(calls), function(name) isSNV(calls[[name]]) & class$goldcall[[name]][["callable"]] & class$functional[[name]][["coding_10"]], simplify = FALSE, USE.NAMES = TRUE)
+subset.snv.regions = regions$gold$callable
+subset.snv = sapply(names(calls), function(name) isSNV(calls[[name]]) & class$goldcall[[name]][["callable"]], simplify = FALSE, USE.NAMES = TRUE)
 
 calls.snv = sapply(names(calls), function(name) calls[[name]][subset.snv[[name]]], simplify = FALSE, USE.NAMES = TRUE)
 
@@ -326,12 +350,25 @@ perf.snv$all = list(
     "GQ:FILTER" = vcfPerf(perfdata.snv, function(x) geno(x)$GQ*(rowData(x)$FILTER == "PASS")),
     "DP:FILTER" = vcfPerf(perfdata.snv, function(x) info(x)$DP*(rowData(x)$FILTER == "PASS")))
 
+perf.snv$all2 = list(
+    VQSLOD = list(
+        no_filter = vcfPerf(perfdata.snv, function(x) info(x)$VQSLOD), 
+        with_filter = vcfPerf(perfdata.snv, function(x) info(x)$VQSLOD*(rowData(x)$FILTER == "PASS"))),
+    QUAL = list(
+        no_filter = vcfPerf(perfdata.snv, function(x) rowData(x)$QUAL), 
+        with_filter = vcfPerf(perfdata.snv, function(x) rowData(x)$QUAL*(rowData(x)$FILTER == "PASS"))),
+    GQ = list(
+        no_filter = vcfPerf(perfdata.snv, function(x) geno(x)$GQ), 
+        with_filter = vcfPerf(perfdata.snv, function(x) geno(x)$GQ*(rowData(x)$FILTER == "PASS"))),
+    DP = list(
+        no_filter = vcfPerf(perfdata.snv, function(x) info(x)$DP), 
+        with_filter = vcfPerf(perfdata.snv, function(x) info(x)$DP*(rowData(x)$FILTER == "PASS"))),
+    FILTER = list(
+        with_filter = vcfPerf(perfdata.snv, function(x) (rowData(x)$FILTER == "PASS")*1)))
+
 # Subset by zygosity
-class.snv.zyg = list(
-    tp = class$zyg$tp[subset.snv$tp,], 
-    fp = class$zyg$fp[subset.snv$fp,], 
-    fn = class$zyg$fn[subset.snv$fn,], 
-    tn = data.frame("R" = count.snv.tn, "A" = 0, "RA" = 0, "AB" = 0))
+# TNs belong in all three zygosity classes, as they are always of genotype RR.
+class.snv.zyg = subsetClass(class$zyg, subset.snv, tn = list(RRvsAA = count.snv.tn, RRvsRA = count.snv.tn, RRvsAB = count.snv.tn))
 perf.snv$zyg = list(
     VQSLOD = vcfPerfGrouped(perfdata.snv, function(x) info(x)$VQSLOD, class.snv.zyg),
     QUAL = vcfPerfGrouped(perfdata.snv, function(x) rowData(x)$QUAL, class.snv.zyg),
@@ -344,26 +381,10 @@ perf.snv$zyg = list(
     "DP:FILTER" = vcfPerfGrouped(perfdata.snv, function(x) info(x)$DP*(rowData(x)$FILTER == "PASS"), class.snv.zyg))
 
 # And sequence context
-# Note the god-awful bit of code for calculating TN.  The logic
-# is as follows.  We want to calculate, for each mask GRanges
-# in the regions$mask list, the number of TN SNV sites that
-# overlap that mask.  That is, we seek:
-#   n.TN(mask) = sum(width(TN_SNVs ^ mask))
-# where ^ is set intersection.  TN_SNVs is the total set of TN
-# SNV sites:
-#   TN_SNVs = UNIVERSE - (TP_SNVs U FP_SNVs U FN_SNVs)
-# where U is set union, - is set difference, and UNIVERSE is 
-# the total universe of potential SNV sites under consideration:
-#   UNIVERSE = GENOME ^ CALLABLE ^ CODING_10 = subset.snv.regions
-# Expanding out:
-#  TN(mask) = (subset.snv.regions - (TP_SNVs U FP_SNVs U FN_SNVs)) ^ mask
-#           = (subset.snv.regions ^ mask) - (TP_SNVs U FP_SNVs U FN_SNVs)
-class.snv.mask = list(
-    tp = class$mask$tp[subset.snv$tp,], 
-    fp = class$mask$fp[subset.snv$fp,], 
-    fn = class$mask$fn[subset.snv$fn,], 
-    tn = do.call(data.frame, lapply(regions$mask, function(mask) 
-        sum(as.numeric(width(setdiff(intersect(subset.snv.regions, mask), union(rowData(calls.snv$tp), rowData(calls.snv$fp), rowData(calls.snv$fn), ignore.strand = TRUE))))))))
+# The nasty code for counting TNs just counts, for each class in 
+# regions$mask, the number of TN bases (from calls.snv$tn) that
+# overlap this mask class.
+class.snv.mask = subsetClass(class$mask, subset.snv, tn = lapply(regions$mask, function(mask) sum(as.numeric(width(intersect(mask, calls.snv$tn))))))
 perf.snv$mask = list(
     VQSLOD = vcfPerfGrouped(perfdata.snv, function(x) info(x)$VQSLOD, class.snv.mask),
     QUAL = vcfPerfGrouped(perfdata.snv, function(x) rowData(x)$QUAL, class.snv.mask),
@@ -384,9 +405,8 @@ perf.snv$mask = list(
 # Repeat the analysis performed in the SNV case, except this time subset to indels.
 # This time, there is no known TN background (and no practical universe of possible
 # mutations).
-
-subset.indelsubst.regions = intersect(regions$gold$callable, regions$functional$coding_10)
-subset.indelsubst = sapply(names(calls), function(name) (isIndel(calls[[name]]) | isSubstitution(calls[[name]])) & class$goldcall[[name]][,"callable"] & class$functional[[name]][,"coding_10"], simplify = FALSE, USE.NAMES = TRUE)
+#subset.indelsubst = sapply(names(calls), function(name) (isIndel(calls[[name]]) | isSubstitution(calls[[name]])) & class$goldcall[[name]][["callable"]] & class$functional[[name]][["coding_10"]], simplify = FALSE, USE.NAMES = TRUE)
+subset.indelsubst = sapply(names(calls), function(name) (isIndel(calls[[name]]) | isSubstitution(calls[[name]])) & class$goldcall[[name]][["callable"]], simplify = FALSE, USE.NAMES = TRUE)
 
 calls.indelsubst = sapply(names(calls), function(name) calls[[name]][subset.indelsubst[[name]]], simplify = FALSE, USE.NAMES = TRUE)
 
@@ -399,6 +419,7 @@ count.indelsubst.fn = nrow(calls.indelsubst$fn)
 perf.indelsubst = list()
 perfdata.indelsubst = list(vcf.tp = calls.indelsubst$tp, vcf.fp = calls.indelsubst$fp, n.fn = count.indelsubst.fn, n.tn = 0)
 
+
 perf.indelsubst$all = list(
     VQSLOD = vcfPerf(perfdata.indelsubst, function(x) info(x)$VQSLOD),
     QUAL = vcfPerf(perfdata.indelsubst, function(x) rowData(x)$QUAL),
@@ -410,12 +431,25 @@ perf.indelsubst$all = list(
     "GQ:FILTER" = vcfPerf(perfdata.indelsubst, function(x) geno(x)$GQ*(rowData(x)$FILTER == "PASS")),
     "DP:FILTER" = vcfPerf(perfdata.indelsubst, function(x) info(x)$DP*(rowData(x)$FILTER == "PASS")))
 
+perf.indelsubst$all2 = list(
+    VQSLOD = list(
+        no_filter = vcfPerf(perfdata.indelsubst, function(x) info(x)$VQSLOD), 
+        with_filter = vcfPerf(perfdata.indelsubst, function(x) info(x)$VQSLOD*(rowData(x)$FILTER == "PASS"))),
+    QUAL = list(
+        no_filter = vcfPerf(perfdata.indelsubst, function(x) rowData(x)$QUAL), 
+        with_filter = vcfPerf(perfdata.indelsubst, function(x) rowData(x)$QUAL*(rowData(x)$FILTER == "PASS"))),
+    GQ = list(
+        no_filter = vcfPerf(perfdata.indelsubst, function(x) geno(x)$GQ), 
+        with_filter = vcfPerf(perfdata.indelsubst, function(x) geno(x)$GQ*(rowData(x)$FILTER == "PASS"))),
+    DP = list(
+        no_filter = vcfPerf(perfdata.indelsubst, function(x) info(x)$DP), 
+        with_filter = vcfPerf(perfdata.indelsubst, function(x) info(x)$DP*(rowData(x)$FILTER == "PASS"))),
+    FILTER = list(
+        with_filter = vcfPerf(perfdata.indelsubst, function(x) (rowData(x)$FILTER == "PASS")*1)))
+
 # Subset by zygosity
-class.indelsubst.zyg = list(
-    tp = class$zyg$tp[subset.indelsubst$tp,], 
-    fp = class$zyg$fp[subset.indelsubst$fp,], 
-    fn = class$zyg$fn[subset.indelsubst$fn,], 
-    tn = class$zyg$fn[FALSE,])
+# We can't count TNs in an indel context; just set to a null value
+class.indelsubst.zyg = subsetClass(class$zyg, subset.indelsubst, tn = NULL)
 perf.indelsubst$zyg = list(
     VQSLOD = vcfPerfGrouped(perfdata.indelsubst, function(x) info(x)$VQSLOD, class.indelsubst.zyg),
     QUAL = vcfPerfGrouped(perfdata.indelsubst, function(x) rowData(x)$QUAL, class.indelsubst.zyg),
@@ -428,11 +462,8 @@ perf.indelsubst$zyg = list(
     "DP:FILTER" = vcfPerfGrouped(perfdata.indelsubst, function(x) info(x)$DP*(rowData(x)$FILTER == "PASS"), class.indelsubst.zyg))
 
 # And sequence context
-class.indelsubst.mask = list(
-    tp = class$mask$tp[subset.indelsubst$tp,], 
-    fp = class$mask$fp[subset.indelsubst$fp,], 
-    fn = class$mask$fn[subset.indelsubst$fn,], 
-    tn = class$mask$fn[FALSE,])
+# Again, set tn = NULL
+class.indelsubst.mask = subsetClass(class$mask, subset.indelsubst, tn = NULL)
 perf.indelsubst$mask = list(
     VQSLOD = vcfPerfGrouped(perfdata.indelsubst, function(x) info(x)$VQSLOD, class.indelsubst.mask),
     QUAL = vcfPerfGrouped(perfdata.indelsubst, function(x) rowData(x)$QUAL, class.indelsubst.mask),
@@ -445,11 +476,8 @@ perf.indelsubst$mask = list(
     "DP:FILTER" = vcfPerfGrouped(perfdata.indelsubst, function(x) info(x)$DP*(rowData(x)$FILTER == "PASS"), class.indelsubst.mask))
 
 # And mutation size
-class.indelsubst.size = list(
-    tp = class$mutsize$tp[subset.indelsubst$tp,], 
-    fp = class$mutsize$fp[subset.indelsubst$fp,], 
-    fn = class$mutsize$fn[subset.indelsubst$fn,], 
-    tn = class$mutsize$fn[FALSE,])
+# Again, set tn = NULL
+class.indelsubst.size = subsetClass(class$mutsize, subset.indelsubst, tn = NULL)
 perf.indelsubst$mutsize = list(
     VQSLOD = vcfPerfGrouped(perfdata.indelsubst, function(x) info(x)$VQSLOD, class.indelsubst.size),
     QUAL = vcfPerfGrouped(perfdata.indelsubst, function(x) rowData(x)$QUAL, class.indelsubst.size),
@@ -490,7 +518,11 @@ perf.indelsubst$mutsize = list(
 
 
 
+
 #####################################################################
 # SAVE RESULTS
 #####################################################################
+# For debugging: object sizes in GB
+sort(sapply(ls(), function(id) object.size(get(id)))) / 1024^3
+
 save.image("report_data.rda")

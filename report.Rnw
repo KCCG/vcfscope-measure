@@ -127,47 +127,89 @@ options(warn = 1)
 @
 
 
+% SCORE PERFORMANCE: THRESHOLD SELECTION
+%--------------------------------------------------------------------
+\section{Score Threshold Selection}
+<<score-plots>>=
+temp.allsnvdata = createROCData(perf.snv$all)$data
+colnames(temp.allsnvdata)[colnames(temp.allsnvdata) == "group1"] = "Score"
+colnames(temp.allsnvdata)[colnames(temp.allsnvdata) == "group2"] = "AndFILTER"
+temp.allsnvdata[,"AndFILTER"] = ordered(c("No", "Yes")[grepl("FILTER", temp.allsnvdata[,"Score"])+1])
+temp.allsnvdata[,"Score"] = factor(gsub(":FILTER", "", temp.allsnvdata[,"Score"]))
+ggplot(temp.allsnvdata, aes(x = FP, y = TP, colour = Score, linetype = AndFILTER)) + geom_path() + ylim(0, 1) + ylab("True positive rate") + xlim(0, 1) + xlab("False positive rate") + geom_abline(intercept = 0, slope = 1, linetype = "dotted", alpha = 0.5) + coord_fixed() + theme_bw() + ggtitle("SNV Receiver Operating Characteristic: Overview")
+ggplot(temp.allsnvdata, aes(x = FP, y = TP, colour = Score, linetype = AndFILTER)) + geom_path() + ylim(0, 1) + ylab("True positive rate") + xlim(0, 1) + xlab("False positive rate") + geom_abline(intercept = 0, slope = 1, linetype = "dotted", alpha = 0.5) + coord_cartesian(xlim = c(0, 5e-6)) + theme_bw() + ggtitle("SNV Receiver Operating Characteristic: Detail")
+
+temp.allsnvdata = createROCData(perf.snv$all, type.fp = "count")$data
+colnames(temp.allsnvdata)[colnames(temp.allsnvdata) == "group1"] = "Score"
+colnames(temp.allsnvdata)[colnames(temp.allsnvdata) == "group2"] = "AndFILTER"
+temp.allsnvdata[,"AndFILTER"] = ordered(c("No", "Yes")[grepl("FILTER", temp.allsnvdata[,"Score"])+1])
+temp.allsnvdata[,"Score"] = factor(gsub(":FILTER", "", temp.allsnvdata[,"Score"]))
+ggplot(temp.allsnvdata, aes(x = FP, y = TP, colour = Score, linetype = AndFILTER)) + geom_path() + ylim(0, 1) + ylab("True positive rate") + xlim(0, 150) + xlab("False positive count") + theme_bw() + ggtitle("SNV Receiver Operating Characteristic: Detail")
+
+temp.allindelsubstdata = createROCData(perf.indelsubst$all, type.fp = "count")$data
+colnames(temp.allindelsubstdata)[colnames(temp.allindelsubstdata) == "group1"] = "Score"
+colnames(temp.allindelsubstdata)[colnames(temp.allindelsubstdata) == "group2"] = "AndFILTER"
+temp.allindelsubstdata[,"AndFILTER"] = ordered(c("No", "Yes")[grepl("FILTER", temp.allindelsubstdata[,"Score"])+1])
+temp.allindelsubstdata[,"Score"] = factor(gsub(":FILTER", "", temp.allindelsubstdata[,"Score"]))
+ggplot(temp.allindelsubstdata, aes(x = FP, y = TP, colour = Score, linetype = AndFILTER)) + geom_path() + ylim(0, 1) + ylab("True positive rate") + xlim(0, 150) + xlab("False positive count") + theme_bw() + ggtitle("Indel and Substitution Receiver Operating Characteristic: Detail")
+
+
+plotROC(perf.snv$all) + ggtitle("SNV Receiver Operating Characteristic: Detail") + coord_cartesian(xlim = c(0, 5e-6)) + theme_bw()
+plotROC(perf.snv$zyg) + ggtitle("SNV Receiver Operating Characteristic: Overview") + theme_bw()
+plotROC(perf.snv$zyg) + ggtitle("SNV Receiver Operating Characteristic: Detail") + coord_cartesian(xlim = c(0, 5e-6)) + theme_bw()
+plotROC(perf.snv$mask) + ggtitle("SNV Receiver Operating Characteristic: Overview") + theme_bw()
+plotROC(perf.snv$mask) + ggtitle("SNV Receiver Operating Characteristic: Detail") + coord_cartesian(xlim = c(0, 5e-6)) + theme_bw()
+
+plotROC(perf.snv$all, type.fp = "count") + ggtitle("SNV Receiver Operating Characteristic: Detail") + xlim(0, 150) + theme_bw()
+plotROC(perf.snv$zyg, type.fp = "count") + ggtitle("SNV Receiver Operating Characteristic: Detail") + xlim(0, 150) + theme_bw()
+plotROC(perf.snv$mask, type.fp = "count") + ggtitle("SNV Receiver Operating Characteristic: Detail") + xlim(0, 150) + theme_bw()
+
+plotROC(perf.indelsubst$all, type.fp = "count") + ggtitle("Indel and Substitution Receiver Operating Characteristic") + xlim(0, 150) + theme_bw()
+plotROC(perf.indelsubst$zyg, type.fp = "count") + ggtitle("Indel and Substitution Receiver Operating Characteristic") + xlim(0, 150) + theme_bw()
+plotROC(perf.indelsubst$mask, type.fp = "count") + ggtitle("Indel and Substitution Receiver Operating Characteristic") + xlim(0, 150) + theme_bw()
+@
+
 % SNV PERFORMANCE
 %--------------------------------------------------------------------
-\section{SNV Performance}
-<<snv-plots>>=
-snv.pred.list = list(VQSLOD = snv.perf.all.VQSLOD, QUAL = snv.perf.all.QUAL, GQ = snv.perf.all.GQ, DP = snv.perf.all.DP, .FILTER = snv.perf.all.FILTER,
-	VQSLOD.FILTER = snv.perf.all.VQSLOD_FILTER, QUAL.FILTER = snv.perf.all.QUAL_FILTER, GQ.FILTER = snv.perf.all.GQ_FILTER, DP.FILTER = snv.perf.all.DP_FILTER)
-plotROC(snv.pred.list) + ggtitle("SNV Receiver Operating Characteristic: Overview") + theme_bw()
-plotROC(snv.pred.list) + ggtitle("SNV Receiver Operating Characteristic: Detail") + coord_cartesian(xlim = c(0, 2.5e-6)) + theme_bw()
-#plotDET(snv.pred.list) + ggtitle("SNV Detection-Error Tradeoff") + theme_bw()
-#plotLR(snv.pred.list) + ggtitle("SNV Diagnostic Likelihood Ratios") + scale_x_log10(limits = c(1e-3, 1)) + scale_y_log10(limits = c(1e5, 1e8)) + theme_bw()
-#plotTPRFNR(snv.pred.list) + ggtitle("SNV TPR and FNR") + theme_bw()
-@
+% \section{SNV Performance}
+% <<snv-plots>>=
+% snv.pred.list = list(VQSLOD = snv.perf.all.VQSLOD, QUAL = snv.perf.all.QUAL, GQ = snv.perf.all.GQ, DP = snv.perf.all.DP, .FILTER = snv.perf.all.FILTER,
+% 	VQSLOD.FILTER = snv.perf.all.VQSLOD_FILTER, QUAL.FILTER = snv.perf.all.QUAL_FILTER, GQ.FILTER = snv.perf.all.GQ_FILTER, DP.FILTER = snv.perf.all.DP_FILTER)
+% plotROC(snv.pred.list) + ggtitle("SNV Receiver Operating Characteristic: Overview") + theme_bw()
+% plotROC(snv.pred.list) + ggtitle("SNV Receiver Operating Characteristic: Detail") + coord_cartesian(xlim = c(0, 2.5e-6)) + theme_bw()
+% #plotDET(snv.pred.list) + ggtitle("SNV Detection-Error Tradeoff") + theme_bw()
+% #plotLR(snv.pred.list) + ggtitle("SNV Diagnostic Likelihood Ratios") + scale_x_log10(limits = c(1e-3, 1)) + scale_y_log10(limits = c(1e5, 1e8)) + theme_bw()
+% #plotTPRFNR(snv.pred.list) + ggtitle("SNV TPR and FNR") + theme_bw()
+% @
 
 
 
 
-\section{Graph vomit}
-<<all-plots, fig.show='hold', fig.align='center', out.width='4cm', out.height='4cm', dpi = 144>>=
-plotROC(snv.perf.zyg.VQSLOD, type.fpr = "count", type.tpr = "rate") + ggtitle("SNV Receiver Operating Characteristic: VQSLOD vs true zygosity") + theme_bw()
-plotROC(snv.perf.zyg.VQSLOD, type.fpr = "count", type.tpr = "count") + ggtitle("SNV Receiver Operating Characteristic: VQSLOD vs true zygosity") + theme_bw()
-plotROC(snv.perf.somy.VQSLOD, type.fpr = "count", type.tpr = "rate") + ggtitle("SNV Receiver Operating Characteristic: VQSLOD vs true somy") + theme_bw()
-plotROC(snv.perf.somy.VQSLOD, type.fpr = "count", type.tpr = "count") + ggtitle("SNV Receiver Operating Characteristic: VQSLOD vs true somy") + theme_bw()
-plotROC(snv.perf.function.VQSLOD, type.fpr = "count", type.tpr = "rate") + ggtitle("SNV Receiver Operating Characteristic: VQSLOD vs functional role") + theme_bw()
-plotROC(snv.perf.function.VQSLOD, type.fpr = "count", type.tpr = "count") + ggtitle("SNV Receiver Operating Characteristic: VQSLOD vs functional role") + theme_bw()
-plotROC(snv.perf.mask.VQSLOD, type.fpr = "count", type.tpr = "rate") + ggtitle("SNV Receiver Operating Characteristic: VQSLOD vs masking status") + theme_bw()
-plotROC(snv.perf.mask.VQSLOD, type.fpr = "count", type.tpr = "count") + ggtitle("SNV Receiver Operating Characteristic: VQSLOD vs masking status") + theme_bw()
+% \section{Graph vomit}
+% <<all-plots, fig.show='hold', fig.align='center', out.width='4cm', out.height='4cm', dpi = 144>>=
+% plotROC(snv.perf.zyg.VQSLOD, type.fpr = "count", type.tpr = "rate") + ggtitle("SNV Receiver Operating Characteristic: VQSLOD vs true zygosity") + theme_bw()
+% plotROC(snv.perf.zyg.VQSLOD, type.fpr = "count", type.tpr = "count") + ggtitle("SNV Receiver Operating Characteristic: VQSLOD vs true zygosity") + theme_bw()
+% plotROC(snv.perf.somy.VQSLOD, type.fpr = "count", type.tpr = "rate") + ggtitle("SNV Receiver Operating Characteristic: VQSLOD vs true somy") + theme_bw()
+% plotROC(snv.perf.somy.VQSLOD, type.fpr = "count", type.tpr = "count") + ggtitle("SNV Receiver Operating Characteristic: VQSLOD vs true somy") + theme_bw()
+% plotROC(snv.perf.function.VQSLOD, type.fpr = "count", type.tpr = "rate") + ggtitle("SNV Receiver Operating Characteristic: VQSLOD vs functional role") + theme_bw()
+% plotROC(snv.perf.function.VQSLOD, type.fpr = "count", type.tpr = "count") + ggtitle("SNV Receiver Operating Characteristic: VQSLOD vs functional role") + theme_bw()
+% plotROC(snv.perf.mask.VQSLOD, type.fpr = "count", type.tpr = "rate") + ggtitle("SNV Receiver Operating Characteristic: VQSLOD vs masking status") + theme_bw()
+% plotROC(snv.perf.mask.VQSLOD, type.fpr = "count", type.tpr = "count") + ggtitle("SNV Receiver Operating Characteristic: VQSLOD vs masking status") + theme_bw()
 
-plotROC(all.perf.zyg.VQSLOD, type.fpr = "count", type.tpr = "rate") + ggtitle("All Type Receiver Operating Characteristic: VQSLOD vs true zygosity") + theme_bw()
-plotROC(all.perf.zyg.VQSLOD, type.fpr = "count", type.tpr = "count") + ggtitle("All Type Receiver Operating Characteristic: VQSLOD vs true zygosity") + theme_bw()
-plotROC(all.perf.somy.VQSLOD, type.fpr = "count", type.tpr = "rate") + ggtitle("All Type Operating Characteristic: VQSLOD vs true somy") + theme_bw()
-plotROC(all.perf.somy.VQSLOD, type.fpr = "count", type.tpr = "count") + ggtitle("All Type Operating Characteristic: VQSLOD vs true somy") + theme_bw()
-plotROC(all.perf.function.VQSLOD, type.fpr = "count", type.tpr = "rate") + ggtitle("All Type Operating Characteristic: VQSLOD vs functional role") + theme_bw()
-plotROC(all.perf.function.VQSLOD, type.fpr = "count", type.tpr = "count") + ggtitle("All Type Operating Characteristic: VQSLOD vs functional role") + theme_bw()
-plotROC(all.perf.mask.VQSLOD, type.fpr = "count", type.tpr = "rate") + ggtitle("All Type Operating Characteristic: VQSLOD vs masking status") + theme_bw()
-plotROC(all.perf.mask.VQSLOD, type.fpr = "count", type.tpr = "count") + ggtitle("All Type Operating Characteristic: VQSLOD vs masking status") + theme_bw()
-all.perf.muttype.VQSLOD = list(SNV = all.perf.muttype.VQSLOD$SNV, Del = all.perf.muttype.VQSLOD$Del, Ins = all.perf.muttype.VQSLOD$Ins)
-plotROC(all.perf.muttype.VQSLOD, type.fpr = "count", type.tpr = "rate") + ggtitle("All Type Operating Characteristic: VQSLOD vs mutation type") + theme_bw()
-plotROC(all.perf.muttype.VQSLOD, type.fpr = "count", type.tpr = "count") + ggtitle("All Type Operating Characteristic: VQSLOD vs mutation type") + theme_bw()
-plotROC(all.perf.mutsize.VQSLOD, type.fpr = "count", type.tpr = "rate") + ggtitle("All Type Operating Characteristic: VQSLOD vs mutation size") + theme_bw()
-plotROC(all.perf.mutsize.VQSLOD, type.fpr = "count", type.tpr = "count") + ggtitle("All Type Operating Characteristic: VQSLOD vs mutation size") + theme_bw()
-@
+% plotROC(all.perf.zyg.VQSLOD, type.fpr = "count", type.tpr = "rate") + ggtitle("All Type Receiver Operating Characteristic: VQSLOD vs true zygosity") + theme_bw()
+% plotROC(all.perf.zyg.VQSLOD, type.fpr = "count", type.tpr = "count") + ggtitle("All Type Receiver Operating Characteristic: VQSLOD vs true zygosity") + theme_bw()
+% plotROC(all.perf.somy.VQSLOD, type.fpr = "count", type.tpr = "rate") + ggtitle("All Type Operating Characteristic: VQSLOD vs true somy") + theme_bw()
+% plotROC(all.perf.somy.VQSLOD, type.fpr = "count", type.tpr = "count") + ggtitle("All Type Operating Characteristic: VQSLOD vs true somy") + theme_bw()
+% plotROC(all.perf.function.VQSLOD, type.fpr = "count", type.tpr = "rate") + ggtitle("All Type Operating Characteristic: VQSLOD vs functional role") + theme_bw()
+% plotROC(all.perf.function.VQSLOD, type.fpr = "count", type.tpr = "count") + ggtitle("All Type Operating Characteristic: VQSLOD vs functional role") + theme_bw()
+% plotROC(all.perf.mask.VQSLOD, type.fpr = "count", type.tpr = "rate") + ggtitle("All Type Operating Characteristic: VQSLOD vs masking status") + theme_bw()
+% plotROC(all.perf.mask.VQSLOD, type.fpr = "count", type.tpr = "count") + ggtitle("All Type Operating Characteristic: VQSLOD vs masking status") + theme_bw()
+% all.perf.muttype.VQSLOD = list(SNV = all.perf.muttype.VQSLOD$SNV, Del = all.perf.muttype.VQSLOD$Del, Ins = all.perf.muttype.VQSLOD$Ins)
+% plotROC(all.perf.muttype.VQSLOD, type.fpr = "count", type.tpr = "rate") + ggtitle("All Type Operating Characteristic: VQSLOD vs mutation type") + theme_bw()
+% plotROC(all.perf.muttype.VQSLOD, type.fpr = "count", type.tpr = "count") + ggtitle("All Type Operating Characteristic: VQSLOD vs mutation type") + theme_bw()
+% plotROC(all.perf.mutsize.VQSLOD, type.fpr = "count", type.tpr = "rate") + ggtitle("All Type Operating Characteristic: VQSLOD vs mutation size") + theme_bw()
+% plotROC(all.perf.mutsize.VQSLOD, type.fpr = "count", type.tpr = "count") + ggtitle("All Type Operating Characteristic: VQSLOD vs mutation size") + theme_bw()
+% @
 
 
 

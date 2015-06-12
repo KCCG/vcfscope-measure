@@ -24,10 +24,9 @@ FUNCTIONAL_REGIONS_BEDGZ_PREFIX="${RESOURCES_HEAD}/functional_regions/"
 MASK_REGIONS_BEDGZ_PREFIX="${RESOURCES_HEAD}/mask_regions/"
 REFERENCE_BSGENOME="BSgenome.HSapiens.1000g.37d5"		# This is a custom package, available at /share/ClusterShare/biodata/contrib/marpin/reference/hs37d5/build/BSgenome.HSapiens.1000g.37d5_1.0.0.tar.gz
 
-# Temporary locations
+# Scratch space location (default; this is also set by a command
+# line option, to allow rudimentary restarting of runs)
 SCRATCH=$(mktemp -d --tmpdir=/directflow/ClinicalGenomicsPipeline/tmp valrept.XXXXXXXXXX)
-RTG_OVERLAP_SCRATCH="${SCRATCH}/overlap"
-KNITR_SCRATCH="${SCRATCH}/knitr"
 
 EXEC_DIR=$(pwd)
 
@@ -36,20 +35,33 @@ EXEC_DIR=$(pwd)
 #####################################################################
 print_usage() {
 cat << EOF
-Usage: ${0##*/} [-d CHROM] [-f] [-o OUTFILE] <INFILE>
+Usage: ${0##*/} [-d CHROM] [-t TMPDIR] [-r] [-f] [-o OUTFILE] <INFILE>
 
 Create a WGS validation report.
 
-    INFILE       Input NA12878 genotype calls, in vcf.gz format
+    INFILE       Input NA12878 genotype calls, in vcf.gz format.
     -o OUTFILE   Write the report to OUTFILE (default: report.pdf)
     -d CHROM     Debug mode.  Currently, adds additional debug 
                  information to the report, and examines chromosome
                  CHROM only.
+    -t TMPDIR    Path to a temporary scratch space directory.  If 
+                 missing, mktemp will be used to create one.
     -f           Force noninteractive mode; all Y/N prompts will be
-                 automatically answered Y.
-    -h           Display this help and exit
+                 automatically answered Y.  Default is to run in 
+                 interactive mode.
+    -r           Resume flag.  If set, and TMPDIR points to a 
+                 partially-completed run, will attempt to resume
+                 this run.  Default is to not resume; if a partial
+                 run is found in TMPDIR and -f is not set, query
+                 the user as to what to do.  With -f set, any partial
+                 run data in TMPDIR is automatically cleared, and
+                 the validation report generation started from the 
+                 beginning.  Regardless of the resume setting, the
+                 final report generation is always repeated with
+                 every invocation.
+    -h           Display this help and exit.
 
-v20150609-1
+v20150613-1
 
 Mark Pinese
 EOF
@@ -61,8 +73,9 @@ debug=0
 debug_chrom="-"
 noninteractive=0
 output_pdf_path="${EXEC_DIR}/report.pdf"
+resume=0
 
-while getopts "d:o:hf" opt; do
+while getopts "d:o:t:hfr" opt; do
 	case "$opt" in
 		h)
 			print_usage
@@ -77,6 +90,12 @@ while getopts "d:o:hf" opt; do
 			;;
 		f)
 			noninteractive=1
+			;;
+		t)
+			SCRATCH=$OPTARG
+			;;
+		r)
+			resume=1
 			;;
 		'?')
 			print_usage >&2
@@ -105,20 +124,27 @@ fi
 
 
 if [ -e ${output_pdf_path} ]; then
-	echo -e "\033[1;33mOutput file ${output_pdf_path} already exists; if you continue this will be overwritten.\033[0m"
-	echo -en "\033[1;33mDo you wish to continue? [YES to continue; any other string to cancel] \033[0m"
-	prompt="YES"
-	if [ ${noninteractive} -eq 0 ]; then
-		read prompt
-	fi
-	if [ "${prompt}" == "YES" ]; then
-		echo -e "\033[0;32mRemoving output file and continuing...\033[0m"
-		rm -f ${output_pdf_path}
+	if [ ${resume} -eq 0 ]; then
+		echo -e "\033[1;33mOutput file ${output_pdf_path} already exists, and the resume flag is not set; if you continue this will be overwritten.\033[0m"
+		echo -en "\033[1;33mDo you wish to continue? [YES to continue; any other string to cancel] \033[0m"
+		prompt="YES"
+		if [ ${noninteractive} -eq 0 ]; then
+			read prompt
+		fi
+		if [ "${prompt}" == "YES" ]; then
+			echo -e "\033[0;32mRemoving output file and continuing...\033[0m"
+			rm -f ${output_pdf_path}
+		else
+			echo -e "\033[0;31mCancelled.\033[0m"
+			exit 3
+		fi
 	else
-		echo -e "\033[0;31mCancelled.\033[0m"
-		exit 3
+		echo -e "\033[1;33mOutput file ${output_pdf_path} already exists, and resume flag is set.  Attempting to resume run...\033[0m"
 	fi
 fi
+
+RTG_OVERLAP_SCRATCH="${SCRATCH}/overlap"
+KNITR_SCRATCH="${SCRATCH}/knitr"
 
 
 #####################################################################
@@ -170,18 +196,20 @@ mkdir -p ${KNITR_SCRATCH}
 #####################################################################
 echo -e "\033[0;32mComputing VCF overlaps...\033[0m"
 if [ -e ${RTG_OVERLAP_SCRATCH} ]; then
-	echo -e "\033[1;33mScratch directory ${RTG_OVERLAP_SCRATCH} already exists; if you continue this will be overwritten.\033[0m"
-	echo -en "\033[1;33mDo you wish to continue? [YES to continue; any other string to cancel] \033[0m"
-	prompt="YES"
-	if [ ${noninteractive} -eq 0 ]; then
-		read prompt
-	fi
-	if [ "${prompt}" == "YES" ]; then
-		echo -e "\033[0;32mClearing scratch directory and continuing...\033[0m"
-		rm -rf ${RTG_OVERLAP_SCRATCH}
-	else
-		echo -e "\033[0;31mCancelled.\033[0m"
-		exit 3
+	if [ ${resume} -eq 0 ]; then
+		echo -e "\033[1;33mOverlap scratch directory ${RTG_OVERLAP_SCRATCH} already exists, and the resume flag is not set; if you continue this will be overwritten.\033[0m"
+		echo -en "\033[1;33mDo you wish to continue? [YES to continue; any other string to cancel] \033[0m"
+		prompt="YES"
+		if [ ${noninteractive} -eq 0 ]; then
+			read prompt
+		fi
+		if [ "${prompt}" == "YES" ]; then
+			echo -e "\033[0;32mClearing scratch directory and continuing...\033[0m"
+			rm -rf ${RTG_OVERLAP_SCRATCH}
+		else
+			echo -e "\033[0;31mCancelled.\033[0m"
+			exit 3
+		fi
 	fi
 fi
 # Note on the use of --all-records below: if this is absent, then
@@ -197,8 +225,11 @@ fi
 #   TP for which FILT != PASS  -->  FN
 #   FP for which FILT != PASS  -->  TN
 #   FN for which FILT != PASS  -->  FN (no change)
-${RTG_VCFEVAL} --all-records --baseline-tp -b ${GOLD_CALLS_VCFGZ} -c ${input_vcfgz_path} -t ${REFERENCE_SDF} -o ${RTG_OVERLAP_SCRATCH} > /dev/null 2>&1
-
+if [ ${resume} -eq 0 ] || [ ! -e ${RTG_OVERLAP_SCRATCH}/tp.vcf.gz ] || [ ! -e ${RTG_OVERLAP_SCRATCH}/fp.vcf.gz ] || [ ! -e ${RTG_OVERLAP_SCRATCH}/fn.vcf.gz ] || [ ! -e ${RTG_OVERLAP_SCRATCH}/tp-baseline.vcf.gz ]; then
+	${RTG_VCFEVAL} --all-records --baseline-tp -b ${GOLD_CALLS_VCFGZ} -c ${input_vcfgz_path} -t ${REFERENCE_SDF} -o ${RTG_OVERLAP_SCRATCH} > /dev/null 2>&1
+elif [ ${resume} -eq 1 ]; then
+	echo -e "\033[0;32mOverlap output files found and resume flag set; not recomputing.\033[0m"
+fi
 
 # TODO: Parse ${RTG_OVERLAP_SCRATCH}/vcfeval.log to identify regions to exclude
 # eg Evaluation too complex (5001 unresolved paths, 18033 iterations) at reference region 2:105849275-105849281. Variants in this region will not be included in results.
@@ -226,29 +257,16 @@ cp -f report_debug.Rnw ${KNITR_SCRATCH}
 cp -f report_calculations.R ${KNITR_SCRATCH}
 cd ${KNITR_SCRATCH}
 
-# Echo versions into a text file for access by the script
-git rev-parse --abbrev-ref HEAD > versions.txt
-git rev-parse --verify HEAD >> versions.txt
-uname -a >> versions.txt
-
 # Run the script
 # SECURITY WARNING: Code injection possible in VERSION_ variables.
 # Ensure that git branch and execution host names can not be under
 # malicious control.
-${RSCRIPT} --vanilla report_calculations.R ${debug} ${debug_chrom} \
-	${input_vcfgz_path} \
-	${RTG_OVERLAP_SCRATCH}/tp.vcf.gz \ 
-	${RTG_OVERLAP_SCRATCH}/tp-baseline.vcf.gz \ 
-	${RTG_OVERLAP_SCRATCH}/fp.vcf.gz \ 
-	${RTG_OVERLAP_SCRATCH}/fn.vcf.gz \ 
-	${GOLD_CALLS_VCFGZ} \
-	${REFERENCE_BSGENOME} \
-	${GOLD_HARDMASK_VALID_REGIONS_BEDGZ} \
-	${FUNCTIONAL_REGIONS_BEDGZ_PREFIX} \
-	${MASK_REGIONS_BEDGZ_PREFIX} \
-	"${VERSION_GIT_BRANCH}" \
-	"${VERSION_GIT_COMMIT}" \
-	"${VERSION_EXEC_HOST}" \
+if [ ${resume} -eq 0 ] || [ ! -e report_data.rda ]; then
+	${RSCRIPT} --vanilla report_calculations.R ${debug} ${debug_chrom} ${input_vcfgz_path} ${RTG_OVERLAP_SCRATCH}/tp.vcf.gz ${RTG_OVERLAP_SCRATCH}/tp-baseline.vcf.gz ${RTG_OVERLAP_SCRATCH}/fp.vcf.gz ${RTG_OVERLAP_SCRATCH}/fn.vcf.gz ${GOLD_CALLS_VCFGZ} ${REFERENCE_BSGENOME} ${GOLD_HARDMASK_VALID_REGIONS_BEDGZ} ${FUNCTIONAL_REGIONS_BEDGZ_PREFIX} ${MASK_REGIONS_BEDGZ_PREFIX} "${VERSION_GIT_BRANCH}" "${VERSION_GIT_COMMIT}" "'""${VERSION_EXEC_HOST}""'"
+elif [ ${resume} -eq 1 ]; then
+	echo -e "\033[0;32mReport calculation output files found and resume flag set; not recomputing.\033[0m"
+fi
+
 
 #####################################################################
 # REPORT GENERATION
