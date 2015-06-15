@@ -637,5 +637,5 @@ plotROC = function(perf, type.fp = c("rate", "count"), facet = c())
 calcSensSpecAtCutoff = function(perf, cutoff)
 {
 	sel = which.max(perf$cutoff * (perf$cutoff <= cutoff))
-	list(sens = perf$tp[sel] / (perf$tp[sel] + perf$fn[sel]), spec = perf$tn[sel] / (perf$tn[sel] + perf$fp[sel]), nfp = perf$fp[sel])
+	list(sens = perf$tp[sel] / (perf$tp[sel] + perf$fn[sel]), spec = perf$tn[sel] / (perf$tn[sel] + perf$fp[sel]), ntp = perf$tp[sel], nfp = perf$fp[sel], ntn = perf$tn[sel], nfn = perf$fn[sel])
 }

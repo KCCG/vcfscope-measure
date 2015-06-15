@@ -91,23 +91,11 @@ report$specifications = list(
 	measure = "QUAL",
 	cutoff = 200,
 	snv.het.min.sens = 0.90,
-	snv.het.min.spec = 0.80,
-	indelsubst.het.min.sens = 0.70)
-
-# temp = perf.snv$all$QUAL
-# temp$sens = temp$tp / (temp$tp + temp$fn)
-# temp$spec = temp$tn / (temp$tn + temp$fp)
-# library(reshape2)
-# temp2 = melt(temp, measure.vars = c("sens", "spec"))
-# library(ggplot2)
-# ggplot(temp2, aes(x = cutoff, y = value, colour = variable)) + geom_path() + coord_cartesian(ylim = c(0.8, 1), xlim = c(0, 10))
-
-# temp = perf.indelsubst$zyg$QUAL$RRvsRA
-# temp$sens = temp$tp / (temp$tp + temp$fn)
-# library(reshape2)
-# temp2 = melt(temp, measure.vars = c("sens", "fp"))
-# library(ggplot2)
-# ggplot(temp2, aes(x = cutoff, y = value, colour = variable)) + geom_path()
+	snv.het.min.spec = 0.90,
+	snv.hom.min.sens = 0.99,
+	snv.hom.min.spec = 0.99,
+	indelsubst.het.min.sens = 0.80,
+	indelsubst.hom.min.sens = 0.90)
 
 snv.het.perf = calcSensSpecAtCutoff(perf.snv$zyg[[report$specifications$measure]]$RRvsRA, report$specifications$cutoff)
 indelsubst.het.perf = calcSensSpecAtCutoff(perf.indelsubst$zyg[[report$specifications$measure]]$RRvsRA, report$specifications$cutoff)
@@ -117,16 +105,27 @@ indelsubst.hom.perf = calcSensSpecAtCutoff(perf.indelsubst$zyg[[report$specifica
 report$snv.het.sens.value = snv.het.perf$sens
 report$snv.het.spec.value = snv.het.perf$spec
 report$indelsubst.het.sens.value = indelsubst.het.perf$sens
+report$snv.hom.sens.value = snv.hom.perf$sens
+report$snv.hom.spec.value = snv.hom.perf$spec
+report$indelsubst.hom.sens.value = indelsubst.hom.perf$sens
 
 report$snv.het.sens.pass = report$snv.het.sens.value >= report$specifications$snv.het.min.sens
 report$snv.het.spec.pass = report$snv.het.spec.value >= report$specifications$snv.het.min.spec
 report$indelsubst.het.sens.pass = report$indelsubst.het.sens.value >= report$specifications$indelsubst.het.min.sens
+report$snv.hom.sens.pass = report$snv.hom.sens.value >= report$specifications$snv.hom.min.sens
+report$snv.hom.spec.pass = report$snv.hom.spec.value >= report$specifications$snv.hom.min.spec
+report$indelsubst.hom.sens.pass = report$indelsubst.hom.sens.value >= report$specifications$indelsubst.hom.min.sens
 
-report$overall.pass = report$snv.het.sens.pass & report$snv.het.spec.pass & report$indelsubst.het.sens.pass
+report$overall.pass = 
+	report$snv.het.sens.pass & report$snv.het.spec.pass & report$indelsubst.het.sens.pass &
+	report$snv.hom.sens.pass & report$snv.hom.spec.pass & report$indelsubst.hom.sens.pass
 
 report$snv.het.sens.call = ifelse(report$snv.het.sens.pass, "Pass", "\\textcolor{red}{\\textbf{FAIL}}")
 report$snv.het.spec.call = ifelse(report$snv.het.spec.pass, "Pass", "\\textcolor{red}{\\textbf{FAIL}}")
 report$indelsubst.het.sens.call = ifelse(report$indelsubst.het.sens.pass, "Pass", "\\textcolor{red}{\\textbf{FAIL}}")
+report$snv.hom.sens.call = ifelse(report$snv.hom.sens.pass, "Pass", "\\textcolor{red}{\\textbf{FAIL}}")
+report$snv.hom.spec.call = ifelse(report$snv.hom.spec.pass, "Pass", "\\textcolor{red}{\\textbf{FAIL}}")
+report$indelsubst.hom.sens.call = ifelse(report$indelsubst.hom.sens.pass, "Pass", "\\textcolor{red}{\\textbf{FAIL}}")
 
 report$overall.call = ifelse(report$overall.pass, "\\textcolor{blue}{PASS}", "\\textcolor{red}{\\textbf{FAIL}}")
 @
@@ -159,15 +158,39 @@ Report time: \texttt{\Sexpr{texquote(report$gentime)}} \\
 
 <<summary-table,results='asis'>>=
 summary.table = xtable(data.frame(
-	Criterion = c("Het SNV sensitivity", "Het SNV specificity", "Het Indel sensitivity"),
-	Threshold = c(sprintf("%s $> %d$", report$specifications$measure, report$specifications$cutoff), sprintf("%s $> %d$", report$specifications$measure, report$specifications$cutoff), sprintf("%s $> %d$", report$specifications$measure, report$specifications$cutoff)),
-	"Measured" = c(report$snv.het.sens.value, report$snv.het.spec.value, report$indelsubst.het.sens.value),
-	"Reference Range" = c(sprintf("$> %.2f$", report$specifications$snv.het.min.sens), sprintf("$> %.2f$", report$specifications$snv.het.min.spec), sprintf("$> %.2f", report$specifications$indelsubst.het.min.sens)),
-	"Call" = c(report$snv.het.sens.call, report$snv.het.spec.call, report$indelsubst.het.sens.call)), digits = 4)
+	Criterion = c(
+		"Het SNV sensitivity", 
+		"Het SNV specificity", 
+		"Het Indel sensitivity",
+		"Hom SNV sensitivity", 
+		"Hom SNV specificity", 
+		"Hom Indel sensitivity"),
+	"Measured" = c(
+		report$snv.het.sens.value, 
+		report$snv.het.spec.value, 
+		report$indelsubst.het.sens.value,
+		report$snv.hom.sens.value, 
+		report$snv.hom.spec.value, 
+		report$indelsubst.hom.sens.value),
+	"Reference Range" = c(
+		sprintf("$> %.2f$", report$specifications$snv.het.min.sens), 
+		sprintf("$> %.2f$", report$specifications$snv.het.min.spec), 
+		sprintf("$> %.2f", report$specifications$indelsubst.het.min.sens),
+		sprintf("$> %.2f$", report$specifications$snv.hom.min.sens), 
+		sprintf("$> %.2f$", report$specifications$snv.hom.min.spec), 
+		sprintf("$> %.2f", report$specifications$indelsubst.hom.min.sens)),
+	"Call" = c(
+		report$snv.het.sens.call, 
+		report$snv.het.spec.call, 
+		report$indelsubst.het.sens.call, 
+		report$snv.hom.sens.call, 
+		report$snv.hom.spec.call, 
+		report$indelsubst.hom.sens.call)), 
+	digits = 4)
 print(summary.table, sanitize.text.function = function(x) x, include.rownames = FALSE)
 @
 
-OVERALL RESULT: \Sexpr{report$overall.call} \\
+\textbf{OVERALL RESULT: \Sexpr{report$overall.call}} \\
 
 <<summary-plots, out.width='.45\\linewidth', out.height='.4\\linewidth', fig.show='hold'>>=
 plotROC(perf.snv$zyg[[report$specifications$measure]][c("RRvsAA", "RRvsRA")]) + 
@@ -191,6 +214,38 @@ plotROC(perf.indelsubst$zyg[[report$specifications$measure]][c("RRvsAA", "RRvsRA
 	guides(size = FALSE) + 
 	geom_hline(yintercept = report$specifications$indelsubst.het.min.sens, lty = "dashed") + 
 	theme_bw()
+@
+
+\pragraph{Raw counts}
+<<count-table>>=
+count.table = xtable(data.frame(
+	Criterion = c(
+		"Het SNV", 
+		"Het Indel", 
+		"Hom SNV", 
+		"Hom Indel"),
+	"TP" = c(
+		snv.het.perf$tp,
+		indelsubst.het.perf$tp,
+		snv.hom.perf$tp,
+		indelsubst.hom.perf$tp),
+	"FP" = c(
+		snv.het.perf$fp,
+		indelsubst.het.perf$fp,
+		snv.hom.perf$fp,
+		indelsubst.hom.perf$fp),
+	"TN" = c(
+		snv.het.perf$tn,
+		"---",
+		snv.hom.perf$tn,
+		"---"),
+	"FN" = c(
+		snv.het.perf$fn,
+		indelsubst.het.perf$fn,
+		snv.hom.perf$fn,
+		indelsubst.hom.perf$fn),
+	digits = 4)
+print(count.table, sanitize.text.function = function(x) x, include.rownames = FALSE)
 @
 
 
