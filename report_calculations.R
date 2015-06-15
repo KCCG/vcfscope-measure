@@ -604,7 +604,7 @@ perf.indelsubst.coding10 = list(zyg = list(
 # Remove everything but the essential data required by the report.
 temp = NA
 temp = ls()
-temp = temp[!(grepl("^path\\.", temp) | temp %in% c("calls.sampleid", "versions", "DEBUG", "DEBUG.chrom", "genome") | grepl("^perf\\.", temp))]
+temp = temp[!(grepl("^path\\.", temp) | temp %in% c("calls.sampleid", "versions", "DEBUG", "DEBUG.chrom", "genome", "extendedflag") | grepl("^perf\\.", temp))]
 rm(list = temp)
 
 save.image("report_data.rda")
