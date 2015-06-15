@@ -199,7 +199,7 @@ print(summary.table, sanitize.text.function = function(x) x, include.rownames = 
 
 <<summary-plots, out.width='.45\\linewidth', out.height='.37\\linewidth', fig.show='hold'>>=
 plotROC(perf.snv$zyg[[report$specifications$measure]][c("RRvsAA", "RRvsRA")]) + 
-	ggtitle("SNV: All GiaB") + 
+	ggtitle("SNV: Whole genome") + 
 	labs(colour = "Zygosity") + 
 	scale_colour_brewer(palette = "Set1") +
 	coord_cartesian(xlim = c(-1e-7, 2.5e-6)) + ylim(0.8, 1) + 
@@ -211,7 +211,7 @@ plotROC(perf.snv$zyg[[report$specifications$measure]][c("RRvsAA", "RRvsRA")]) +
 	theme_bw()
 
 plotROC(perf.indelsubst$zyg[[report$specifications$measure]][c("RRvsAA", "RRvsRA")], type.fp = "count") + 
-	ggtitle("Indel: All GiaB") + 
+	ggtitle("Indel: Whole genome") + 
 	labs(colour = "Zygosity") + 
 	scale_colour_brewer(palette = "Set1") +
 	ylim(0.8, 1) + 
@@ -222,7 +222,7 @@ plotROC(perf.indelsubst$zyg[[report$specifications$measure]][c("RRvsAA", "RRvsRA
 	theme_bw()
 
 plotROC(perf.snv.coding10$zyg[[report$specifications$measure]][c("RRvsAA", "RRvsRA")]) + 
-	ggtitle("SNV: Coding \u00B1 10") + 
+	ggtitle("SNV: Coding \u00B110 bp") + 
 	labs(colour = "Zygosity") + 
 	scale_colour_brewer(palette = "Set1") +
 	coord_cartesian(xlim = c(-1e-7, 2.5e-6)) + ylim(0.8, 1) + 
@@ -234,7 +234,7 @@ plotROC(perf.snv.coding10$zyg[[report$specifications$measure]][c("RRvsAA", "RRvs
 	theme_bw()
 
 plotROC(perf.indelsubst.coding10$zyg[[report$specifications$measure]][c("RRvsAA", "RRvsRA")], type.fp = "count") + 
-	ggtitle("Indel: Coding \u00B1 10") + 
+	ggtitle("Indel: Coding \u00B110bp") + 
 	labs(colour = "Zygosity") + 
 	scale_colour_brewer(palette = "Set1") +
 	ylim(0.8, 1) + 
@@ -245,10 +245,10 @@ plotROC(perf.indelsubst.coding10$zyg[[report$specifications$measure]][c("RRvsAA"
 	theme_bw()
 @
 
-\pragraph{Raw counts}
+\subsection{Raw Counts at Cutoff}
 <<count-table,results='asis'>>=
 count.table = xtable(data.frame(
-	"Region" = c("GiaB HC", "", "", "", "Coding GiaB HC", "", "", ""),
+	"Region" = c("Whole genome", "", "", "", "Coding $\\pm10$ bp", "", "", ""),
 	"Zygosity" = c("Het", "", "Hom", "", "Het", "", "Hom", ""),
 	"Mutation" = c("SNV", "Indel", "SNV", "Indel", "SNV", "Indel", "SNV", "Indel"),
 	"TP" = c(
@@ -294,11 +294,10 @@ print(count.table, sanitize.text.function = function(x) x, include.rownames = FA
 
 % DATA AND SOFTWARE VERSIONS
 %--------------------------------------------------------------------
-\clearpage
 \section{Versions}
 \begin{itemize}
-\item Input VCF: \texttt{\url{\Sexpr{path.input}}}
-\item Sample ID: \texttt{\Sexpr{texquote(calls.sampleid)}}
+%\item Input VCF: \texttt{\url{\Sexpr{path.input}}}
+%\item Sample ID: \texttt{\Sexpr{texquote(calls.sampleid)}}
 \item Validation script: \begin{itemize} 
 	\item version \texttt{\Sexpr{versions$script}}
 	\item branch \texttt{\Sexpr{versions$branch}}
@@ -306,7 +305,7 @@ print(count.table, sanitize.text.function = function(x) x, include.rownames = FA
 	\end{itemize}
 \item R: \texttt{\Sexpr{R.version$version.string}} (\texttt{\Sexpr{texquote(R.version$platform)}})
 \item Execution host: \texttt{\Sexpr{texquote(versions$host)}}
-\item Report generated at: \Sexpr{texquote(report$gentime)}
+%\item Report generated at: \Sexpr{texquote(report$gentime)}
 \item Data: \begin{itemize}
 	\item GiaB BED: \texttt{\url{\Sexpr{path.gold_regions}}} (MD5 \texttt{\Sexpr{texquote(fileMD5(path.gold_regions))}})
 	\item GiaB VCF: \texttt{\url{\Sexpr{path.gold}}} (MD5 \texttt{\Sexpr{texquote(fileMD5(path.gold))}})
