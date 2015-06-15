@@ -194,12 +194,6 @@ plotROC(perf.indelsubst$zyg[[report$specifications$measure]][c("RRvsAA", "RRvsRA
 @
 
 
-% COVARIATE ROCs
-%--------------------------------------------------------------------
-\clearpage
-\section{Covariate Influence}
-
-
 % DATA AND SOFTWARE VERSIONS
 %--------------------------------------------------------------------
 \clearpage
@@ -236,109 +230,9 @@ plotROC(perf.indelsubst$zyg[[report$specifications$measure]][c("RRvsAA", "RRvsRA
 \end{itemize}
 
 
-% SCORE AND THRESHOLD DIAGNOSTIC ROCS
+% EXTENDED REPORT
 %--------------------------------------------------------------------
-\clearpage
-
-\section{Threshold and score diagnostics}
-\subsection{Score comparisons, all contexts}
-\subsubsection{SNVs}
-<<score-plot-snv-all>>=
-temp.allsnvdata = createROCData(perf.snv$all)$data
-colnames(temp.allsnvdata)[colnames(temp.allsnvdata) == "group1"] = "Score"
-colnames(temp.allsnvdata)[colnames(temp.allsnvdata) == "group2"] = "AndFILTER"
-temp.allsnvdata[,"AndFILTER"] = ordered(c("No", "Yes")[grepl("FILTER", temp.allsnvdata[,"Score"])+1])
-temp.allsnvdata[,"Score"] = factor(gsub(":FILTER", "", temp.allsnvdata[,"Score"]))
-ggplot(temp.allsnvdata, aes(x = FP, y = TP, colour = Score, linetype = AndFILTER)) + geom_path() + ylab("True positive rate") + xlab("False positive rate") + coord_cartesian(xlim = c(0, 2.5e-6), ylim = c(0.8, 1)) + theme_bw() + scale_colour_brewer(palette = "Set1")
-@
-
-\subsubsection{Indels}
-<<score-plot-indel-all>>=
-temp.allindelsubstdata = createROCData(perf.indelsubst$all, type.fp = "count")$data
-colnames(temp.allindelsubstdata)[colnames(temp.allindelsubstdata) == "group1"] = "Score"
-colnames(temp.allindelsubstdata)[colnames(temp.allindelsubstdata) == "group2"] = "AndFILTER"
-temp.allindelsubstdata[,"AndFILTER"] = ordered(c("No", "Yes")[grepl("FILTER", temp.allindelsubstdata[,"Score"])+1])
-temp.allindelsubstdata[,"Score"] = factor(gsub(":FILTER", "", temp.allindelsubstdata[,"Score"]))
-ggplot(temp.allindelsubstdata, aes(x = FP, y = TP, colour = Score, linetype = AndFILTER)) + geom_path() + ylab("True positive rate") + xlab("False positive count") + coord_cartesian(ylim = c(0, 1)) + theme_bw() + scale_colour_brewer(palette = "Set1")
-@
-
-\subsubsection{All variants}
-<<score-plot-all-all>>=
-temp.allalldata = createROCData(perf.all$all, type.fp = "count")$data
-colnames(temp.allalldata)[colnames(temp.allalldata) == "group1"] = "Score"
-colnames(temp.allalldata)[colnames(temp.allalldata) == "group2"] = "AndFILTER"
-temp.allalldata[,"AndFILTER"] = ordered(c("No", "Yes")[grepl("FILTER", temp.allalldata[,"Score"])+1])
-temp.allalldata[,"Score"] = factor(gsub(":FILTER", "", temp.allalldata[,"Score"]))
-ggplot(temp.allalldata, aes(x = FP, y = TP, colour = Score, linetype = AndFILTER)) + geom_path() + ylab("True positive rate") + xlab("False positive count") + coord_cartesian(ylim = c(0, 1)) + theme_bw() + scale_colour_brewer(palette = "Set1")
-@
-
-\subsection{Covariate effects}
-\subsubsection{SNVs}
-<<score-plot-snv-covs>>=
-plotROC(lapply(perf.snv$zyg, function(x) x[c("RRvsAA", "RRvsRA")])) + coord_cartesian(xlim = c(0, 2.5e-6), ylim = c(0.8, 1)) + 
-	labs(colour = "Score", linetype = "Zygosity") + 
-	scale_colour_brewer(palette = "Set1") + 
-	scale_linetype_manual(breaks = c("RRvsAA", "RRvsRA", "RRvsAB"), values = c("solid", "dashed", "blank")) + 
-	theme_bw()
-
-plotROC(lapply(perf.snv$mask, function(x) x[c("unmasked", "repetitive", "low_complexity")])) + coord_cartesian(xlim = c(0, 2.5e-6), ylim = c(0.8, 1)) + 
-	labs(colour = "Score", linetype = "Sequence mask") + 
-	scale_colour_brewer(palette = "Set1") + 
-	scale_linetype_manual(breaks = c("low_complexity", "repetitive", "unmasked"), values = c("dashed", "dotted", "solid")) + 
-	theme_bw()
-
-# plotROC(perf.snv$functional) + coord_cartesian(xlim = c(0, 2.5e-6), ylim = c(0.8, 1)) + theme_bw() + labs(colour = "Score", linetype = "Sequence function") + scale_colour_brewer(palette = "Set1")
-
-# plotROC(perf.snv$goldcall) + coord_cartesian(xlim = c(0, 2.5e-6), ylim = c(0.8, 1)) + theme_bw() + labs(colour = "Score", linetype = "GiaB region") + scale_colour_brewer(palette = "Set1")
-@
-
-\subsubsection{Indels}
-<<score-plot-indel-covs>>=
-plotROC(lapply(perf.indelsubst$zyg, function(x) x[c("RRvsAA", "RRvsRA")]), type.fp = "count", facet = 2) + 
-	labs(colour = "Score", linetype = "Zygosity") + 
-	scale_colour_brewer(palette = "Set1") + 
-	scale_linetype_manual(breaks = c("RRvsAA", "RRvsRA"), values = c("solid", "dashed")) + 
-	theme_bw()
-
-plotROC(lapply(perf.indelsubst$mask, function(x) x[c("unmasked", "repetitive", "low_complexity")]), type.fp = "count", facet = 2) + 
-	labs(colour = "Score", linetype = "Sequence mask") + 
-	scale_colour_brewer(palette = "Set1") + 
-	scale_linetype_manual(breaks = c("low_complexity", "repetitive", "unmasked"), values = c("dashed", "dotted", "solid")) + 
-	theme_bw()
-
-# plotROC(perf.indelsubst$functional, type.fp = "count", facet = 2)  + theme_bw() + labs(colour = "Score", linetype = "Sequence function") + scale_colour_brewer(palette = "Set1")
-# plotROC(perf.indelsubst$goldcall, type.fp = "count", facet = 2) + theme_bw() + labs(colour = "Score", linetype = "GiaB region") + scale_colour_brewer(palette = "Set1")
-
-plotROC(perf.indelsubst$mutsize, type.fp = "count", facet = 2) + 
-	labs(colour = "Score", linetype = "Mutation size") + 
-	scale_colour_brewer(palette = "Set1") + 
-	theme_bw()
-
-@
-
-\subsubsection{All variants}
-<<score-plot-all-covs>>=
-plotROC(lapply(perf.all$zyg, function(x) x[c("RRvsAA", "RRvsRA")]), type.fp = "count", facet = 2) + 
-	labs(colour = "Score", linetype = "Zygosity") + 
-	scale_colour_brewer(palette = "Set1") +
-	theme_bw()
-
-plotROC(lapply(perf.all$mask, function(x) x[c("unmasked", "repetitive", "low_complexity")]), type.fp = "count", facet = 2) + 
-	labs(colour = "Score", linetype = "Sequence mask") + 
-	scale_colour_brewer(palette = "Set1") + 
-	theme_bw()
-
-# plotROC(perf.all$functional, type.fp = "count", facet = 2) + theme_bw() + labs(colour = "Score", linetype = "Sequence function") + scale_colour_brewer(palette = "Set1")
-# plotROC(perf.all$goldcall, type.fp = "count", facet = 2) + theme_bw() + labs(colour = "Score", linetype = "GiaB region") + scale_colour_brewer(palette = "Set1")
-plotROC(perf.all$muttype, type.fp = "count", facet = 2) + 
-	labs(colour = "Score", linetype = "Mutation type") + 
-	scale_colour_brewer(palette = "Set1") + 
-	theme_bw()
-
-plotROC(perf.all$mutsize, type.fp = "count", facet = 2) + 
-	labs(colour = "Score", linetype = "Mutation size") + 
-	scale_colour_brewer(palette = "Set1") + 
-	theme_bw()
+<<child = if (extendedflag) 'report_extended.Rnw'>>=
 @
 
 
@@ -349,13 +243,3 @@ plotROC(perf.all$mutsize, type.fp = "count", facet = 2) +
 
 
 \end{document}
-
-
-% TODO: Add to report:
-%  * Region summary:
-%    A Genome
-%    B GIAB valid regions
-%    C vcfeval excluded
-%    D Total evaluable regions (D = (A^B) - C)
-%    E Hard mask callable regions
-%    E Venn D^E, D-E, E-D

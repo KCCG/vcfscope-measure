@@ -40,7 +40,7 @@ EXEC_DIR=$(pwd)
 #####################################################################
 print_usage() {
 cat << EOF
-Usage: ${0##*/} [-d CHROM] [-t TMPDIR] [-r] [-f] [-o OUTFILE] <INFILE>
+Usage: ${0##*/} [-d CHROM] [-t TMPDIR] [-r] [-f] [-x] [-o OUTFILE] <INFILE>
 
 Create a WGS validation report.
 
@@ -64,6 +64,8 @@ Create a WGS validation report.
                  beginning.  Regardless of the resume setting, the
                  final report generation is always repeated with
                  every invocation.
+    -x 			 Generate an extended report, with threshold and
+    			 score diagnostics.
     -h           Display this help and exit.
 
 Version ${VERSION}
@@ -80,8 +82,9 @@ noninteractive=0
 output_pdf_path="${EXEC_DIR}/report.pdf"
 resume=0
 temp_supplied=0
+extended=0
 
-while getopts "d:o:t:hfr" opt; do
+while getopts "d:o:t:hfrx" opt; do
 	case "$opt" in
 		h)
 			print_usage
@@ -92,7 +95,7 @@ while getopts "d:o:t:hfr" opt; do
 			debug_chrom=$OPTARG
 			;;
 		o)
-			output_pdf_path=$OPTARG
+			output_pdf_path=$(readlink -f $OPTARG)
 			;;
 		f)
 			noninteractive=1
@@ -103,6 +106,9 @@ while getopts "d:o:t:hfr" opt; do
 			;;
 		r)
 			resume=1
+			;;
+		x)
+			extended=1
 			;;
 		'?')
 			print_usage >&2
@@ -269,7 +275,7 @@ cd ${KNITR_SCRATCH}
 # Ensure that git branch and execution host names can not be under
 # malicious control.
 if [ ${resume} -eq 0 ] || [ ! -e report_data.rda ]; then
-	${RSCRIPT} --vanilla report_calculations.R ${debug} ${debug_chrom} ${input_vcfgz_path} ${RTG_OVERLAP_SCRATCH}/tp.vcf.gz ${RTG_OVERLAP_SCRATCH}/fp.vcf.gz ${RTG_OVERLAP_SCRATCH}/fn.vcf.gz ${GOLD_CALLS_VCFGZ} ${REFERENCE_BSGENOME} ${GOLD_HARDMASK_VALID_REGIONS_BEDGZ} ${FUNCTIONAL_REGIONS_BEDGZ_PREFIX} ${MASK_REGIONS_BEDGZ_PREFIX} "'""${VERSION}""'" "${VERSION_GIT_BRANCH}" "${VERSION_GIT_COMMIT}" "'""${VERSION_EXEC_HOST}""'"
+	${RSCRIPT} --vanilla report_calculations.R ${debug} ${debug_chrom} ${extended} ${input_vcfgz_path} ${RTG_OVERLAP_SCRATCH}/tp.vcf.gz ${RTG_OVERLAP_SCRATCH}/fp.vcf.gz ${RTG_OVERLAP_SCRATCH}/fn.vcf.gz ${GOLD_CALLS_VCFGZ} ${REFERENCE_BSGENOME} ${GOLD_HARDMASK_VALID_REGIONS_BEDGZ} ${FUNCTIONAL_REGIONS_BEDGZ_PREFIX} ${MASK_REGIONS_BEDGZ_PREFIX} "'""${VERSION}""'" "${VERSION_GIT_BRANCH}" "${VERSION_GIT_COMMIT}" "'""${VERSION_EXEC_HOST}""'"
 elif [ ${resume} -eq 1 ]; then
 	echo -e "\033[0;32mReport calculation output files found and resume flag set; not recomputing.\033[0m"
 fi

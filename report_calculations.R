@@ -4,15 +4,17 @@
 #  
 #  Usage: 
 #    Rscript report_calculations.R <debugflag> <debugchrom>
-#      <input_vcf> <tp> <fp> <fn> <gold_vcf> <genome> 
-#      <gold_regions> <func_regions> <mask_regions> <ver_branch> 
-#      <ver_commit> <ver_host>
+#      <extendedflag> <input_vcf> <tp> <fp> <fn> <gold_vcf> 
+#      <genome> <gold_regions> <func_regions> <mask_regions> 
+#      <ver_branch> <ver_commit> <ver_host>
 #  
 #  Positional parameters:
 #    debugflag      Debug mode flag.  1 if this is a debug run,
 #                   any other value otherwise.
 #    debugchrom     If debugging, limit analysis to this chromosome.
 #                   If not in debug mode, this value is ignored.
+#    extendedflag   Generate an extended report, with additional
+#                   plots for threshold and score diagnostics.
 #    input_vcf      Path the the input VCF (can be .vcf or .vcf.gz)
 #    tp, fp, fn     Paths to the overlap files output by vcfeval
 #    gold_vcf       Path to the gold-standard VCF (can be .vcf or 
@@ -39,23 +41,24 @@ source("report_functions.R")
 # COMMAND LINE PARSING
 ####################################################################
 argv = commandArgs(TRUE)
-if (length(argv) != 15)
+if (length(argv) != 16)
 {
-    stop(sprintf("Usage: Rscript report_calculations.R <debugflag> <debugchrom> <input_vcf> <tp> <fp> <fn> <gold_vcf> <genome> <gold_regions> <func_regions> <mask_regions> <ver_script> <ver_branch> <ver_commit> <ver_host>\nargv = %s", paste(argv, sep = " ")))
+    stop(sprintf("Usage: Rscript report_calculations.R <debugflag> <debugchrom> <extendedflag>\n    <input_vcf> <tp> <fp> <fn> <gold_vcf> <genome> <gold_regions> <func_regions>\n     <mask_regions> <ver_script> <ver_branch> <ver_commit> <ver_host>\n\nargv = %s", paste(argv, sep = " ")))
 }
 
 DEBUG = argv[1] == "1"
 DEBUG.chrom = argv[2]
-path.input = argv[3]
-path.tp = argv[4]
-path.fp = argv[5]
-path.fn = argv[6]
-path.gold = argv[7]
-genome = argv[8]
-path.gold_regions = argv[9]
-path.function_regions_prefix = argv[10]
-path.mask_regions_prefix = argv[11]
-versions = list(script = argv[12], branch = argv[13], commit = argv[14], host = argv[15])
+extendedflag = argv[3]
+path.input = argv[4]
+path.tp = argv[5]
+path.fp = argv[6]
+path.fn = argv[7]
+path.gold = argv[8]
+genome = argv[9]
+path.gold_regions = argv[10]
+path.function_regions_prefix = argv[11]
+path.mask_regions_prefix = argv[12]
+versions = list(script = argv[13], branch = argv[14], commit = argv[15], host = argv[16])
 
 
 if (DEBUG)
@@ -63,6 +66,7 @@ if (DEBUG)
     message(sprintf("Command line: %s", paste(argv, collapse = " ")))
     message(sprintf("  DEBUG:             %s", DEBUG))
     message(sprintf("  DEBUG.chrom:       %s", DEBUG.chrom))
+    message(sprintf("  extendedflag:      %s", extendedflag))
     message(sprintf("  path.tp:           %s", path.tp))
     message(sprintf("  path.fp:           %s", path.fp))
     message(sprintf("  path.fn:           %s", path.fn))
