@@ -48,7 +48,7 @@ if (length(argv) != 16)
 
 DEBUG = argv[1] == "1"
 DEBUG.chrom = argv[2]
-extendedflag = argv[3]
+extendedflag = argv[3] == "1"
 path.input = argv[4]
 path.tp = argv[5]
 path.fp = argv[6]
@@ -265,6 +265,26 @@ count.snv.tn = sum(as.numeric(width(calls.snv$tn)))
 perf.snv = list()
 perfdata.snv = list(vcf.tp = calls.snv$tp, vcf.fp = calls.snv$fp, n.fn = count.snv.fn, n.tn = count.snv.tn)
 
+# Subset by zygosity
+# TNs belong in all three zygosity classes, as they are always of genotype RR.
+class.snv.zyg = subsetClass(class$zyg, subset.snv, tn = list(RRvsAA = count.snv.tn, RRvsRA = count.snv.tn, RRvsAB = count.snv.tn))
+# Basic checks for subsetClass
+stopifnot(all(class$zyg$RRvsRA$tp[subset.snv$tp] == class.snv.zyg$RRvsRA$tp))
+stopifnot(all(class$zyg$RRvsRA$fp[subset.snv$fp] == class.snv.zyg$RRvsRA$fp))
+stopifnot(all(class$zyg$RRvsAA$tp[subset.snv$tp] == class.snv.zyg$RRvsAA$tp))
+
+perf.snv$zyg = list(
+    VQSLOD = vcfPerfGrouped(perfdata.snv, function(x) info(x)$VQSLOD, class.snv.zyg),
+    QUAL = vcfPerfGrouped(perfdata.snv, function(x) rowData(x)$QUAL, class.snv.zyg),
+    GQ = vcfPerfGrouped(perfdata.snv, function(x) geno(x)$GQ, class.snv.zyg),
+    DP = vcfPerfGrouped(perfdata.snv, function(x) info(x)$DP, class.snv.zyg),
+    FILTER = vcfPerfGrouped(perfdata.snv, function(x) (rowData(x)$FILTER == "PASS")*1, class.snv.zyg),
+    "VQSLOD:FILTER" = vcfPerfGrouped(perfdata.snv, function(x) info(x)$VQSLOD*(rowData(x)$FILTER == "PASS"), class.snv.zyg),
+    "QUAL:FILTER" = vcfPerfGrouped(perfdata.snv, function(x) rowData(x)$QUAL*(rowData(x)$FILTER == "PASS"), class.snv.zyg),
+    "GQ:FILTER" = vcfPerfGrouped(perfdata.snv, function(x) geno(x)$GQ*(rowData(x)$FILTER == "PASS"), class.snv.zyg),
+    "DP:FILTER" = vcfPerfGrouped(perfdata.snv, function(x) info(x)$DP*(rowData(x)$FILTER == "PASS"), class.snv.zyg))
+
+if (extendedflag) {
 perf.snv$all = list(
     VQSLOD = vcfPerf(perfdata.snv, function(x) info(x)$VQSLOD),
     QUAL = vcfPerf(perfdata.snv, function(x) rowData(x)$QUAL),
@@ -292,25 +312,6 @@ perf.snv$all2 = list(
     FILTER = list(
         with_filter = vcfPerf(perfdata.snv, function(x) (rowData(x)$FILTER == "PASS")*1)))
 
-# Subset by zygosity
-# TNs belong in all three zygosity classes, as they are always of genotype RR.
-class.snv.zyg = subsetClass(class$zyg, subset.snv, tn = list(RRvsAA = count.snv.tn, RRvsRA = count.snv.tn, RRvsAB = count.snv.tn))
-# Basic checks for subsetClass
-stopifnot(all(class$zyg$RRvsRA$tp[subset.snv$tp] == class.snv.zyg$RRvsRA$tp))
-stopifnot(all(class$zyg$RRvsRA$fp[subset.snv$fp] == class.snv.zyg$RRvsRA$fp))
-stopifnot(all(class$zyg$RRvsAA$tp[subset.snv$tp] == class.snv.zyg$RRvsAA$tp))
-
-perf.snv$zyg = list(
-    VQSLOD = vcfPerfGrouped(perfdata.snv, function(x) info(x)$VQSLOD, class.snv.zyg),
-    QUAL = vcfPerfGrouped(perfdata.snv, function(x) rowData(x)$QUAL, class.snv.zyg),
-    GQ = vcfPerfGrouped(perfdata.snv, function(x) geno(x)$GQ, class.snv.zyg),
-    DP = vcfPerfGrouped(perfdata.snv, function(x) info(x)$DP, class.snv.zyg),
-    FILTER = vcfPerfGrouped(perfdata.snv, function(x) (rowData(x)$FILTER == "PASS")*1, class.snv.zyg),
-    "VQSLOD:FILTER" = vcfPerfGrouped(perfdata.snv, function(x) info(x)$VQSLOD*(rowData(x)$FILTER == "PASS"), class.snv.zyg),
-    "QUAL:FILTER" = vcfPerfGrouped(perfdata.snv, function(x) rowData(x)$QUAL*(rowData(x)$FILTER == "PASS"), class.snv.zyg),
-    "GQ:FILTER" = vcfPerfGrouped(perfdata.snv, function(x) geno(x)$GQ*(rowData(x)$FILTER == "PASS"), class.snv.zyg),
-    "DP:FILTER" = vcfPerfGrouped(perfdata.snv, function(x) info(x)$DP*(rowData(x)$FILTER == "PASS"), class.snv.zyg))
-
 # And sequence context
 # The nasty code for counting TNs just counts, for each class in 
 # regions$mask, the number of TN bases (from calls.snv$tn) that
@@ -326,6 +327,7 @@ perf.snv$mask = list(
     "QUAL:FILTER" = vcfPerfGrouped(perfdata.snv, function(x) rowData(x)$QUAL*(rowData(x)$FILTER == "PASS"), class.snv.mask),
     "GQ:FILTER" = vcfPerfGrouped(perfdata.snv, function(x) geno(x)$GQ*(rowData(x)$FILTER == "PASS"), class.snv.mask),
     "DP:FILTER" = vcfPerfGrouped(perfdata.snv, function(x) info(x)$DP*(rowData(x)$FILTER == "PASS"), class.snv.mask))
+}
 
 
 
@@ -349,7 +351,26 @@ count.indelsubst.fn = nrow(calls.indelsubst$fn)
 perf.indelsubst = list()
 perfdata.indelsubst = list(vcf.tp = calls.indelsubst$tp, vcf.fp = calls.indelsubst$fp, n.fn = count.indelsubst.fn, n.tn = 0)
 
+# Subset by zygosity
+# We can't count TNs in an indel context; just set to a null value
+class.indelsubst.zyg = subsetClass(class$zyg, subset.indelsubst, tn = NULL)
+# Basic checks for subsetClass
+stopifnot(all(class$zyg$RRvsRA$tp[subset.indelsubst$tp] == class.indelsubst.zyg$RRvsRA$tp))
+stopifnot(all(class$zyg$RRvsRA$fp[subset.indelsubst$fp] == class.indelsubst.zyg$RRvsRA$fp))
+stopifnot(all(class$zyg$RRvsAA$tp[subset.indelsubst$tp] == class.indelsubst.zyg$RRvsAA$tp))
 
+perf.indelsubst$zyg = list(
+    VQSLOD = vcfPerfGrouped(perfdata.indelsubst, function(x) info(x)$VQSLOD, class.indelsubst.zyg),
+    QUAL = vcfPerfGrouped(perfdata.indelsubst, function(x) rowData(x)$QUAL, class.indelsubst.zyg),
+    GQ = vcfPerfGrouped(perfdata.indelsubst, function(x) geno(x)$GQ, class.indelsubst.zyg),
+    DP = vcfPerfGrouped(perfdata.indelsubst, function(x) info(x)$DP, class.indelsubst.zyg),
+    FILTER = vcfPerfGrouped(perfdata.indelsubst, function(x) (rowData(x)$FILTER == "PASS")*1, class.indelsubst.zyg),
+    "VQSLOD:FILTER" = vcfPerfGrouped(perfdata.indelsubst, function(x) info(x)$VQSLOD*(rowData(x)$FILTER == "PASS"), class.indelsubst.zyg),
+    "QUAL:FILTER" = vcfPerfGrouped(perfdata.indelsubst, function(x) rowData(x)$QUAL*(rowData(x)$FILTER == "PASS"), class.indelsubst.zyg),
+    "GQ:FILTER" = vcfPerfGrouped(perfdata.indelsubst, function(x) geno(x)$GQ*(rowData(x)$FILTER == "PASS"), class.indelsubst.zyg),
+    "DP:FILTER" = vcfPerfGrouped(perfdata.indelsubst, function(x) info(x)$DP*(rowData(x)$FILTER == "PASS"), class.indelsubst.zyg))
+
+if (extendedflag) {
 perf.indelsubst$all = list(
     VQSLOD = vcfPerf(perfdata.indelsubst, function(x) info(x)$VQSLOD),
     QUAL = vcfPerf(perfdata.indelsubst, function(x) rowData(x)$QUAL),
@@ -376,25 +397,6 @@ perf.indelsubst$all2 = list(
         with_filter = vcfPerf(perfdata.indelsubst, function(x) info(x)$DP*(rowData(x)$FILTER == "PASS"))),
     FILTER = list(
         with_filter = vcfPerf(perfdata.indelsubst, function(x) (rowData(x)$FILTER == "PASS")*1)))
-
-# Subset by zygosity
-# We can't count TNs in an indel context; just set to a null value
-class.indelsubst.zyg = subsetClass(class$zyg, subset.indelsubst, tn = NULL)
-# Basic checks for subsetClass
-stopifnot(all(class$zyg$RRvsRA$tp[subset.indelsubst$tp] == class.indelsubst.zyg$RRvsRA$tp))
-stopifnot(all(class$zyg$RRvsRA$fp[subset.indelsubst$fp] == class.indelsubst.zyg$RRvsRA$fp))
-stopifnot(all(class$zyg$RRvsAA$tp[subset.indelsubst$tp] == class.indelsubst.zyg$RRvsAA$tp))
-
-perf.indelsubst$zyg = list(
-    VQSLOD = vcfPerfGrouped(perfdata.indelsubst, function(x) info(x)$VQSLOD, class.indelsubst.zyg),
-    QUAL = vcfPerfGrouped(perfdata.indelsubst, function(x) rowData(x)$QUAL, class.indelsubst.zyg),
-    GQ = vcfPerfGrouped(perfdata.indelsubst, function(x) geno(x)$GQ, class.indelsubst.zyg),
-    DP = vcfPerfGrouped(perfdata.indelsubst, function(x) info(x)$DP, class.indelsubst.zyg),
-    FILTER = vcfPerfGrouped(perfdata.indelsubst, function(x) (rowData(x)$FILTER == "PASS")*1, class.indelsubst.zyg),
-    "VQSLOD:FILTER" = vcfPerfGrouped(perfdata.indelsubst, function(x) info(x)$VQSLOD*(rowData(x)$FILTER == "PASS"), class.indelsubst.zyg),
-    "QUAL:FILTER" = vcfPerfGrouped(perfdata.indelsubst, function(x) rowData(x)$QUAL*(rowData(x)$FILTER == "PASS"), class.indelsubst.zyg),
-    "GQ:FILTER" = vcfPerfGrouped(perfdata.indelsubst, function(x) geno(x)$GQ*(rowData(x)$FILTER == "PASS"), class.indelsubst.zyg),
-    "DP:FILTER" = vcfPerfGrouped(perfdata.indelsubst, function(x) info(x)$DP*(rowData(x)$FILTER == "PASS"), class.indelsubst.zyg))
 
 # And sequence context
 # Again, set tn = NULL
@@ -423,13 +425,13 @@ perf.indelsubst$mutsize = list(
     "QUAL:FILTER" = vcfPerfGrouped(perfdata.indelsubst, function(x) rowData(x)$QUAL*(rowData(x)$FILTER == "PASS"), class.indelsubst.size),
     "GQ:FILTER" = vcfPerfGrouped(perfdata.indelsubst, function(x) geno(x)$GQ*(rowData(x)$FILTER == "PASS"), class.indelsubst.size),
     "DP:FILTER" = vcfPerfGrouped(perfdata.indelsubst, function(x) info(x)$DP*(rowData(x)$FILTER == "PASS"), class.indelsubst.size))
-
+}
 
 
 #####################################################################
 # ALL VARIANT METRIC COMPARISON AND CUTOFF DETERMINATION: GOLD CALLABLE REGIONS
 #####################################################################
-
+if (extendedflag) {
 # Repeat the analysis performed in the SNV case, except this time 
 # consider all variants.
 # As for indels, there is no known TN background (and no practical universe of possible
@@ -535,7 +537,7 @@ perf.all$mutsize = list(
     "QUAL:FILTER" = vcfPerfGrouped(perfdata.all, function(x) rowData(x)$QUAL*(rowData(x)$FILTER == "PASS"), class.all.size),
     "GQ:FILTER" = vcfPerfGrouped(perfdata.all, function(x) geno(x)$GQ*(rowData(x)$FILTER == "PASS"), class.all.size),
     "DP:FILTER" = vcfPerfGrouped(perfdata.all, function(x) info(x)$DP*(rowData(x)$FILTER == "PASS"), class.all.size))
-
+}
 
 
 #####################################################################
