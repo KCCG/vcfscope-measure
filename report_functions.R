@@ -93,7 +93,45 @@ readFunctionalRegions = function(prefix, seqinfo)
 }
 
 
-classifyZygosity = function(vcf)
+# Transform l, a list of lists, with outer list A and inner list
+# B, into a list of lists, with outer list B and inner list A.
+# For example, transforms:
+#   list(A1 = list(B1 = "w", B2 = "x"), A2 = list(B1 = "y", B2 = "z", B3 = "p"))
+# into
+#   list(B1 = list(A1 = "w", A2 = "y"), B2 = list(A1 = "x", A2 = "z"), B3 = list(A1 = NULL, A2 = "p"))
+# Returns the transformed list.  Does not preserve item ordering
+# within levels.
+#
+# R> str(swapListOrder(list(A1 = list(B1 = "w", B2 = "x"), A2 = list(B1 = "y", B2 = "z", B3 = "p"))))
+# List of 3
+#  $ B1:List of 2
+#   ..$ A1: chr "w"
+#   ..$ A2: chr "y"
+#  $ B2:List of 2
+#   ..$ A1: chr "x"
+#   ..$ A2: chr "z"
+#  $ B3:List of 2
+#   ..$ A1: NULL
+#   ..$ A2: chr "p"
+swapListOrder = function(l)
+{
+	outer_names = sort(names(l))
+	inner_names = sort(unique(unlist(lapply(l, names))))
+	sapply(inner_names, function(inner_name) {
+		sapply(outer_names, function(outer_name) {
+			l[[outer_name]][[inner_name]]
+		}, simplify = FALSE, USE.NAMES = TRUE)
+	}, simplify = FALSE, USE.NAMES = TRUE)
+}
+
+
+classifyZygosity = function(vcfs)
+{
+	swapListOrder(lapply(vcfs, classifyZygosityVcf))
+}
+
+
+classifyZygosityVcf = function(vcf)
 {
 	genotypes = geno(vcf)$GT
 	# Perform the following transformation:
@@ -119,10 +157,7 @@ classifyZygosity = function(vcf)
 		if (length(gt) == 1)
 		{
 			if (gt == 0)
-			{
-				warning(sprintf("Hemizygous reference genotype found (%s); this should not occur in a GIAB VCF.", gt), gt)
 				return("R")
-			}
 			else if (is.na(gt))		# as.numeric(".") = NA, so this condition catches the GT = "." case
 				return(NA)
 			return("A")
@@ -132,10 +167,7 @@ classifyZygosity = function(vcf)
 			if (gt[1] == gt[2])
 			{
 				if (gt[1] == 0)
-				{
-					warning(sprintf("Homozygous reference genotype found (%s); this should not occur in a GIAB VCF.", gt), gt)
 					return("R/R")
-				}
 				return("A/A")
 			}
 			else
@@ -152,94 +184,106 @@ classifyZygosity = function(vcf)
 		}
 	})
 
-	data.frame(
-		R = result == "R",
-		A = result == "A",
-		RR = result == "R/R",
-		RA = result == "R/A",
-		AA = result == "A/A",
-		AB = result == "A/B")
-}
-
-
-simplifyZygosityClass = function(class)
-{
 	# For now, place haploid regions together with diploid.
-	data.frame(
-		RRvsAA = class$RR | class$R | class$AA | class$A,
-		RRvsRA = class$RR | class$R | class$RA,
-		RRvsAB = class$RR | class$R | class$AB)
+	list(
+		RRvsAA = Rle(result == "R" | result == "R/R" | result == "A" | result == "A/A"),
+		RRvsRA = Rle(result == "R" | result == "R/R" | result == "R/A"),
+		RRvsAB = Rle(result == "R" | result == "R/R" | result == "A/B"))
 }
 
 
-classifySomy = function(vcf)
+classifySomy = function(vcfs)
 {
-	result = as.data.frame(matrix(NA, nrow(vcf), 4))
-	colnames(result) = c("autosomal", "X", "Y", "MT")
-	result$autosomal = as.vector(seqnames(vcf) %in% as.character(1:22))
-	result$X = as.vector(seqnames(vcf) == "X")
-	result$Y = as.vector(seqnames(vcf) == "Y")
-	result$MT = as.vector(seqnames(vcf) %in% c("MT", "M"))
-	result
+	swapListOrder(lapply(vcfs, classifySomyVcf))
 }
 
 
-classifyMutationType = function(vcf)
+classifySomyVcf = function(vcf)
 {
-	result = as.data.frame(matrix(NA, nrow(vcf), 4))
-	colnames(result) = c("SNV", "Ins", "Del", "Other")
-	result$SNV = isSNV(vcf)
-	result$Ins = isInsertion(vcf)
-	result$Del = isDeletion(vcf)
-	result$Other = !(result$SNV | result$Ins | result$Del)
-	result$Indel = result$Ins | result$Del
+	list(
+		autosomal = seqnames(vcf) %in% as.character(1:22),
+		X = seqnames(vcf) == "X",
+		Y = seqnames(vcf) == "Y",
+		MT = seqnames(vcf) %in% c("MT", "M"))
+}
+
+
+classifyMutationType = function(vcfs)
+{
+	swapListOrder(lapply(vcfs, classifyMutationTypeVcf))
+}
+
+
+classifyMutationTypeVcf = function(vcf)
+{
+	result = list(
+		SNV = Rle(isSNV(vcf)),
+		InsDelSubst = Rle(isInsertion(vcf) | isDeletion(vcf) | isSubstitution(vcf)))
+	result$Other = !(result$SNV | result$InsDelSubst)
 	result
 }
 
 
 # Classifies the variants in vcf by their overlap with the GRanges 
-# regions in the list regions.  Returns overlaps as a factor matrix, 
-# with rows equal to the number of elements in vcf, and columns equal 
-# to the number of elements in regions.  Each cell will contain one of
-# the following values:
-#   0L	The feature in this row does not overlap
-#		any intervals in this column's GRanges, by
-#		any amount.
-#	1L	The feature in this row partially overlaps
-#		an interval of this column's GRanges.
-#	2L	The feature in this row is completely 
-#		contained in an interval of this column's 
-#		GRanges.
-classifyRegion = function(vcf, regions)
+# regions in the list regions.  Returns overlaps as a list of logical
+# Rle objects, with each list member corresponding to a region class 
+# in the regions list, and each item of each Rle vector corresponding
+# to a variant in vcf.  The Rle elements are TRUE if the given variant
+# overlaps any element in the given range, else FALSE.  The degree of
+# overlap that is required for a TRUE overlap value is controlled by
+# mode.  mode is a named vector of strings, with names corresponding
+# to the region classes (names(mode) == names(regions)), and values of
+# either "All" or "Any".  If "All", a variant is only called true if
+# every one of its bases overlaps at least one range in regions; if
+# "Any", a variant is called true if any base overlaps at least one
+# range in regions.
+classifyRegionOverlapVcf = function(vcf, regions, mode)
 {
-	result = matrix(NA, nrow = length(rowData(vcf)), ncol = length(regions))
-	colnames(result) = names(regions)
-	rownames(result) = names(rowData(vcf))
+	stopifnot(all(sort(names(mode)) == sort(names(regions))))
+	stopifnot(all(mode %in% c("Any", "All")))
 
+	# This is required to ensure that region_mode = "All" works, as
+	# it falsely fails if overlapping or abutting regions are present.
 	regions = lapply(regions, reduce)
 
-	for (region_name in names(regions))
-	{
-		overlap_full = overlapsAny(rowData(vcf), regions[[region_name]], maxgap = 0L, minoverlap = 1L, type = "within", ignore.strand = TRUE)
-		overlap_any = overlapsAny(rowData(vcf), regions[[region_name]], maxgap = 0L, minoverlap = 1L, type = "any", ignore.strand = TRUE)
-		overlap_partial = overlap_any & !overlap_full
-		overlap_none = !overlap_any
-		result[overlap_none, region_name] = 0L
-		result[overlap_partial, region_name] = 1L
-		result[overlap_full, region_name] = 2L
-	}
-
-	result
+	sapply(names(regions), function(region_name) {
+		this_region_granges = regions[[region_name]]
+		this_region_mode = mode[region_name]
+		if (this_region_mode == "Any")
+			return(Rle(overlapsAny(rowData(vcf), regions[[region_name]], maxgap = 0L, minoverlap = 1L, type = "any", ignore.strand = TRUE)))
+		else
+			return(Rle(overlapsAny(rowData(vcf), regions[[region_name]], maxgap = 0L, minoverlap = 1L, type = "within", ignore.strand = TRUE)))
+	}, simplify = FALSE, USE.NAMES = TRUE)
 }
 
 
-simplifyRegionClass = function(region_classes, min_overlap_levels)
+classifyRegionOverlap = function(vcfs, regions, mode)
 {
-	t(t(region_classes) >= min_overlap_levels[colnames(region_classes)])
+	swapListOrder(lapply(vcfs, classifyRegionOverlapVcf, regions = regions, mode = mode))
 }
 
 
-getMutationSize = function(vcf)
+
+classifyMutationSize = function(vcfs)
+{
+	swapListOrder(lapply(vcfs, classifyMutationSizeVcf))
+}
+
+
+classifyMutationSizeVcf = function(vcf)
+{
+	size = getMutationSizeVcf(vcf)
+	list(
+		"[01,02)" = Rle(size == 1 & !is.na(size)),
+		"[02,06)" = Rle(size >= 2 & size < 6 & !is.na(size)),
+		"[06,11)" = Rle(size >= 6 & size < 11 & !is.na(size)),
+		"[11,21)" = Rle(size >= 11 & size < 21 & !is.na(size)),
+		"[21,inf)" = Rle(size >= 21 & !is.na(size)),
+		"NA" = Rle(is.na(size)))
+}
+
+
+getMutationSizeVcf = function(vcf)
 {
 	# Return the 'size' of the mutation.
 	# For SNVs, this is always 1
@@ -256,21 +300,8 @@ getMutationSize = function(vcf)
 }
 
 
-classifyMutationSize = function(size)
-{
-	result = as.data.frame(matrix(NA, nrow = length(size), ncol = 6))
-	colnames(result) = c("[01,02)", "[02,06)", "[06,11)", "[11,21)", "[21,inf)", "NA")
-	result[,"[01,02)"] = size == 1 & !is.na(size)
-	result[,"[02,06)"] = size >= 2 & size < 6 & !is.na(size)
-	result[,"[06,11)"] = size >= 6 & size < 11 & !is.na(size)
-	result[,"[11,21)"] = size >= 11 & size < 21 & !is.na(size)
-	result[,"[21,inf)"] = size >= 21 & !is.na(size)
-	result[,"NA"] = is.na(size)
-	result
-}
 
-
-
+# TODO: Update this doc to match the new class storage format.
 # Subset the variant classes in class to just those variants for which
 # subset is TRUE, and return as a list.  class must be a list 
 # containing members "tp", "fp", and "fn"; each of these in turn is a 
@@ -287,15 +318,26 @@ classifyMutationSize = function(size)
 # it is missing, then result$tn is set to zero for all classes.
 subsetClass = function(class, subset, tn = NULL)
 {
-	result = list(
-		tp = sapply(names(class$tp), function(class_name) class$tp[[class_name]][subset$tp], USE.NAMES = TRUE),
-		fp = sapply(names(class$fp), function(class_name) class$fp[[class_name]][subset$fp], USE.NAMES = TRUE),
-		fn = sapply(names(class$fn), function(class_name) class$fn[[class_name]][subset$fn], USE.NAMES = TRUE))
+	class_group_names = names(class)
 
-	if (is.null(tn))
-		tn = sapply(names(class$tp), function(class_name) Rle(), USE.NAMES = TRUE)
+	result = sapply(class_group_names, function(class_group_name) {
+		sapply(names(class[[class_group_name]]), function(call_type_name) {
+			stopifnot(length(class[[class_group_name]][[call_type_name]]) == length(subset[[call_type_name]]))
+			class[[class_group_name]][[call_type_name]][subset[[call_type_name]]]
+		}, simplify = FALSE, USE.NAMES = TRUE)
+	}, simplify = FALSE, USE.NAMES = TRUE)
 
-	result$tn = tn
+	for (i in names(result))
+	{
+		if (!("tn" %in% names(result[[i]])))
+		{
+			if (is.null(tn))
+				result[[i]]$tn = Rle()
+			else
+				result[[i]]$tn = tn[[i]]
+		}
+	}
+
 	result
 }
 
@@ -428,24 +470,21 @@ vcfPerf = function(data, field_access_func)
 }
 
 
-# Run vcfPerf on data, after subsetting it into groups defined
+# Run vcfPerf on calls, after subsetting it into groups defined
 # by subgroups.  subgroups is a list of lists, with each member
 # either being an Rle-logical vector of subgroup membership 
 # indicators, or a single numeric value containing the total count
 # of sites in the respective category.
-vcfPerfGrouped = function(data, field_access_func, subgroups)
+vcfPerfGrouped = function(calls, field_access_func, subgroups)
 {
-	group_names = unique(unlist(lapply(subgroups, names)))
-	result = lapply(group_names, function(subgroup_name) {
+	sapply(names(subgroups), function(subgroup_name) {
 		this_group_data = list(
-			vcf.tp = data$vcf.tp[subgroups$tp[[subgroup_name]]],
-			vcf.fp = data$vcf.fp[subgroups$fp[[subgroup_name]]],
-			n.fn = sum(subgroups$fn[[subgroup_name]]),
-			n.tn = sum(subgroups$tn[[subgroup_name]]))
+			vcf.tp = calls$vcf.tp[subgroups[[subgroup_name]]$tp],
+			vcf.fp = calls$vcf.fp[subgroups[[subgroup_name]]$fp],
+			n.fn = sum(subgroups[[subgroup_name]]$fn),
+			n.tn = sum(subgroups[[subgroup_name]]$tn))
 		vcfPerf(this_group_data, field_access_func)
-	})
-	names(result) = group_names
-	result
+	}, simplify = FALSE, USE.NAMES = TRUE)
 }
 
 
@@ -541,15 +580,13 @@ createROCData = function(perf, type.fp = c("rate", "count"), type.tp = c("rate",
 # a ROC curve, with the upper level determining curve colour, and the
 # lower level curve line type.
 #
-# ROCs may use either total number, or rate, of true positives and
-# false positives, as axes.  This is controlled independently by the
-# type.fp and type.tp parameters.
-plotROC = function(perf, type.fp = c("rate", "count"), type.tp = c("rate", "count"))
+# ROCs may use either total number, or rate, of false positives; this 
+# is controlled independently type.fp parameter.
+plotROC = function(perf, type.fp = c("rate", "count"), facet = c())
 {
-	type.tp = match.arg(type.tp)
 	type.fp = match.arg(type.fp)
 
-	ROCData = createROCData(perf, type.fp, type.tp)
+	ROCData = createROCData(perf, type.fp)
 
 	case = ROCData$case
 	plotData = ROCData$data
@@ -557,26 +594,48 @@ plotROC = function(perf, type.fp = c("rate", "count"), type.tp = c("rate", "coun
 	if (case == "A")
 		plot = ggplot(plotData, aes(x = FP, y = TP))
 	else if (case == "B")
-		plot = ggplot(plotData, aes(x = FP, y = TP, colour = group1))
+	{
+		if (1 %in% facet)
+			plot = ggplot(plotData, aes(x = FP, y = TP)) + facet_wrap(~ group1, scales = ifelse(type.fp == "rate", "fixed", "free_x"))
+		else
+			plot = ggplot(plotData, aes(x = FP, y = TP, colour = group1))
+	}
 	else if (case == "C")
-		plot = ggplot(plotData, aes(x = FP, y = TP, colour = group1, linetype = group2))
+	{
+		if (1 %in% facet)
+		{
+			if (2 %in% facet)
+				plot = ggplot(plotData, aes(x = FP, y = TP)) + facet_grid(group1 ~ group2, scales = ifelse(type.fp == "rate", "fixed", "free_x"))
+			else
+				plot = ggplot(plotData, aes(x = FP, y = TP, linetype = group2)) + facet_wrap(~ group1, scales = ifelse(type.fp == "rate", "fixed", "free_x"))
+		}
+		else
+		{
+			if (2 %in% facet)
+				plot = ggplot(plotData, aes(x = FP, y = TP, colour = group1)) + facet_wrap(~ group2, scales = ifelse(type.fp == "rate", "fixed", "free_x"))
+			else
+				plot = ggplot(plotData, aes(x = FP, y = TP, colour = group1, linetype = group2))
+		}
+	}
 	else
 		stop("Assertion Error: execution should not have reached this point.  Check plotROC case logic.")
 
+# 	plot = plot + geom_path() + coord_trans(xtrans = rescale_none, ytrans = rescale_none)
  	plot = plot + geom_path()
 
-	if (type.tp == "rate")
-		plot = plot + ylim(0, 1) + ylab("True positive rate")
-	else
-		plot = plot + ylab("True positive count")
+	plot = plot + ylim(0, 1) + ylab("True positive rate")
 
 	if (type.fp == "rate")
-		plot = plot + xlim(0, 1) + xlab("False positive rate")
+		plot = plot + xlim(0, 1) + xlab("False positive rate") + coord_fixed() + geom_abline(intercept = 0, slope = 1, linetype = "dotted", alpha = 0.5)
 	else
 		plot = plot + xlab("False positive count")
-	
-	if (type.tp == "rate" && type.fp == "rate")
-		plot = plot + coord_fixed() + geom_abline(intercept = 0, slope = 1, linetype = "dotted", alpha = 0.5)
 
 	plot
+}
+
+
+calcSensSpecAtCutoff = function(perf, cutoff)
+{
+	sel = which.max(perf$cutoff * (perf$cutoff <= cutoff))
+	list(sens = perf$tp[sel] / (perf$tp[sel] + perf$fn[sel]), spec = perf$tn[sel] / (perf$tn[sel] + perf$fp[sel]), nfp = perf$fp[sel])
 }

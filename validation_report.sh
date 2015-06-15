@@ -2,6 +2,11 @@
 set -e
 
 #####################################################################
+# VERSION
+#####################################################################
+VERSION="20150615-1"
+
+#####################################################################
 # SOFTWARE AND DATA LOCATIONS
 #####################################################################
 # Head location for resources bundle
@@ -26,7 +31,7 @@ REFERENCE_BSGENOME="BSgenome.HSapiens.1000g.37d5"		# This is a custom package, a
 
 # Scratch space location (default; this is also set by a command
 # line option, to allow rudimentary restarting of runs)
-SCRATCH=$(mktemp -d --tmpdir=/directflow/ClinicalGenomicsPipeline/tmp valrept.XXXXXXXXXX)
+SCRATCH_DEFAULT="/directflow/ClinicalGenomicsPipeline/tmp"
 
 EXEC_DIR=$(pwd)
 
@@ -61,7 +66,7 @@ Create a WGS validation report.
                  every invocation.
     -h           Display this help and exit.
 
-v20150613-1
+Version ${VERSION}
 
 Mark Pinese
 EOF
@@ -74,6 +79,7 @@ debug_chrom="-"
 noninteractive=0
 output_pdf_path="${EXEC_DIR}/report.pdf"
 resume=0
+temp_supplied=0
 
 while getopts "d:o:t:hfr" opt; do
 	case "$opt" in
@@ -92,6 +98,7 @@ while getopts "d:o:t:hfr" opt; do
 			noninteractive=1
 			;;
 		t)
+			temp_supplied=1
 			SCRATCH=$OPTARG
 			;;
 		r)
@@ -143,6 +150,10 @@ if [ -e ${output_pdf_path} ]; then
 	fi
 fi
 
+if [ ${temp_supplied} -eq 0 ]; then
+	SCRATCH=$(mktemp -d --tmpdir=${SCRATCH_DEFAULT} valrept.XXXXXXXXXX)
+fi
+
 RTG_OVERLAP_SCRATCH="${SCRATCH}/overlap"
 KNITR_SCRATCH="${SCRATCH}/knitr"
 
@@ -180,6 +191,8 @@ if [ $debug -eq 1 ]; then
 	echo -e "\033[1;36m  SCRATCH=                          \"${SCRATCH}\"\033[0m"
 	echo -e "\033[1;36m  RTG_OVERLAP_SCRATCH=              \"${RTG_OVERLAP_SCRATCH}\"\033[0m"
 	echo -e "\033[1;36m  KNITR_SCRATCH=                    \"${KNITR_SCRATCH}\"\033[0m"
+	echo
+	echo -e "\033[1;36m  VERSION=                          \"${VERSION}\"\033[0m"
 fi
 
 
@@ -225,8 +238,8 @@ fi
 #   TP for which FILT != PASS  -->  FN
 #   FP for which FILT != PASS  -->  TN
 #   FN for which FILT != PASS  -->  FN (no change)
-if [ ${resume} -eq 0 ] || [ ! -e ${RTG_OVERLAP_SCRATCH}/tp.vcf.gz ] || [ ! -e ${RTG_OVERLAP_SCRATCH}/fp.vcf.gz ] || [ ! -e ${RTG_OVERLAP_SCRATCH}/fn.vcf.gz ] || [ ! -e ${RTG_OVERLAP_SCRATCH}/tp-baseline.vcf.gz ]; then
-	${RTG_VCFEVAL} --all-records --baseline-tp -b ${GOLD_CALLS_VCFGZ} -c ${input_vcfgz_path} -t ${REFERENCE_SDF} -o ${RTG_OVERLAP_SCRATCH} > /dev/null 2>&1
+if [ ${resume} -eq 0 ] || [ ! -e ${RTG_OVERLAP_SCRATCH}/tp.vcf.gz ] || [ ! -e ${RTG_OVERLAP_SCRATCH}/fp.vcf.gz ] || [ ! -e ${RTG_OVERLAP_SCRATCH}/fn.vcf.gz ]; then
+	${RTG_VCFEVAL} --all-records -b ${GOLD_CALLS_VCFGZ} -c ${input_vcfgz_path} -t ${REFERENCE_SDF} -o ${RTG_OVERLAP_SCRATCH} > /dev/null 2>&1
 elif [ ${resume} -eq 1 ]; then
 	echo -e "\033[0;32mOverlap output files found and resume flag set; not recomputing.\033[0m"
 fi
@@ -234,12 +247,6 @@ fi
 # TODO: Parse ${RTG_OVERLAP_SCRATCH}/vcfeval.log to identify regions to exclude
 # eg Evaluation too complex (5001 unresolved paths, 18033 iterations) at reference region 2:105849275-105849281. Variants in this region will not be included in results.
 # This will be required to remove the TNs in this region, but it's polish.
-
-# What about eg:
-# Reference sequence Y is declared in calls but not declared in baseline (variants will be treated as FP).
-# Can I trust that the subsetting in R will remove these guys completely from consideration?
-# It would be nice to keep everything in R for this, otherwise the reporting
-# of filtering will get messy, but obviously only if it yields valid numbers.
 
 
 #####################################################################
@@ -262,7 +269,7 @@ cd ${KNITR_SCRATCH}
 # Ensure that git branch and execution host names can not be under
 # malicious control.
 if [ ${resume} -eq 0 ] || [ ! -e report_data.rda ]; then
-	${RSCRIPT} --vanilla report_calculations.R ${debug} ${debug_chrom} ${input_vcfgz_path} ${RTG_OVERLAP_SCRATCH}/tp.vcf.gz ${RTG_OVERLAP_SCRATCH}/tp-baseline.vcf.gz ${RTG_OVERLAP_SCRATCH}/fp.vcf.gz ${RTG_OVERLAP_SCRATCH}/fn.vcf.gz ${GOLD_CALLS_VCFGZ} ${REFERENCE_BSGENOME} ${GOLD_HARDMASK_VALID_REGIONS_BEDGZ} ${FUNCTIONAL_REGIONS_BEDGZ_PREFIX} ${MASK_REGIONS_BEDGZ_PREFIX} "${VERSION_GIT_BRANCH}" "${VERSION_GIT_COMMIT}" "'""${VERSION_EXEC_HOST}""'"
+	${RSCRIPT} --vanilla report_calculations.R ${debug} ${debug_chrom} ${input_vcfgz_path} ${RTG_OVERLAP_SCRATCH}/tp.vcf.gz ${RTG_OVERLAP_SCRATCH}/fp.vcf.gz ${RTG_OVERLAP_SCRATCH}/fn.vcf.gz ${GOLD_CALLS_VCFGZ} ${REFERENCE_BSGENOME} ${GOLD_HARDMASK_VALID_REGIONS_BEDGZ} ${FUNCTIONAL_REGIONS_BEDGZ_PREFIX} ${MASK_REGIONS_BEDGZ_PREFIX} "'""${VERSION}""'" "${VERSION_GIT_BRANCH}" "${VERSION_GIT_COMMIT}" "'""${VERSION_EXEC_HOST}""'"
 elif [ ${resume} -eq 1 ]; then
 	echo -e "\033[0;32mReport calculation output files found and resume flag set; not recomputing.\033[0m"
 fi

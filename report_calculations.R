@@ -4,7 +4,7 @@
 #  
 #  Usage: 
 #    Rscript report_calculations.R <debugflag> <debugchrom>
-#      <input_vcf> <tp> <tp_baseline> <fp> <fn> <gold_vcf> <genome> 
+#      <input_vcf> <tp> <fp> <fn> <gold_vcf> <genome> 
 #      <gold_regions> <func_regions> <mask_regions> <ver_branch> 
 #      <ver_commit> <ver_host>
 #  
@@ -15,8 +15,6 @@
 #                   If not in debug mode, this value is ignored.
 #    input_vcf      Path the the input VCF (can be .vcf or .vcf.gz)
 #    tp, fp, fn     Paths to the overlap files output by vcfeval
-#    tp_baseline    Path to the tp overlap file with baseline 
-#                   annotations.
 #    gold_vcf       Path to the gold-standard VCF (can be .vcf or 
 #                   .vcf.gz)
 #    genome         Genome label, as used by the VariantAnnotation
@@ -43,43 +41,21 @@ source("report_functions.R")
 argv = commandArgs(TRUE)
 if (length(argv) != 15)
 {
-    stop(sprintf("Usage: Rscript report_calculations.R <debugflag> <debugchrom> <input_vcf> <tp> <tp_baseline> <fp> <fn> <gold_vcf> <genome> <gold_regions> <func_regions> <mask_regions> <ver_branch> <ver_commit> <ver_host>\nargv = %s", paste(argv, sep = " ")))
+    stop(sprintf("Usage: Rscript report_calculations.R <debugflag> <debugchrom> <input_vcf> <tp> <fp> <fn> <gold_vcf> <genome> <gold_regions> <func_regions> <mask_regions> <ver_script> <ver_branch> <ver_commit> <ver_host>\nargv = %s", paste(argv, sep = " ")))
 }
 
 DEBUG = argv[1] == "1"
 DEBUG.chrom = argv[2]
 path.input = argv[3]
 path.tp = argv[4]
-path.tp.baseline = argv[5]
-path.fp = argv[6]
-path.fn = argv[7]
-path.gold = argv[8]
-genome = argv[9]
-path.gold_regions = argv[10]
-path.function_regions_prefix = argv[11]
-path.mask_regions_prefix = argv[12]
-versions = list(branch = argv[13], commit = argv[14], host = argv[15])
-
-
-#####################################################################
-# DEBUG SETTINGS -- REMOVE FOR PRODUCTION
-    # source("~/repos/validation-reporter/report_functions.R")
-    # argv = "None -- debug settings used"
-    # DEBUG = TRUE
-    # DEBUG.chrom = "13"
-    # path.input = "/directflow/ClinicalGenomicsPipeline/projects/validation-reporter/resources/test_data/HiSeqX_v2_TKCC/calls.vcf.gz"
-    # path.tp = "/directflow/ClinicalGenomicsPipeline/tmp/valrept.UONTBAfcgH/overlap/tp.vcf.gz"
-    # path.fp = "/directflow/ClinicalGenomicsPipeline/tmp/valrept.UONTBAfcgH/overlap/fp.vcf.gz"
-    # path.fn = "/directflow/ClinicalGenomicsPipeline/tmp/valrept.UONTBAfcgH/overlap/fn.vcf.gz"
-    # path.tp.baseline = "/directflow/ClinicalGenomicsPipeline/tmp/valrept.UONTBAfcgH/overlap/tp-baseline.vcf.gz"
-    # path.gold = "/directflow/ClinicalGenomicsPipeline/projects/validation-reporter/resources/gold_standard/calls.vcf.gz"
-    # genome = "BSgenome.HSapiens.1000g.37d5"
-    # path.gold_regions = "/directflow/ClinicalGenomicsPipeline/projects/validation-reporter/resources/gold_standard/valid_regions.bed.gz"
-    # path.function_regions_prefix = "/directflow/ClinicalGenomicsPipeline/projects/validation-reporter/resources/functional_regions/"
-    # path.mask_regions_prefix = "/directflow/ClinicalGenomicsPipeline/projects/validation-reporter/resources/mask_regions/"
-    # versions = list(branch = "feat-subsetvariants", commit = "90e89bba08e299dec789b91b2b44f340935d2e69", host = "Linux gamma02.local 2.6.32-504.8.1.el6.x86_64 #1 SMP Wed Jan 28 21:11:36 UTC 2015 x86_64 x86_64 x86_64 GNU/Linux")
-# END DEBUG SETTINGS
-#####################################################################
+path.fp = argv[5]
+path.fn = argv[6]
+path.gold = argv[7]
+genome = argv[8]
+path.gold_regions = argv[9]
+path.function_regions_prefix = argv[10]
+path.mask_regions_prefix = argv[11]
+versions = list(script = argv[12], branch = argv[13], commit = argv[14], host = argv[15])
 
 
 if (DEBUG)
@@ -96,6 +72,7 @@ if (DEBUG)
     message(sprintf("  path.function_regions_prefix: %s", path.function_regions_prefix))
     message(sprintf("  path.mask_regions_prefix:     %s", path.mask_regions_prefix))
     message(        "  versions:")
+    message(sprintf("    script:          %s", versions$script))
     message(sprintf("    branch:          %s", versions$branch))
     message(sprintf("    commit:          %s", versions$commit))
     message(sprintf("    host:            %s", versions$host))
@@ -131,7 +108,7 @@ genome(genome.seqinfo) = genome     # To get around disagreement
 #   ##GATKCommandLine=<ID=ApplyRecalibration, ...
 # lines.  TODO: Consider tweaking the front-end so that these entries
 # are de-duplicated.  Then, the suppressWarnings calls can be 
-# removed here, and genuine file read errors will be caught.
+# removed here, and genuine file read warnings will be caught.
 if (DEBUG)
 {
     temp = as.data.frame(seqinfo(genome.bsgenome))
@@ -145,10 +122,11 @@ if (DEBUG)
 calls = list(
     tp = suppressWarnings(readVcf(TabixFile(path.tp), genome, vcf.scan_param.called)),
     fp = suppressWarnings(readVcf(TabixFile(path.fp), genome, vcf.scan_param.called)),
-    fn = suppressWarnings(readVcf(TabixFile(path.fn), genome, vcf.scan_param.uncalled)),
-    tp.baseline = suppressWarnings(readVcf(TabixFile(path.tp.baseline), genome, vcf.scan_param.uncalled)))
+    fn = suppressWarnings(readVcf(TabixFile(path.fn), genome, vcf.scan_param.uncalled)))
 
-# Simple data sanity check
+
+# Simple data sanity check: do the vcfs 
+# have the same sample name?
 temp.sample.tp = header(calls$tp)@samples
 temp.sample.fp = header(calls$fp)@samples
 stopifnot(temp.sample.tp == temp.sample.fp)
@@ -165,11 +143,11 @@ calls$gold = suppressWarnings(readVcf(TabixFile(path.gold), genome, vcf.scan_par
 regions = list(
     gold = list(callable = bed2GRanges(path.gold_regions, genome.seqinfo)),             # Gold standard valid call regions
     mask = readMaskRegions(path.mask_regions_prefix, genome.seqinfo),                   # Masking beds
-    functional = readFunctionalRegions(path.function_regions_prefix, genome.seqinfo)    # 'Function classes' of the genome
-    genome = GRanges(                                                                   # The whole genome, for set ops.
+    functional = readFunctionalRegions(path.function_regions_prefix, genome.seqinfo),   # 'Function classes' of the genome
+    genome = list(genome = GRanges(                                                     # The whole genome, for set ops.
         seqnames = seqnames(genome.seqinfo), 
         ranges = IRanges(1, seqlengths(genome.seqinfo)), 
-        strand = "*", seqinfo = genome.seqinfo)
+        strand = "*", seqinfo = genome.seqinfo))
 )
 
 # Create a new function class, of coding +/- 10 bp
@@ -179,141 +157,85 @@ regions$functional$coding_10 = suppressWarnings(trim(reduce(
         trim(flank(regions$functional$coding, 10, start = TRUE)), ignore.strand = TRUE), 
         trim(flank(regions$functional$coding, 10, start = FALSE)), ignore.strand = TRUE))))
 
-# And a new mask class, of "unmasked"
-regions$mask$unmasked = setdiff(regions$genome, reduce(union(union(regions$mask$ambiguous, regions$mask$low_complexity), regions$mask$repetitive)))
-
+# And new mask classes, of "unmasked" and "not gold standard callable"
+regions$mask$unmasked = setdiff(regions$genome$genome, reduce(union(union(regions$mask$ambiguous, regions$mask$low_complexity), regions$mask$repetitive)))
+regions$gold$notcallable = setdiff(regions$genome$genome, regions$gold$callable)
 
 # If we're debugging (chr DEBUG.chrom only), subset all regions to just this area
 if (DEBUG)
 {
-    regions$gold = lapply(regions$gold, function(x) intersect(x, DEBUG.region))
-    regions$mask = lapply(regions$mask, function(x) intersect(x, DEBUG.region))
-    regions$functional = lapply(regions$functional, function(x) intersect(x, DEBUG.region))
+    regions = lapply(regions, function(region_class) lapply(region_class, function(region) intersect(region, DEBUG.region)))
 }
-
 
 
 #####################################################################
 # CLASSIFY CALLS
 #####################################################################
-class = list()
 
-# By gold standard zygosity
-class$zyg = list(
-    tp = simplifyZygosityClass(classifyZygosity(calls$tp.baseline)),        # This works as data.tp and data.tp.baseline have identical entries, in the same order
-    fn = simplifyZygosityClass(classifyZygosity(calls$fn)),
-    fp = simplifyZygosityClass(classifyZygosity(calls$fp)))
+class = list(
+    zyg = classifyZygosity(calls),          # By zygosity
+    somy = classifySomy(calls),             # By somy
+    muttype = classifyMutationType(calls),  # By mutation type: SNV, InsDelSubst, other
+    mutsize = classifyMutationSize(calls),  # By mutation 'size' (see getMutationSizeVcf for the definition of size in this context)
 
+    # By presence / absence in the gold standard callable regions
+    goldcall = classifyRegionOverlap(calls, regions$gold, c("callable" = "All", "notcallable" = "Any")),
+    
+    # By sequence function (coding exonic, splice, intronic, UTR, intergenic).
+    # Use region BEDs that have been independently derived using the 
+    # utils/makeGenomeRegions scripts.
+    functional = classifyRegionOverlap(calls, regions$functional, c("coding" = "Any", "coding_10" = "Any", "genic" = "Any", "splice" = "Any", "intronic" = "All", "utr" = "All", "intergenic" = "All")),
 
-# By somy
-class$somy = list(
-    tp = classifySomy(calls$tp.baseline),   # Note the use of baseline here
-    fn = classifySomy(calls$fn),
-    fp = classifySomy(calls$fp))
-
-
-# By presence / absence in the gold standard callable regions
-class$goldcall = lapply(calls, function(.calls) simplifyRegionClass(classifyRegion(.calls, regions$gold), 
-    c("callable" = 2)))
-class$goldcall = lapply(class$goldcall, function(x) cbind(x, "not_callable" = !x[,"callable"]))
-
-# table(class$goldcall$tp[,1])
-# table(class$goldcall$fp[,1])
-# table(class$goldcall$fn[,1])
+    # By masking status
+    mask = classifyRegionOverlap(calls, regions$mask, c("ambiguous" = "Any", "low_complexity" = "Any", "repetitive" = "Any", "unmasked" = "All"))
+)
 
 
-# By sequence function (coding exonic, splice, intronic, UTR, intergenic)
-# Although we have VEP calls for TP and FP, this will make some of the
-# validation dependent on the pipeline classifications, which is taboo.
-# To get around this problem, use fixed genome region BEDs, which have
-# been independently derived using the utils/makeGenomeRegions scripts.
-class$functional = lapply(calls, function(.calls) simplifyRegionClass(classifyRegion(.calls, regions$functional), 
-    c("coding" = 1, "coding_10" = 1, "genic" = 1, "splice" = 1, "intronic" = 2, "utr" = 2, "intergenic" = 2)))
+# There is a bit of subtlety in this.  Some classes (zygosity, muttype,
+# and mutsize), are based on the properties of the mutation, as given
+# in the gold standard.  However, in the case of FP or FN calls, 
+# these properties may be wrong, as they are based on a known 
+# incorrect call.  To resolve this, we manually go back and set these
+# calls to the correct values from the gold standard.  For the majority 
+# of classes -- anything based on regions or reference sequence 
+# properties -- this correction is not necessary, as these classes are 
+# based on data that are not affected by an incorrect call.
+
+# FP is always genotype RR, in truth, and so belongs in all three classes:
+class$zyg$RRvsRA$fp = class$zyg$RRvsRA$fp | TRUE
+class$zyg$RRvsAA$fp = class$zyg$RRvsAA$fp | TRUE
+class$zyg$RRvsAB$fp = class$zyg$RRvsAB$fp | TRUE
+
+# Mutation type fixes do not need to be performed, provided we remain
+# aware of what we're doing:
+# As for zygosity, TPs, TNs, and FNs need no correction.  FPs we leave 
+# alone, so that they reflect the mutation type of the *called* mutation, 
+# even though it was incorrect.  This gives an indication on the tendency 
+# of FP calls to be one type of mutation over another.
+
+# Likewise, we leave the mutation size classes alone.  These decisions
+# become important when interpreting the final ROCs.
 
 
-# By masking status
-class$mask = lapply(calls, function(.calls) simplifyRegionClass(classifyRegion(.calls, regions$mask), c("ambiguous" = 1, "low_complexity" = 1, "repetitive" = 1)))
-
-
-# By type: SNV, insertion, deletion, other
-# Note a nuance here: tp and fn are based on the baseline alt allele, 
-# whereas fp is based on the called alt allele.  This is only relevant
-# in the fn vs fp case, as the tps will be the same between both 
-# baseline and the test calls.
-class$muttype = list(
-    tp = classifyMutationType(calls$tp.baseline),       # Based on baseline (though *should* be the same for actual calls)
-    fp = classifyMutationType(calls$fp),                # Based on calls
-    fn = classifyMutationType(calls$fn))                # Based on baseline
-
-# The following may be an interesting diagnostic:
-# table(data.frame(
-#   CallType = rep(c("TP", "FN", "FP"), c(length(class.muttype$tp), length(class.muttype$fn), length(class.muttype$fp))), 
-#   MutType = c(as.character(class.muttype$tp), as.character(class.muttype$fn), as.character(class.muttype$fp))))
-# It indicates that TPs are predominantly SNVs.  FP is enriched for
-# indels (particularly deletions), and FN for both classes of indels.
-
-
-# By the 'size' of mutation (see getMutationSize for a definition of 
-# size in this context).  As for muttype, measures slightly different 
-# quantities in the fn and fp groups.
-class$mutsize = list(
-    tp = classifyMutationSize(getMutationSize(calls$tp.baseline)),
-    fp = classifyMutationSize(getMutationSize(calls$fp)),
-    fn = classifyMutationSize(getMutationSize(calls$fn)))
-
+# Basic consistency check: ensure all class vectors match the length 
+# of the corresponding call vcf.
+for (temp.i in class)
+{
+    for (temp.j in temp.i)
+    {
+        for (temp.k in names(temp.j))
+            stopifnot(length(temp.j[[temp.k]]) == nrow(calls[[temp.k]]))
+    }
+}
 
 
 #####################################################################
-# COMPRESS CALL CLASSES
-#####################################################################
-# The class list gets pretty big.  Compress it.  As part of this,
-# unfortunately, the type of the class data changes, from
-#   list(list(data.frame(logical vector)))
-# to
-#   list(list(list(Rle)))
-# TODO: Re-engineer the above classification functions to return
-# their results in list(list(list(vector))) or list(list(list(Rle)))
-# form, so that pre-compressed and post-compressed data have a 
-# similar method of access.
-class = lapply(class, function(type) lapply(type, function(perf_categ) apply(perf_categ, 2, Rle)))
-
-
-# FYI for the following section: VariantAnnotation mutation classes:
-# 
-# • isSNV: Reference and alternate alleles are both a single
-#   nucleotide long.
-# 
-# • isInsertion: Reference allele is a single nucleotide and the
-#   alternate allele is greater (longer) than a single nucleotide
-#   and the first nucleotide of the alternate allele matches the
-#   reference.
-# 
-# • isDeletion: Alternate allele is a single nucleotide and the
-#   reference allele is greater (longer) than a single nucleotide
-#   and the first nucleotide of the reference allele matches the
-#   alternate.
-# 
-# • isIndel: The variant is either a deletion or insertion as
-#   determined by ‘isDeletion’ and ‘isInsertion’.
-# 
-# • isSubstition: Reference and alternate alleles are the same
-#   length (1 or more nucleotides long).
-# 
-# • isTransition: Reference and alternate alleles are both a
-#   single nucleotide long.  The reference-alternate pair
-#   interchange is of either two-ring purines (A <-> G) or
-#   one-ring pyrimidines (C <-> T).
-
-
-#####################################################################
-# SNV METRIC COMPARISON AND CUTOFF DETERMINATION: CODING_10 REGIONS
+# SNV METRIC COMPARISON AND CUTOFF DETERMINATION: GOLD CALLABLE REGIONS
 #####################################################################
 # Subset to SNVs in gold-callable regions
 # NOTE: subset.snv.regions, and subset.snv, MUST MATCH
-# subset.snv.regions = intersect(regions$gold$callable, regions$functional$coding_10)
-# subset.snv = sapply(names(calls), function(name) isSNV(calls[[name]]) & class$goldcall[[name]][["callable"]] & class$functional[[name]][["coding_10"]], simplify = FALSE, USE.NAMES = TRUE)
 subset.snv.regions = regions$gold$callable
-subset.snv = sapply(names(calls), function(name) isSNV(calls[[name]]) & class$goldcall[[name]][["callable"]], simplify = FALSE, USE.NAMES = TRUE)
+subset.snv = sapply(names(calls), function(name) class$muttype$SNV[[name]] & class$goldcall$callable[[name]], simplify = FALSE, USE.NAMES = TRUE)
 
 calls.snv = sapply(names(calls), function(name) calls[[name]][subset.snv[[name]]], simplify = FALSE, USE.NAMES = TRUE)
 
@@ -332,10 +254,10 @@ count.snv.tn = sum(as.numeric(width(calls.snv$tn)))
 # Calculate performance for various scores, across all
 # SNVs.  Later we will also subset by zygosity, and 
 # sequence context, to see if certain scores perform
-# better in certain contexts.  Globally, we are also
-# going to perform this analysis on indels, and complex
-# variants, again examining the performance of different
-# scores on different variant types.
+# better in certain contexts.  Later, we will also
+# perform this analysis on indels, and complex variants, 
+# again examining the performance of different scores 
+# on different variant types.
 perf.snv = list()
 perfdata.snv = list(vcf.tp = calls.snv$tp, vcf.fp = calls.snv$fp, n.fn = count.snv.fn, n.tn = count.snv.tn)
 
@@ -369,6 +291,11 @@ perf.snv$all2 = list(
 # Subset by zygosity
 # TNs belong in all three zygosity classes, as they are always of genotype RR.
 class.snv.zyg = subsetClass(class$zyg, subset.snv, tn = list(RRvsAA = count.snv.tn, RRvsRA = count.snv.tn, RRvsAB = count.snv.tn))
+# Basic checks for subsetClass
+stopifnot(all(class$zyg$RRvsRA$tp[subset.snv$tp] == class.snv.zyg$RRvsRA$tp))
+stopifnot(all(class$zyg$RRvsRA$fp[subset.snv$fp] == class.snv.zyg$RRvsRA$fp))
+stopifnot(all(class$zyg$RRvsAA$tp[subset.snv$tp] == class.snv.zyg$RRvsAA$tp))
+
 perf.snv$zyg = list(
     VQSLOD = vcfPerfGrouped(perfdata.snv, function(x) info(x)$VQSLOD, class.snv.zyg),
     QUAL = vcfPerfGrouped(perfdata.snv, function(x) rowData(x)$QUAL, class.snv.zyg),
@@ -399,14 +326,13 @@ perf.snv$mask = list(
 
 
 #####################################################################
-# INDEL AND SUBSTITUTION METRIC COMPARISON AND CUTOFF DETERMINATION: CODING_10 REGIONS
+# INDEL AND SUBSTITUTION METRIC COMPARISON AND CUTOFF DETERMINATION: GOLD CALLABLE REGIONS
 #####################################################################
 
 # Repeat the analysis performed in the SNV case, except this time subset to indels.
 # This time, there is no known TN background (and no practical universe of possible
 # mutations).
-#subset.indelsubst = sapply(names(calls), function(name) (isIndel(calls[[name]]) | isSubstitution(calls[[name]])) & class$goldcall[[name]][["callable"]] & class$functional[[name]][["coding_10"]], simplify = FALSE, USE.NAMES = TRUE)
-subset.indelsubst = sapply(names(calls), function(name) (isIndel(calls[[name]]) | isSubstitution(calls[[name]])) & class$goldcall[[name]][["callable"]], simplify = FALSE, USE.NAMES = TRUE)
+subset.indelsubst = sapply(names(calls), function(name) class$muttype$InsDelSubst[[name]] & class$goldcall$callable[[name]], simplify = FALSE, USE.NAMES = TRUE)
 
 calls.indelsubst = sapply(names(calls), function(name) calls[[name]][subset.indelsubst[[name]]], simplify = FALSE, USE.NAMES = TRUE)
 
@@ -450,6 +376,11 @@ perf.indelsubst$all2 = list(
 # Subset by zygosity
 # We can't count TNs in an indel context; just set to a null value
 class.indelsubst.zyg = subsetClass(class$zyg, subset.indelsubst, tn = NULL)
+# Basic checks for subsetClass
+stopifnot(all(class$zyg$RRvsRA$tp[subset.indelsubst$tp] == class.indelsubst.zyg$RRvsRA$tp))
+stopifnot(all(class$zyg$RRvsRA$fp[subset.indelsubst$fp] == class.indelsubst.zyg$RRvsRA$fp))
+stopifnot(all(class$zyg$RRvsAA$tp[subset.indelsubst$tp] == class.indelsubst.zyg$RRvsAA$tp))
+
 perf.indelsubst$zyg = list(
     VQSLOD = vcfPerfGrouped(perfdata.indelsubst, function(x) info(x)$VQSLOD, class.indelsubst.zyg),
     QUAL = vcfPerfGrouped(perfdata.indelsubst, function(x) rowData(x)$QUAL, class.indelsubst.zyg),
@@ -492,30 +423,114 @@ perf.indelsubst$mutsize = list(
 
 
 #####################################################################
-# COMBINED PERFORMANCE
+# ALL VARIANT METRIC COMPARISON AND CUTOFF DETERMINATION: GOLD CALLABLE REGIONS
 #####################################################################
 
-# data.all = list(vcf.tp = data.tp, vcf.fp = data.fp, n.fn = nrow(data.fn), n.tn = 0)
+# Repeat the analysis performed in the SNV case, except this time 
+# consider all variants.
+# As for indels, there is no known TN background (and no practical universe of possible
+# mutations).
+subset.all = sapply(names(calls), function(name) class$goldcall$callable[[name]], simplify = FALSE, USE.NAMES = TRUE)
 
-# class.all.zyg = list(tp = class.tp.zyg, fp = class.fp.zyg, fn = class.fn.zyg)
-# all.perf.zyg.VQSLOD = vcfPerfGrouped(data.all, function(x) info(x)$VQSLOD, class.all.zyg)
+calls.all = sapply(names(calls), function(name) calls[[name]][subset.all[[name]]], simplify = FALSE, USE.NAMES = TRUE)
 
-# class.all.somy = list(tp = class.tp.somy, fp = class.fp.somy, fn = class.fn.somy)
-# all.perf.somy.VQSLOD = vcfPerfGrouped(data.all, function(x) info(x)$VQSLOD, class.all.somy)
+count.all.fn = nrow(calls.all$fn)
 
-# class.all.function = list(tp = class.tp.function, fp = class.fp.function, fn = class.fn.function)
-# all.perf.function.VQSLOD = vcfPerfGrouped(data.all, function(x) info(x)$VQSLOD, class.all.function)
-
-# class.all.mask = list(tp = class.tp.mask, fp = class.fp.mask, fn = class.fn.mask)
-# all.perf.mask.VQSLOD = vcfPerfGrouped(data.all, function(x) info(x)$VQSLOD, class.all.mask)
-
-# class.all.muttype = list(tp = class.tp.muttype, fp = class.fp.muttype, fn = class.fn.muttype)
-# all.perf.muttype.VQSLOD = vcfPerfGrouped(data.all, function(x) info(x)$VQSLOD, class.all.muttype)
-
-# class.all.mutsize = list(tp = class.tp.mutsize, fp = class.fp.mutsize, fn = class.fn.mutsize)
-# all.perf.mutsize.VQSLOD = vcfPerfGrouped(data.all, function(x) info(x)$VQSLOD, class.all.mutsize)
+# Score performance.  Note that n.tn = 0, as there
+# is an infinite number of potential TN cases; setting n.tn to zero 
+# here effectively removes these events from consideration entirely,
+# and we will still have valid counts for TP, FP, and FN cases.
+perf.all = list()
+perfdata.all = list(vcf.tp = calls.all$tp, vcf.fp = calls.all$fp, n.fn = count.all.fn, n.tn = 0)
 
 
+perf.all$all = list(
+    VQSLOD = vcfPerf(perfdata.all, function(x) info(x)$VQSLOD),
+    QUAL = vcfPerf(perfdata.all, function(x) rowData(x)$QUAL),
+    GQ = vcfPerf(perfdata.all, function(x) geno(x)$GQ),
+    DP = vcfPerf(perfdata.all, function(x) info(x)$DP),
+    FILTER = vcfPerf(perfdata.all, function(x) (rowData(x)$FILTER == "PASS")*1),
+    "VQSLOD:FILTER" = vcfPerf(perfdata.all, function(x) info(x)$VQSLOD*(rowData(x)$FILTER == "PASS")),
+    "QUAL:FILTER" = vcfPerf(perfdata.all, function(x) rowData(x)$QUAL*(rowData(x)$FILTER == "PASS")),
+    "GQ:FILTER" = vcfPerf(perfdata.all, function(x) geno(x)$GQ*(rowData(x)$FILTER == "PASS")),
+    "DP:FILTER" = vcfPerf(perfdata.all, function(x) info(x)$DP*(rowData(x)$FILTER == "PASS")))
+
+perf.all$all2 = list(
+    VQSLOD = list(
+        no_filter = vcfPerf(perfdata.all, function(x) info(x)$VQSLOD), 
+        with_filter = vcfPerf(perfdata.all, function(x) info(x)$VQSLOD*(rowData(x)$FILTER == "PASS"))),
+    QUAL = list(
+        no_filter = vcfPerf(perfdata.all, function(x) rowData(x)$QUAL), 
+        with_filter = vcfPerf(perfdata.all, function(x) rowData(x)$QUAL*(rowData(x)$FILTER == "PASS"))),
+    GQ = list(
+        no_filter = vcfPerf(perfdata.all, function(x) geno(x)$GQ), 
+        with_filter = vcfPerf(perfdata.all, function(x) geno(x)$GQ*(rowData(x)$FILTER == "PASS"))),
+    DP = list(
+        no_filter = vcfPerf(perfdata.all, function(x) info(x)$DP), 
+        with_filter = vcfPerf(perfdata.all, function(x) info(x)$DP*(rowData(x)$FILTER == "PASS"))),
+    FILTER = list(
+        with_filter = vcfPerf(perfdata.all, function(x) (rowData(x)$FILTER == "PASS")*1)))
+
+# Subset by zygosity
+# We can't count TNs in an all variant context; just set to a null value
+class.all.zyg = subsetClass(class$zyg, subset.all, tn = NULL)
+# Basic checks for subsetClass
+stopifnot(all(class$zyg$RRvsRA$tp[subset.all$tp] == class.all.zyg$RRvsRA$tp))
+stopifnot(all(class$zyg$RRvsRA$fp[subset.all$fp] == class.all.zyg$RRvsRA$fp))
+stopifnot(all(class$zyg$RRvsAA$tp[subset.all$tp] == class.all.zyg$RRvsAA$tp))
+
+perf.all$zyg = list(
+    VQSLOD = vcfPerfGrouped(perfdata.all, function(x) info(x)$VQSLOD, class.all.zyg),
+    QUAL = vcfPerfGrouped(perfdata.all, function(x) rowData(x)$QUAL, class.all.zyg),
+    GQ = vcfPerfGrouped(perfdata.all, function(x) geno(x)$GQ, class.all.zyg),
+    DP = vcfPerfGrouped(perfdata.all, function(x) info(x)$DP, class.all.zyg),
+    FILTER = vcfPerfGrouped(perfdata.all, function(x) (rowData(x)$FILTER == "PASS")*1, class.all.zyg),
+    "VQSLOD:FILTER" = vcfPerfGrouped(perfdata.all, function(x) info(x)$VQSLOD*(rowData(x)$FILTER == "PASS"), class.all.zyg),
+    "QUAL:FILTER" = vcfPerfGrouped(perfdata.all, function(x) rowData(x)$QUAL*(rowData(x)$FILTER == "PASS"), class.all.zyg),
+    "GQ:FILTER" = vcfPerfGrouped(perfdata.all, function(x) geno(x)$GQ*(rowData(x)$FILTER == "PASS"), class.all.zyg),
+    "DP:FILTER" = vcfPerfGrouped(perfdata.all, function(x) info(x)$DP*(rowData(x)$FILTER == "PASS"), class.all.zyg))
+
+# And sequence context
+# Again, set tn = NULL
+class.all.mask = subsetClass(class$mask, subset.all, tn = NULL)
+perf.all$mask = list(
+    VQSLOD = vcfPerfGrouped(perfdata.all, function(x) info(x)$VQSLOD, class.all.mask),
+    QUAL = vcfPerfGrouped(perfdata.all, function(x) rowData(x)$QUAL, class.all.mask),
+    GQ = vcfPerfGrouped(perfdata.all, function(x) geno(x)$GQ, class.all.mask),
+    DP = vcfPerfGrouped(perfdata.all, function(x) info(x)$DP, class.all.mask),
+    FILTER = vcfPerfGrouped(perfdata.all, function(x) (rowData(x)$FILTER == "PASS")*1, class.all.mask),
+    "VQSLOD:FILTER" = vcfPerfGrouped(perfdata.all, function(x) info(x)$VQSLOD*(rowData(x)$FILTER == "PASS"), class.all.mask),
+    "QUAL:FILTER" = vcfPerfGrouped(perfdata.all, function(x) rowData(x)$QUAL*(rowData(x)$FILTER == "PASS"), class.all.mask),
+    "GQ:FILTER" = vcfPerfGrouped(perfdata.all, function(x) geno(x)$GQ*(rowData(x)$FILTER == "PASS"), class.all.mask),
+    "DP:FILTER" = vcfPerfGrouped(perfdata.all, function(x) info(x)$DP*(rowData(x)$FILTER == "PASS"), class.all.mask))
+
+# And mutation type
+# Again, set tn = NULL
+class.all.type = subsetClass(class$muttype, subset.all, tn = NULL)
+perf.all$muttype = list(
+    VQSLOD = vcfPerfGrouped(perfdata.all, function(x) info(x)$VQSLOD, class.all.type),
+    QUAL = vcfPerfGrouped(perfdata.all, function(x) rowData(x)$QUAL, class.all.type),
+    GQ = vcfPerfGrouped(perfdata.all, function(x) geno(x)$GQ, class.all.type),
+    DP = vcfPerfGrouped(perfdata.all, function(x) info(x)$DP, class.all.type),
+    FILTER = vcfPerfGrouped(perfdata.all, function(x) (rowData(x)$FILTER == "PASS")*1, class.all.type),
+    "VQSLOD:FILTER" = vcfPerfGrouped(perfdata.all, function(x) info(x)$VQSLOD*(rowData(x)$FILTER == "PASS"), class.all.type),
+    "QUAL:FILTER" = vcfPerfGrouped(perfdata.all, function(x) rowData(x)$QUAL*(rowData(x)$FILTER == "PASS"), class.all.type),
+    "GQ:FILTER" = vcfPerfGrouped(perfdata.all, function(x) geno(x)$GQ*(rowData(x)$FILTER == "PASS"), class.all.type),
+    "DP:FILTER" = vcfPerfGrouped(perfdata.all, function(x) info(x)$DP*(rowData(x)$FILTER == "PASS"), class.all.type))
+
+# And mutation size
+# Again, set tn = NULL
+class.all.size = subsetClass(class$mutsize, subset.all, tn = NULL)
+perf.all$mutsize = list(
+    VQSLOD = vcfPerfGrouped(perfdata.all, function(x) info(x)$VQSLOD, class.all.size),
+    QUAL = vcfPerfGrouped(perfdata.all, function(x) rowData(x)$QUAL, class.all.size),
+    GQ = vcfPerfGrouped(perfdata.all, function(x) geno(x)$GQ, class.all.size),
+    DP = vcfPerfGrouped(perfdata.all, function(x) info(x)$DP, class.all.size),
+    FILTER = vcfPerfGrouped(perfdata.all, function(x) (rowData(x)$FILTER == "PASS")*1, class.all.size),
+    "VQSLOD:FILTER" = vcfPerfGrouped(perfdata.all, function(x) info(x)$VQSLOD*(rowData(x)$FILTER == "PASS"), class.all.size),
+    "QUAL:FILTER" = vcfPerfGrouped(perfdata.all, function(x) rowData(x)$QUAL*(rowData(x)$FILTER == "PASS"), class.all.size),
+    "GQ:FILTER" = vcfPerfGrouped(perfdata.all, function(x) geno(x)$GQ*(rowData(x)$FILTER == "PASS"), class.all.size),
+    "DP:FILTER" = vcfPerfGrouped(perfdata.all, function(x) info(x)$DP*(rowData(x)$FILTER == "PASS"), class.all.size))
 
 
 
@@ -523,6 +538,12 @@ perf.indelsubst$mutsize = list(
 # SAVE RESULTS
 #####################################################################
 # For debugging: object sizes in GB
-sort(sapply(ls(), function(id) object.size(get(id)))) / 1024^3
+# sort(sapply(ls(), function(id) object.size(get(id)))) / 1024^3
+
+# Remove everything but the essential data required by the report.
+temp = NA
+temp = ls()
+temp = temp[!(grepl("^path\\.", temp) | temp %in% c("calls.sampleid", "versions", "DEBUG", "DEBUG.chrom", "genome") | grepl("^perf\\.", temp))]
+rm(list = temp)
 
 save.image("report_data.rda")

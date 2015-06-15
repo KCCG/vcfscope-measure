@@ -10,12 +10,17 @@
 %  
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-\documentclass{article}
+\documentclass[10pt,a4paper]{article}
 \usepackage{geometry}
 \usepackage{amsmath}
-%\usepackage{lscape}
+\usepackage{booktabs}
+\usepackage[usenames,dvipsnames,svgnames,table]{xcolor}
 \usepackage{url}
-\geometry{verbose,tmargin=2.5cm,bmargin=2.5cm,lmargin=2.5cm,rmargin=2.5cm}
+
+\usepackage{fancyhdr}
+\setlength{\headheight}{15.2pt}
+\pagestyle{fancyplain}
+\usepackage{lastpage}
 
 \begin{document}
 
@@ -39,10 +44,11 @@ suppressPackageStartupMessages(library(VariantAnnotation))
 suppressPackageStartupMessages(library(GenomicRanges))
 suppressPackageStartupMessages(library(BSgenome))
 
-suppressPackageStartupMessages(library(inline))
 suppressPackageStartupMessages(library(Rcpp))
+suppressPackageStartupMessages(library(inline))
 
 suppressPackageStartupMessages(library(ggplot2))
+suppressPackageStartupMessages(library(xtable))
 @
 
 
@@ -66,7 +72,7 @@ options(
 )
 opts_chunk$set(
 	echo = FALSE, results = 'markup', message = DEBUG, warning = DEBUG, error = DEBUG, 
-	fig.keep = 'high', fig.align = 'center', fig.width = 5, fig.height = 4, 
+	fig.keep = 'high', fig.align = 'center', fig.width = 5, fig.height = 3.5, dpi = 144, 
 	cache = FALSE, cache.lazy = FALSE)
 opts_knit$set(progress = TRUE, verbose = TRUE)
 options(warn = 1)
@@ -74,152 +80,272 @@ options(warn = 1)
 
 
 
+% REPORT COMPUTATIONS
+%--------------------------------------------------------------------
+<<report-calcs, cache=FALSE, echo=FALSE>>=
+report = list()
+
+report$gentime = date()
+
+report$specifications = list(
+	measure = "QUAL",
+	cutoff = 200,
+	snv.het.min.sens = 0.90,
+	snv.het.min.spec = 0.80,
+	indelsubst.het.min.sens = 0.70)
+
+# temp = perf.snv$all$QUAL
+# temp$sens = temp$tp / (temp$tp + temp$fn)
+# temp$spec = temp$tn / (temp$tn + temp$fp)
+# library(reshape2)
+# temp2 = melt(temp, measure.vars = c("sens", "spec"))
+# library(ggplot2)
+# ggplot(temp2, aes(x = cutoff, y = value, colour = variable)) + geom_path() + coord_cartesian(ylim = c(0.8, 1), xlim = c(0, 10))
+
+# temp = perf.indelsubst$zyg$QUAL$RRvsRA
+# temp$sens = temp$tp / (temp$tp + temp$fn)
+# library(reshape2)
+# temp2 = melt(temp, measure.vars = c("sens", "fp"))
+# library(ggplot2)
+# ggplot(temp2, aes(x = cutoff, y = value, colour = variable)) + geom_path()
+
+snv.het.perf = calcSensSpecAtCutoff(perf.snv$zyg[[report$specifications$measure]]$RRvsRA, report$specifications$cutoff)
+indelsubst.het.perf = calcSensSpecAtCutoff(perf.indelsubst$zyg[[report$specifications$measure]]$RRvsRA, report$specifications$cutoff)
+snv.hom.perf = calcSensSpecAtCutoff(perf.snv$zyg[[report$specifications$measure]]$RRvsAA, report$specifications$cutoff)
+indelsubst.hom.perf = calcSensSpecAtCutoff(perf.indelsubst$zyg[[report$specifications$measure]]$RRvsAA, report$specifications$cutoff)
+
+report$snv.het.sens.value = snv.het.perf$sens
+report$snv.het.spec.value = snv.het.perf$spec
+report$indelsubst.het.sens.value = indelsubst.het.perf$sens
+
+report$snv.het.sens.pass = report$snv.het.sens.value >= report$specifications$snv.het.min.sens
+report$snv.het.spec.pass = report$snv.het.spec.value >= report$specifications$snv.het.min.spec
+report$indelsubst.het.sens.pass = report$indelsubst.het.sens.value >= report$specifications$indelsubst.het.min.sens
+
+report$overall.pass = report$snv.het.sens.pass & report$snv.het.spec.pass & report$indelsubst.het.sens.pass
+
+report$snv.het.sens.call = ifelse(report$snv.het.sens.pass, "Pass", "\\textcolor{red}{\\textbf{FAIL}}")
+report$snv.het.spec.call = ifelse(report$snv.het.spec.pass, "Pass", "\\textcolor{red}{\\textbf{FAIL}}")
+report$indelsubst.het.sens.call = ifelse(report$indelsubst.het.sens.pass, "Pass", "\\textcolor{red}{\\textbf{FAIL}}")
+
+report$overall.call = ifelse(report$overall.pass, "\\textcolor{blue}{PASS}", "\\textcolor{red}{\\textbf{FAIL}}")
+@
+
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % REPORT STARTS HERE
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-\title{WGS Validation Report}
-\date{\today}
-\maketitle
+\newcommand{\HRule}{\rule{\linewidth}{0.5mm}}
+
+\fancyhf{}
+\lhead{WGS Validation Report (v\texttt{\Sexpr{versions$script}}): \texttt{\Sexpr{texquote(calls.sampleid)}}}
+\rhead{Page \thepage\ of \pageref{LastPage}}
+
+\let\endtitlepage\relax
+\begin{titlepage}
+\begin{flushleft}
+\LARGE{WGS Validation Report: \texttt{\Sexpr{texquote(calls.sampleid)}}}
+\HRule
+\end{flushleft}
+\end{titlepage}
+
+\section{Summary}
+Sample ID: \texttt{\Sexpr{texquote(calls.sampleid)}} \\
+Input VCF: \texttt{\url{\Sexpr{path.input}}} \\
+Report version: \texttt{\Sexpr{versions$script}}
+Report time: \texttt{\Sexpr{texquote(report$gentime)}} \\
+
+<<summary-table,results='asis'>>=
+summary.table = xtable(data.frame(
+	Criterion = c("Het SNV sensitivity", "Het SNV specificity", "Het Indel sensitivity"),
+	Threshold = c(sprintf("%s $> %d$", report$specifications$measure, report$specifications$cutoff), sprintf("%s $> %d$", report$specifications$measure, report$specifications$cutoff), sprintf("%s $> %d$", report$specifications$measure, report$specifications$cutoff)),
+	"Measured" = c(report$snv.het.sens.value, report$snv.het.spec.value, report$indelsubst.het.sens.value),
+	"Reference Range" = c(sprintf("$> %.2f$", report$specifications$snv.het.min.sens), sprintf("$> %.2f$", report$specifications$snv.het.min.spec), sprintf("$> %.2f", report$specifications$indelsubst.het.min.sens)),
+	"Call" = c(report$snv.het.sens.call, report$snv.het.spec.call, report$indelsubst.het.sens.call)), digits = 4)
+print(summary.table, sanitize.text.function = function(x) x, include.rownames = FALSE)
+@
+
+OVERALL RESULT: \Sexpr{report$overall.call} \\
+
+<<summary-plots, out.width='.45\\linewidth', out.height='.4\\linewidth', fig.show='hold'>>=
+plotROC(perf.snv$zyg[[report$specifications$measure]][c("RRvsAA", "RRvsRA")]) + 
+	ggtitle("SNV") + 
+	labs(colour = "Zygosity") + 
+	scale_colour_brewer(palette = "Set1") +
+	coord_cartesian(xlim = c(-1e-7, 2.5e-6)) + 
+	geom_point(aes(x = 1 - snv.het.perf$spec, y = snv.het.perf$sens, size = 4, colour = "RRvsRA")) + 
+	geom_point(aes(x = 1 - snv.hom.perf$spec, y = snv.hom.perf$sens, size = 4, colour = "RRvsAA")) + 
+	guides(size = FALSE) + 
+	geom_vline(xintercept = 1 - report$specifications$snv.het.min.spec, lty = "dashed") + 
+	geom_hline(yintercept = report$specifications$snv.het.min.sens, lty = "dashed") + 
+	theme_bw()
+
+plotROC(perf.indelsubst$zyg[[report$specifications$measure]][c("RRvsAA", "RRvsRA")], type.fp = "count") + 
+	ggtitle("Indel") + 
+	labs(colour = "Zygosity") + 
+	scale_colour_brewer(palette = "Set1") +
+	geom_point(aes(x = indelsubst.het.perf$nfp, y = indelsubst.het.perf$sens, size = 4, colour = "RRvsRA")) + 
+	geom_point(aes(x = indelsubst.hom.perf$nfp, y = indelsubst.hom.perf$sens, size = 4, colour = "RRvsAA")) + 
+	guides(size = FALSE) + 
+	geom_hline(yintercept = report$specifications$indelsubst.het.min.sens, lty = "dashed") + 
+	theme_bw()
+@
+
+
+% COVARIATE ROCs
+%--------------------------------------------------------------------
+\clearpage
+\section{Covariate Influence}
+
+
+% DATA AND SOFTWARE VERSIONS
+%--------------------------------------------------------------------
+\clearpage
+\section{Versions}
+\begin{itemize}
+\item Input VCF: \texttt{\url{\Sexpr{path.input}}}
+\item Sample ID: \texttt{\Sexpr{texquote(calls.sampleid)}}
+\item Validation script: \begin{itemize} 
+	\item version \texttt{\Sexpr{versions$script}}
+	\item branch \texttt{\Sexpr{versions$branch}}
+	\item commit \texttt{\Sexpr{versions$commit}}
+	\end{itemize}
+\item R: \texttt{\Sexpr{R.version$version.string}} (\texttt{\Sexpr{texquote(R.version$platform)}})
+\item Execution host: \texttt{\Sexpr{texquote(versions$host)}}
+\item Report generated at: \Sexpr{texquote(report$gentime)}
+\item Data: \begin{itemize}
+	\item GiaB BED: \texttt{\url{\Sexpr{path.gold_regions}}} (MD5 \texttt{\Sexpr{texquote(fileMD5(path.gold_regions))}})
+	\item GiaB VCF: \texttt{\url{\Sexpr{path.gold}}} (MD5 \texttt{\Sexpr{texquote(fileMD5(path.gold))}})
+	\item Sequence masks: \texttt{\url{\Sexpr{path.mask_regions_prefix}}} \begin{itemize}
+		\item Ambiguous: \texttt{ambiguous.bed.gz} (MD5 \texttt{\Sexpr{texquote(fileMD5(paste(path.mask_regions_prefix, "ambiguous.bed.gz", sep = "")))}})
+		\item Low complexity: \texttt{mdust.bed.gz} (MD5 \texttt{\Sexpr{texquote(fileMD5(paste(path.mask_regions_prefix, "mdust.bed.gz", sep = "")))}})
+		\item Repetitive: \texttt{repetitive.bed.gz} (MD5 \texttt{\Sexpr{texquote(fileMD5(paste(path.mask_regions_prefix, "repetitive.bed.gz", sep = "")))}})
+	\end{itemize}
+	\item Functional regions: \texttt{\url{\Sexpr{path.function_regions_prefix}}} \begin{itemize}
+		\item Exonic coding: \texttt{exonic\_coding.bed.gz} (MD5 \texttt{\Sexpr{texquote(fileMD5(paste(path.function_regions_prefix, "exonic_coding.bed.gz", sep = "")))}})
+		\item Exonic non-coding: \texttt{exonic\_utr.bed.gz} (MD5 \texttt{\Sexpr{texquote(fileMD5(paste(path.function_regions_prefix, "exonic_utr.bed.gz", sep = "")))}})
+		\item Genic: \texttt{genes.bed.gz} (MD5 \texttt{\Sexpr{texquote(fileMD5(paste(path.function_regions_prefix, "genes.bed.gz", sep = "")))}})
+		\item Intergenic: \texttt{intergenic.bed.gz} (MD5 \texttt{\Sexpr{texquote(fileMD5(paste(path.function_regions_prefix, "intergenic.bed.gz", sep = "")))}})
+		\item Intronic: \texttt{intronic.bed.gz} (MD5 \texttt{\Sexpr{texquote(fileMD5(paste(path.function_regions_prefix, "intronic.bed.gz", sep = "")))}})
+		\item Splice sites: \texttt{splice.bed.gz} (MD5 \texttt{\Sexpr{texquote(fileMD5(paste(path.function_regions_prefix, "splice.bed.gz", sep = "")))}})
+	\end{itemize}
+	\item Genome: \texttt{\Sexpr{texquote(genome)}} (\texttt{\Sexpr{packageVersion(genome)}})
+	\end{itemize}
+\end{itemize}
+
+
+% SCORE AND THRESHOLD DIAGNOSTIC ROCS
+%--------------------------------------------------------------------
+\clearpage
+
+\section{Threshold and score diagnostics}
+\subsection{Score comparisons, all contexts}
+\subsubsection{SNVs}
+<<score-plot-snv-all>>=
+temp.allsnvdata = createROCData(perf.snv$all)$data
+colnames(temp.allsnvdata)[colnames(temp.allsnvdata) == "group1"] = "Score"
+colnames(temp.allsnvdata)[colnames(temp.allsnvdata) == "group2"] = "AndFILTER"
+temp.allsnvdata[,"AndFILTER"] = ordered(c("No", "Yes")[grepl("FILTER", temp.allsnvdata[,"Score"])+1])
+temp.allsnvdata[,"Score"] = factor(gsub(":FILTER", "", temp.allsnvdata[,"Score"]))
+ggplot(temp.allsnvdata, aes(x = FP, y = TP, colour = Score, linetype = AndFILTER)) + geom_path() + ylab("True positive rate") + xlab("False positive rate") + coord_cartesian(xlim = c(0, 2.5e-6), ylim = c(0.8, 1)) + theme_bw() + scale_colour_brewer(palette = "Set1")
+@
+
+\subsubsection{Indels}
+<<score-plot-indel-all>>=
+temp.allindelsubstdata = createROCData(perf.indelsubst$all, type.fp = "count")$data
+colnames(temp.allindelsubstdata)[colnames(temp.allindelsubstdata) == "group1"] = "Score"
+colnames(temp.allindelsubstdata)[colnames(temp.allindelsubstdata) == "group2"] = "AndFILTER"
+temp.allindelsubstdata[,"AndFILTER"] = ordered(c("No", "Yes")[grepl("FILTER", temp.allindelsubstdata[,"Score"])+1])
+temp.allindelsubstdata[,"Score"] = factor(gsub(":FILTER", "", temp.allindelsubstdata[,"Score"]))
+ggplot(temp.allindelsubstdata, aes(x = FP, y = TP, colour = Score, linetype = AndFILTER)) + geom_path() + ylab("True positive rate") + xlab("False positive count") + coord_cartesian(ylim = c(0, 1)) + theme_bw() + scale_colour_brewer(palette = "Set1")
+@
+
+\subsubsection{All variants}
+<<score-plot-all-all>>=
+temp.allalldata = createROCData(perf.all$all, type.fp = "count")$data
+colnames(temp.allalldata)[colnames(temp.allalldata) == "group1"] = "Score"
+colnames(temp.allalldata)[colnames(temp.allalldata) == "group2"] = "AndFILTER"
+temp.allalldata[,"AndFILTER"] = ordered(c("No", "Yes")[grepl("FILTER", temp.allalldata[,"Score"])+1])
+temp.allalldata[,"Score"] = factor(gsub(":FILTER", "", temp.allalldata[,"Score"]))
+ggplot(temp.allalldata, aes(x = FP, y = TP, colour = Score, linetype = AndFILTER)) + geom_path() + ylab("True positive rate") + xlab("False positive count") + coord_cartesian(ylim = c(0, 1)) + theme_bw() + scale_colour_brewer(palette = "Set1")
+@
+
+\subsection{Covariate effects}
+\subsubsection{SNVs}
+<<score-plot-snv-covs>>=
+plotROC(lapply(perf.snv$zyg, function(x) x[c("RRvsAA", "RRvsRA")])) + coord_cartesian(xlim = c(0, 2.5e-6), ylim = c(0.8, 1)) + 
+	labs(colour = "Score", linetype = "Zygosity") + 
+	scale_colour_brewer(palette = "Set1") + 
+	scale_linetype_manual(breaks = c("RRvsAA", "RRvsRA", "RRvsAB"), values = c("solid", "dashed", "blank")) + 
+	theme_bw()
+
+plotROC(lapply(perf.snv$mask, function(x) x[c("unmasked", "repetitive", "low_complexity")])) + coord_cartesian(xlim = c(0, 2.5e-6), ylim = c(0.8, 1)) + 
+	labs(colour = "Score", linetype = "Sequence mask") + 
+	scale_colour_brewer(palette = "Set1") + 
+	scale_linetype_manual(breaks = c("low_complexity", "repetitive", "unmasked"), values = c("dashed", "dotted", "solid")) + 
+	theme_bw()
+
+# plotROC(perf.snv$functional) + coord_cartesian(xlim = c(0, 2.5e-6), ylim = c(0.8, 1)) + theme_bw() + labs(colour = "Score", linetype = "Sequence function") + scale_colour_brewer(palette = "Set1")
+
+# plotROC(perf.snv$goldcall) + coord_cartesian(xlim = c(0, 2.5e-6), ylim = c(0.8, 1)) + theme_bw() + labs(colour = "Score", linetype = "GiaB region") + scale_colour_brewer(palette = "Set1")
+@
+
+\subsubsection{Indels}
+<<score-plot-indel-covs>>=
+plotROC(lapply(perf.indelsubst$zyg, function(x) x[c("RRvsAA", "RRvsRA")]), type.fp = "count", facet = 2) + 
+	labs(colour = "Score", linetype = "Zygosity") + 
+	scale_colour_brewer(palette = "Set1") + 
+	scale_linetype_manual(breaks = c("RRvsAA", "RRvsRA"), values = c("solid", "dashed")) + 
+	theme_bw()
+
+plotROC(lapply(perf.indelsubst$mask, function(x) x[c("unmasked", "repetitive", "low_complexity")]), type.fp = "count", facet = 2) + 
+	labs(colour = "Score", linetype = "Sequence mask") + 
+	scale_colour_brewer(palette = "Set1") + 
+	scale_linetype_manual(breaks = c("low_complexity", "repetitive", "unmasked"), values = c("dashed", "dotted", "solid")) + 
+	theme_bw()
+
+# plotROC(perf.indelsubst$functional, type.fp = "count", facet = 2)  + theme_bw() + labs(colour = "Score", linetype = "Sequence function") + scale_colour_brewer(palette = "Set1")
+# plotROC(perf.indelsubst$goldcall, type.fp = "count", facet = 2) + theme_bw() + labs(colour = "Score", linetype = "GiaB region") + scale_colour_brewer(palette = "Set1")
+
+plotROC(perf.indelsubst$mutsize, type.fp = "count", facet = 2) + 
+	labs(colour = "Score", linetype = "Mutation size") + 
+	scale_colour_brewer(palette = "Set1") + 
+	theme_bw()
+
+@
+
+\subsubsection{All variants}
+<<score-plot-all-covs>>=
+plotROC(lapply(perf.all$zyg, function(x) x[c("RRvsAA", "RRvsRA")]), type.fp = "count", facet = 2) + 
+	labs(colour = "Score", linetype = "Zygosity") + 
+	scale_colour_brewer(palette = "Set1") +
+	theme_bw()
+
+plotROC(lapply(perf.all$mask, function(x) x[c("unmasked", "repetitive", "low_complexity")]), type.fp = "count", facet = 2) + 
+	labs(colour = "Score", linetype = "Sequence mask") + 
+	scale_colour_brewer(palette = "Set1") + 
+	theme_bw()
+
+# plotROC(perf.all$functional, type.fp = "count", facet = 2) + theme_bw() + labs(colour = "Score", linetype = "Sequence function") + scale_colour_brewer(palette = "Set1")
+# plotROC(perf.all$goldcall, type.fp = "count", facet = 2) + theme_bw() + labs(colour = "Score", linetype = "GiaB region") + scale_colour_brewer(palette = "Set1")
+plotROC(perf.all$muttype, type.fp = "count", facet = 2) + 
+	labs(colour = "Score", linetype = "Mutation type") + 
+	scale_colour_brewer(palette = "Set1") + 
+	theme_bw()
+
+plotROC(perf.all$mutsize, type.fp = "count", facet = 2) + 
+	labs(colour = "Score", linetype = "Mutation size") + 
+	scale_colour_brewer(palette = "Set1") + 
+	theme_bw()
+@
 
 
 % DEBUG REPORTING
 %--------------------------------------------------------------------
 <<child = if (DEBUG) 'report_debug.Rnw'>>=
 @
-
-
-% DATA AND SOFTWARE VERSIONS
-%--------------------------------------------------------------------
-\section{Versions}
-\begin{itemize}
-\item Input VCF: \texttt{\url{\Sexpr{path.input}}}
-\item Sample ID: \texttt{\Sexpr{texquote(data.sampleid)}}
-% TODO: the following git business worked great when report.Rnw was in 
-% the repo root, but now is broken.  Come up with another approach.
-\item Validation script: branch \texttt{\Sexpr{versions$branch}}, commit \texttt{\Sexpr{versions$commit}}
-\item R version: \texttt{\Sexpr{R.version$version.string}} (\texttt{\Sexpr{texquote(R.version$platform)}})
-\item Execution host: \texttt{\Sexpr{texquote(versions$host)}}
-\item Validation report generated at: \Sexpr{texquote(date())}
-\item Data: \begin{itemize}
-	\item NA12878 gold standard valid call regions: \texttt{\url{\Sexpr{path.gold_regions}}} (MD5 \texttt{\Sexpr{texquote(fileMD5(path.gold_regions))}})
-	\item Genome: \texttt{\Sexpr{texquote(genome)}} (\texttt{\Sexpr{packageVersion(genome)}})
-	% TODO: NA12878 gold standard calls, various beds
-	\end{itemize}
-\end{itemize}
-% TODO:
-% Machine ID			-----
-% Operator ID				|
-% Library ID				|
-% Sample ID					|-- Integrate all into IUS or similar?
-%   Sample (eg NA12878)		|
-%   Batch					|
-% Dates?				-----
-
-
-% VALIDATION REPORT PASS/FAIL SUMMARY
-%--------------------------------------------------------------------
-% TODO: 
-%   Overall pass-fail call, broken down into major sections
-
-<<passfail-summary>>=
-@
-
-
-% SCORE PERFORMANCE: THRESHOLD SELECTION
-%--------------------------------------------------------------------
-\section{Score Threshold Selection}
-<<score-plots>>=
-temp.allsnvdata = createROCData(perf.snv$all)$data
-colnames(temp.allsnvdata)[colnames(temp.allsnvdata) == "group1"] = "Score"
-colnames(temp.allsnvdata)[colnames(temp.allsnvdata) == "group2"] = "AndFILTER"
-temp.allsnvdata[,"AndFILTER"] = ordered(c("No", "Yes")[grepl("FILTER", temp.allsnvdata[,"Score"])+1])
-temp.allsnvdata[,"Score"] = factor(gsub(":FILTER", "", temp.allsnvdata[,"Score"]))
-ggplot(temp.allsnvdata, aes(x = FP, y = TP, colour = Score, linetype = AndFILTER)) + geom_path() + ylim(0, 1) + ylab("True positive rate") + xlim(0, 1) + xlab("False positive rate") + geom_abline(intercept = 0, slope = 1, linetype = "dotted", alpha = 0.5) + coord_fixed() + theme_bw() + ggtitle("SNV Receiver Operating Characteristic: Overview")
-ggplot(temp.allsnvdata, aes(x = FP, y = TP, colour = Score, linetype = AndFILTER)) + geom_path() + ylim(0, 1) + ylab("True positive rate") + xlim(0, 1) + xlab("False positive rate") + geom_abline(intercept = 0, slope = 1, linetype = "dotted", alpha = 0.5) + coord_cartesian(xlim = c(0, 5e-6)) + theme_bw() + ggtitle("SNV Receiver Operating Characteristic: Detail")
-
-temp.allsnvdata = createROCData(perf.snv$all, type.fp = "count")$data
-colnames(temp.allsnvdata)[colnames(temp.allsnvdata) == "group1"] = "Score"
-colnames(temp.allsnvdata)[colnames(temp.allsnvdata) == "group2"] = "AndFILTER"
-temp.allsnvdata[,"AndFILTER"] = ordered(c("No", "Yes")[grepl("FILTER", temp.allsnvdata[,"Score"])+1])
-temp.allsnvdata[,"Score"] = factor(gsub(":FILTER", "", temp.allsnvdata[,"Score"]))
-ggplot(temp.allsnvdata, aes(x = FP, y = TP, colour = Score, linetype = AndFILTER)) + geom_path() + ylim(0, 1) + ylab("True positive rate") + xlim(0, 150) + xlab("False positive count") + theme_bw() + ggtitle("SNV Receiver Operating Characteristic: Detail")
-
-temp.allindelsubstdata = createROCData(perf.indelsubst$all, type.fp = "count")$data
-colnames(temp.allindelsubstdata)[colnames(temp.allindelsubstdata) == "group1"] = "Score"
-colnames(temp.allindelsubstdata)[colnames(temp.allindelsubstdata) == "group2"] = "AndFILTER"
-temp.allindelsubstdata[,"AndFILTER"] = ordered(c("No", "Yes")[grepl("FILTER", temp.allindelsubstdata[,"Score"])+1])
-temp.allindelsubstdata[,"Score"] = factor(gsub(":FILTER", "", temp.allindelsubstdata[,"Score"]))
-ggplot(temp.allindelsubstdata, aes(x = FP, y = TP, colour = Score, linetype = AndFILTER)) + geom_path() + ylim(0, 1) + ylab("True positive rate") + xlim(0, 150) + xlab("False positive count") + theme_bw() + ggtitle("Indel and Substitution Receiver Operating Characteristic: Detail")
-
-
-plotROC(perf.snv$all) + ggtitle("SNV Receiver Operating Characteristic: Detail") + coord_cartesian(xlim = c(0, 5e-6)) + theme_bw()
-plotROC(perf.snv$zyg) + ggtitle("SNV Receiver Operating Characteristic: Overview") + theme_bw()
-plotROC(perf.snv$zyg) + ggtitle("SNV Receiver Operating Characteristic: Detail") + coord_cartesian(xlim = c(0, 5e-6)) + theme_bw()
-plotROC(perf.snv$mask) + ggtitle("SNV Receiver Operating Characteristic: Overview") + theme_bw()
-plotROC(perf.snv$mask) + ggtitle("SNV Receiver Operating Characteristic: Detail") + coord_cartesian(xlim = c(0, 5e-6)) + theme_bw()
-
-plotROC(perf.snv$all, type.fp = "count") + ggtitle("SNV Receiver Operating Characteristic: Detail") + xlim(0, 150) + theme_bw()
-plotROC(perf.snv$zyg, type.fp = "count") + ggtitle("SNV Receiver Operating Characteristic: Detail") + xlim(0, 150) + theme_bw()
-plotROC(perf.snv$mask, type.fp = "count") + ggtitle("SNV Receiver Operating Characteristic: Detail") + xlim(0, 150) + theme_bw()
-
-plotROC(perf.indelsubst$all, type.fp = "count") + ggtitle("Indel and Substitution Receiver Operating Characteristic") + xlim(0, 150) + theme_bw()
-plotROC(perf.indelsubst$zyg, type.fp = "count") + ggtitle("Indel and Substitution Receiver Operating Characteristic") + xlim(0, 150) + theme_bw()
-plotROC(perf.indelsubst$mask, type.fp = "count") + ggtitle("Indel and Substitution Receiver Operating Characteristic") + xlim(0, 150) + theme_bw()
-@
-
-% SNV PERFORMANCE
-%--------------------------------------------------------------------
-% \section{SNV Performance}
-% <<snv-plots>>=
-% snv.pred.list = list(VQSLOD = snv.perf.all.VQSLOD, QUAL = snv.perf.all.QUAL, GQ = snv.perf.all.GQ, DP = snv.perf.all.DP, .FILTER = snv.perf.all.FILTER,
-% 	VQSLOD.FILTER = snv.perf.all.VQSLOD_FILTER, QUAL.FILTER = snv.perf.all.QUAL_FILTER, GQ.FILTER = snv.perf.all.GQ_FILTER, DP.FILTER = snv.perf.all.DP_FILTER)
-% plotROC(snv.pred.list) + ggtitle("SNV Receiver Operating Characteristic: Overview") + theme_bw()
-% plotROC(snv.pred.list) + ggtitle("SNV Receiver Operating Characteristic: Detail") + coord_cartesian(xlim = c(0, 2.5e-6)) + theme_bw()
-% #plotDET(snv.pred.list) + ggtitle("SNV Detection-Error Tradeoff") + theme_bw()
-% #plotLR(snv.pred.list) + ggtitle("SNV Diagnostic Likelihood Ratios") + scale_x_log10(limits = c(1e-3, 1)) + scale_y_log10(limits = c(1e5, 1e8)) + theme_bw()
-% #plotTPRFNR(snv.pred.list) + ggtitle("SNV TPR and FNR") + theme_bw()
-% @
-
-
-
-
-% \section{Graph vomit}
-% <<all-plots, fig.show='hold', fig.align='center', out.width='4cm', out.height='4cm', dpi = 144>>=
-% plotROC(snv.perf.zyg.VQSLOD, type.fpr = "count", type.tpr = "rate") + ggtitle("SNV Receiver Operating Characteristic: VQSLOD vs true zygosity") + theme_bw()
-% plotROC(snv.perf.zyg.VQSLOD, type.fpr = "count", type.tpr = "count") + ggtitle("SNV Receiver Operating Characteristic: VQSLOD vs true zygosity") + theme_bw()
-% plotROC(snv.perf.somy.VQSLOD, type.fpr = "count", type.tpr = "rate") + ggtitle("SNV Receiver Operating Characteristic: VQSLOD vs true somy") + theme_bw()
-% plotROC(snv.perf.somy.VQSLOD, type.fpr = "count", type.tpr = "count") + ggtitle("SNV Receiver Operating Characteristic: VQSLOD vs true somy") + theme_bw()
-% plotROC(snv.perf.function.VQSLOD, type.fpr = "count", type.tpr = "rate") + ggtitle("SNV Receiver Operating Characteristic: VQSLOD vs functional role") + theme_bw()
-% plotROC(snv.perf.function.VQSLOD, type.fpr = "count", type.tpr = "count") + ggtitle("SNV Receiver Operating Characteristic: VQSLOD vs functional role") + theme_bw()
-% plotROC(snv.perf.mask.VQSLOD, type.fpr = "count", type.tpr = "rate") + ggtitle("SNV Receiver Operating Characteristic: VQSLOD vs masking status") + theme_bw()
-% plotROC(snv.perf.mask.VQSLOD, type.fpr = "count", type.tpr = "count") + ggtitle("SNV Receiver Operating Characteristic: VQSLOD vs masking status") + theme_bw()
-
-% plotROC(all.perf.zyg.VQSLOD, type.fpr = "count", type.tpr = "rate") + ggtitle("All Type Receiver Operating Characteristic: VQSLOD vs true zygosity") + theme_bw()
-% plotROC(all.perf.zyg.VQSLOD, type.fpr = "count", type.tpr = "count") + ggtitle("All Type Receiver Operating Characteristic: VQSLOD vs true zygosity") + theme_bw()
-% plotROC(all.perf.somy.VQSLOD, type.fpr = "count", type.tpr = "rate") + ggtitle("All Type Operating Characteristic: VQSLOD vs true somy") + theme_bw()
-% plotROC(all.perf.somy.VQSLOD, type.fpr = "count", type.tpr = "count") + ggtitle("All Type Operating Characteristic: VQSLOD vs true somy") + theme_bw()
-% plotROC(all.perf.function.VQSLOD, type.fpr = "count", type.tpr = "rate") + ggtitle("All Type Operating Characteristic: VQSLOD vs functional role") + theme_bw()
-% plotROC(all.perf.function.VQSLOD, type.fpr = "count", type.tpr = "count") + ggtitle("All Type Operating Characteristic: VQSLOD vs functional role") + theme_bw()
-% plotROC(all.perf.mask.VQSLOD, type.fpr = "count", type.tpr = "rate") + ggtitle("All Type Operating Characteristic: VQSLOD vs masking status") + theme_bw()
-% plotROC(all.perf.mask.VQSLOD, type.fpr = "count", type.tpr = "count") + ggtitle("All Type Operating Characteristic: VQSLOD vs masking status") + theme_bw()
-% all.perf.muttype.VQSLOD = list(SNV = all.perf.muttype.VQSLOD$SNV, Del = all.perf.muttype.VQSLOD$Del, Ins = all.perf.muttype.VQSLOD$Ins)
-% plotROC(all.perf.muttype.VQSLOD, type.fpr = "count", type.tpr = "rate") + ggtitle("All Type Operating Characteristic: VQSLOD vs mutation type") + theme_bw()
-% plotROC(all.perf.muttype.VQSLOD, type.fpr = "count", type.tpr = "count") + ggtitle("All Type Operating Characteristic: VQSLOD vs mutation type") + theme_bw()
-% plotROC(all.perf.mutsize.VQSLOD, type.fpr = "count", type.tpr = "rate") + ggtitle("All Type Operating Characteristic: VQSLOD vs mutation size") + theme_bw()
-% plotROC(all.perf.mutsize.VQSLOD, type.fpr = "count", type.tpr = "count") + ggtitle("All Type Operating Characteristic: VQSLOD vs mutation size") + theme_bw()
-% @
-
-
-
-% DETAILED SUMMARY AND SIGN-OFF
-%--------------------------------------------------------------------
-% TODO: 
-%   Data version
-%   Validator version
-%   Overall pass-fail call, broken down into major sections
-%   Sign-off
 
 
 \end{document}
