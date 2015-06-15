@@ -234,7 +234,7 @@ plotROC(perf.snv.coding10$zyg[[report$specifications$measure]][c("RRvsAA", "RRvs
 	theme_bw()
 
 plotROC(perf.indelsubst.coding10$zyg[[report$specifications$measure]][c("RRvsAA", "RRvsRA")], type.fp = "count") + 
-	ggtitle("Indel: Coding \u00B110bp") + 
+	ggtitle("Indel: Coding \u00B110 bp") + 
 	labs(colour = "Zygosity") + 
 	scale_colour_brewer(palette = "Set1") +
 	ylim(0.8, 1) + 
