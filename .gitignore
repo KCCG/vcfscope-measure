@@ -3,3 +3,10 @@ report.aux
 report.log
 report.tex
 figure/*
+*.pdf
+*.o*
+*.po*
+*.e*
+*.pe*
+*.bed.gz
+*.bed.gz.tbi
