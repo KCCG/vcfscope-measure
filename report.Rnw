@@ -153,7 +153,7 @@ report$overall.call = ifelse(report$overall.pass, "\\textcolor{blue}{PASS}", "\\
 \section{Summary}
 Sample ID: \texttt{\Sexpr{texquote(calls.sampleid)}} \\
 Input VCF: \texttt{\url{\Sexpr{path.input}}} \\
-Report version: \texttt{\Sexpr{versions$script}}
+Report version: \texttt{\Sexpr{versions$script}} \\
 Report time: \texttt{\Sexpr{texquote(report$gentime)}} \\
 
 <<summary-table,results='asis'>>=

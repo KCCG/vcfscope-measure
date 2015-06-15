@@ -21,9 +21,9 @@ RTG_VCFEVAL="${JAVA} -Xmx8G -jar ${RTG_CORE} vcfeval -T ${RTG_THREADS}"
 GIT="/home/marpin/bin/git"
 
 # Data
-GOLD_CALLS_VCFGZ="${RESOURCES_HEAD}/gold_standard/calls.vcf.gz"
-GOLD_CALLS_VCFGZTBI="${RESOURCES_HEAD}/gold_standard/calls.vcf.gz.tbi"
-GOLD_HARDMASK_VALID_REGIONS_BEDGZ="${RESOURCES_HEAD}/gold_standard/valid_regions.bed.gz"
+GOLD_CALLS_VCFGZ="${RESOURCES_HEAD}/gold_standard/calls-2.19.vcf.gz"
+GOLD_CALLS_VCFGZTBI="${RESOURCES_HEAD}/gold_standard/calls-2.19.vcf.gz.tbi"
+GOLD_HARDMASK_VALID_REGIONS_BEDGZ="${RESOURCES_HEAD}/gold_standard/valid_regions-2.19.bed.gz"
 REFERENCE_SDF="${RESOURCES_HEAD}/reference/ref.sdf/"
 FUNCTIONAL_REGIONS_BEDGZ_PREFIX="${RESOURCES_HEAD}/functional_regions/"
 MASK_REGIONS_BEDGZ_PREFIX="${RESOURCES_HEAD}/mask_regions/"
