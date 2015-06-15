@@ -94,8 +94,8 @@ report$specifications = list(
 	snv.het.min.spec = 0.90,
 	snv.hom.min.sens = 0.99,
 	snv.hom.min.spec = 0.99,
-	indelsubst.het.min.sens = 0.80,
-	indelsubst.hom.min.sens = 0.90)
+	indelsubst.het.min.sens = 0.90,
+	indelsubst.hom.min.sens = 0.95)
 
 snv.het.perf = calcSensSpecAtCutoff(perf.snv$zyg[[report$specifications$measure]]$RRvsRA, report$specifications$cutoff)
 indelsubst.het.perf = calcSensSpecAtCutoff(perf.indelsubst$zyg[[report$specifications$measure]]$RRvsRA, report$specifications$cutoff)
@@ -172,13 +172,13 @@ summary.table = xtable(data.frame(
 		report$snv.hom.sens.value, 
 		report$snv.hom.spec.value, 
 		report$indelsubst.hom.sens.value),
-	"Reference Range" = c(
-		sprintf("$> %.2f$", report$specifications$snv.het.min.sens), 
-		sprintf("$> %.2f$", report$specifications$snv.het.min.spec), 
-		sprintf("$> %.2f", report$specifications$indelsubst.het.min.sens),
-		sprintf("$> %.2f$", report$specifications$snv.hom.min.sens), 
-		sprintf("$> %.2f$", report$specifications$snv.hom.min.spec), 
-		sprintf("$> %.2f", report$specifications$indelsubst.hom.min.sens)),
+	"Requirement" = c(
+		sprintf("$\\ge %.2f$", report$specifications$snv.het.min.sens), 
+		sprintf("$\\ge %.2f$", report$specifications$snv.het.min.spec), 
+		sprintf("$\\ge %.2f", report$specifications$indelsubst.het.min.sens),
+		sprintf("$\\ge %.2f$", report$specifications$snv.hom.min.sens), 
+		sprintf("$\\ge %.2f$", report$specifications$snv.hom.min.spec), 
+		sprintf("$\\ge %.2f", report$specifications$indelsubst.hom.min.sens)),
 	"Call" = c(
 		report$snv.het.sens.call, 
 		report$snv.het.spec.call, 
@@ -192,7 +192,7 @@ print(summary.table, sanitize.text.function = function(x) x, include.rownames = 
 
 \textbf{OVERALL RESULT: \Sexpr{report$overall.call}} \\
 
-<<summary-plots, out.width='.45\\linewidth', out.height='.4\\linewidth', fig.show='hold'>>=
+<<summary-plots, out.width='.45\\linewidth', out.height='.38\\linewidth', fig.show='hold'>>=
 plotROC(perf.snv$zyg[[report$specifications$measure]][c("RRvsAA", "RRvsRA")]) + 
 	ggtitle("SNV") + 
 	labs(colour = "Zygosity") + 
@@ -217,34 +217,31 @@ plotROC(perf.indelsubst$zyg[[report$specifications$measure]][c("RRvsAA", "RRvsRA
 @
 
 \pragraph{Raw counts}
-<<count-table>>=
+<<count-table,results='asis'>>=
 count.table = xtable(data.frame(
-	Criterion = c(
-		"Het SNV", 
-		"Het Indel", 
-		"Hom SNV", 
-		"Hom Indel"),
+	"Zygosity" = c("Het", "", "Hom", ""),
+	"Mutation" = c("SNV", "Indel", "SNV", "Indel"),
 	"TP" = c(
-		snv.het.perf$tp,
-		indelsubst.het.perf$tp,
-		snv.hom.perf$tp,
-		indelsubst.hom.perf$tp),
+		snv.het.perf$ntp,
+		indelsubst.het.perf$ntp,
+		snv.hom.perf$ntp,
+		indelsubst.hom.perf$ntp),
 	"FP" = c(
-		snv.het.perf$fp,
-		indelsubst.het.perf$fp,
-		snv.hom.perf$fp,
-		indelsubst.hom.perf$fp),
+		snv.het.perf$nfp,
+		indelsubst.het.perf$nfp,
+		snv.hom.perf$nfp,
+		indelsubst.hom.perf$nfp),
 	"TN" = c(
-		snv.het.perf$tn,
-		"---",
-		snv.hom.perf$tn,
-		"---"),
+		snv.het.perf$ntn,
+		NA,
+		snv.hom.perf$ntn,
+		NA),
 	"FN" = c(
-		snv.het.perf$fn,
-		indelsubst.het.perf$fn,
-		snv.hom.perf$fn,
-		indelsubst.hom.perf$fn),
-	digits = 4)
+		snv.het.perf$nfn,
+		indelsubst.het.perf$nfn,
+		snv.hom.perf$nfn,
+		indelsubst.hom.perf$nfn)),
+	digits = 0)
 print(count.table, sanitize.text.function = function(x) x, include.rownames = FALSE)
 @
 

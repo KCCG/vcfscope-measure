@@ -3,6 +3,7 @@ report.aux
 report.log
 report.tex
 figure/*
+*.pdf
 *.o*
 *.po*
 *.e*

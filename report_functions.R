@@ -620,7 +620,6 @@ plotROC = function(perf, type.fp = c("rate", "count"), facet = c())
 	else
 		stop("Assertion Error: execution should not have reached this point.  Check plotROC case logic.")
 
-# 	plot = plot + geom_path() + coord_trans(xtrans = rescale_none, ytrans = rescale_none)
  	plot = plot + geom_path()
 
 	plot = plot + ylim(0, 1) + ylab("True positive rate")
