@@ -64,8 +64,8 @@ Create a WGS validation report.
                  beginning.  Regardless of the resume setting, the
                  final report generation is always repeated with
                  every invocation.
-    -x 			 Generate an extended report, with threshold and
-    			 score diagnostics.
+    -x           Generate an extended report, with threshold and
+                 score diagnostics.
     -h           Display this help and exit.
 
 Version ${VERSION}

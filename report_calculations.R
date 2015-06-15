@@ -541,6 +541,61 @@ perf.all$mutsize = list(
 
 
 #####################################################################
+# SNV METRIC PERFORMANCE: GOLD CALLABLE, CODING +/- 10 REGIONS
+#####################################################################
+# Subset to SNVs in gold-callable regions within 10 bp of CDs
+# NOTE: subset.snv.coding10.regions, and subset.snv.coding10, MUST MATCH
+subset.snv.coding10.regions = intersect(regions$gold$callable, regions$functional$coding_10)
+subset.snv.coding10 = sapply(names(calls), function(name) class$muttype$SNV[[name]] & class$goldcall$callable[[name]] & class$functional$coding_10[[name]], simplify = FALSE, USE.NAMES = TRUE)
+
+calls.snv.coding10 = sapply(names(calls), function(name) calls[[name]][subset.snv.coding10[[name]]], simplify = FALSE, USE.NAMES = TRUE)
+calls.snv.coding10$tn = setdiff(subset.snv.coding10.regions, union(rowData(calls.snv.coding10$tp), rowData(calls.snv.coding10$fp), rowData(calls.snv.coding10$fn), ignore.strand = TRUE))
+
+count.snv.coding10.fn = nrow(calls.snv.coding10$fn)
+count.snv.coding10.tn = sum(as.numeric(width(calls.snv.coding10$tn)))
+
+perfdata.snv.coding10 = list(vcf.tp = calls.snv.coding10$tp, vcf.fp = calls.snv.coding10$fp, n.fn = count.snv.coding10.fn, n.tn = count.snv.coding10.tn)
+
+class.snv.coding10.zyg = subsetClass(class$zyg, subset.snv.coding10, tn = list(RRvsAA = count.snv.coding10.tn, RRvsRA = count.snv.coding10.tn, RRvsAB = count.snv.coding10.tn))
+perf.snv.coding10 = list(zyg = list(
+    VQSLOD = vcfPerfGrouped(perfdata.snv.coding10, function(x) info(x)$VQSLOD, class.snv.coding10.zyg),
+    QUAL = vcfPerfGrouped(perfdata.snv.coding10, function(x) rowData(x)$QUAL, class.snv.coding10.zyg),
+    GQ = vcfPerfGrouped(perfdata.snv.coding10, function(x) geno(x)$GQ, class.snv.coding10.zyg),
+    DP = vcfPerfGrouped(perfdata.snv.coding10, function(x) info(x)$DP, class.snv.coding10.zyg),
+    FILTER = vcfPerfGrouped(perfdata.snv.coding10, function(x) (rowData(x)$FILTER == "PASS")*1, class.snv.coding10.zyg),
+    "VQSLOD:FILTER" = vcfPerfGrouped(perfdata.snv.coding10, function(x) info(x)$VQSLOD*(rowData(x)$FILTER == "PASS"), class.snv.coding10.zyg),
+    "QUAL:FILTER" = vcfPerfGrouped(perfdata.snv.coding10, function(x) rowData(x)$QUAL*(rowData(x)$FILTER == "PASS"), class.snv.coding10.zyg),
+    "GQ:FILTER" = vcfPerfGrouped(perfdata.snv.coding10, function(x) geno(x)$GQ*(rowData(x)$FILTER == "PASS"), class.snv.coding10.zyg),
+    "DP:FILTER" = vcfPerfGrouped(perfdata.snv.coding10, function(x) info(x)$DP*(rowData(x)$FILTER == "PASS"), class.snv.coding10.zyg)))
+
+
+#####################################################################
+# INDEL AND SUBSTITUTION METRIC PERFORMANCE: GOLD CALLABLE, CODING +/- 10 REGIONS
+#####################################################################
+# Subset to SNVs in gold-callable regions within 10 bp of CDs
+# NOTE: subset.indelsubst.coding10.regions, and subset.indelsubst.coding10, MUST MATCH
+subset.indelsubst.coding10 = sapply(names(calls), function(name) class$muttype$InsDelSubst[[name]] & class$goldcall$callable[[name]] & class$functional$coding_10[[name]], simplify = FALSE, USE.NAMES = TRUE)
+
+calls.indelsubst.coding10 = sapply(names(calls), function(name) calls[[name]][subset.indelsubst.coding10[[name]]], simplify = FALSE, USE.NAMES = TRUE)
+
+count.indelsubst.coding10.fn = nrow(calls.indelsubst.coding10$fn)
+
+perfdata.indelsubst.coding10 = list(vcf.tp = calls.indelsubst.coding10$tp, vcf.fp = calls.indelsubst.coding10$fp, n.fn = count.indelsubst.coding10.fn, n.tn = 0)
+
+class.indelsubst.coding10.zyg = subsetClass(class$zyg, subset.indelsubst.coding10, tn = NULL)
+perf.indelsubst.coding10 = list(zyg = list(
+    VQSLOD = vcfPerfGrouped(perfdata.indelsubst.coding10, function(x) info(x)$VQSLOD, class.indelsubst.coding10.zyg),
+    QUAL = vcfPerfGrouped(perfdata.indelsubst.coding10, function(x) rowData(x)$QUAL, class.indelsubst.coding10.zyg),
+    GQ = vcfPerfGrouped(perfdata.indelsubst.coding10, function(x) geno(x)$GQ, class.indelsubst.coding10.zyg),
+    DP = vcfPerfGrouped(perfdata.indelsubst.coding10, function(x) info(x)$DP, class.indelsubst.coding10.zyg),
+    FILTER = vcfPerfGrouped(perfdata.indelsubst.coding10, function(x) (rowData(x)$FILTER == "PASS")*1, class.indelsubst.coding10.zyg),
+    "VQSLOD:FILTER" = vcfPerfGrouped(perfdata.indelsubst.coding10, function(x) info(x)$VQSLOD*(rowData(x)$FILTER == "PASS"), class.indelsubst.coding10.zyg),
+    "QUAL:FILTER" = vcfPerfGrouped(perfdata.indelsubst.coding10, function(x) rowData(x)$QUAL*(rowData(x)$FILTER == "PASS"), class.indelsubst.coding10.zyg),
+    "GQ:FILTER" = vcfPerfGrouped(perfdata.indelsubst.coding10, function(x) geno(x)$GQ*(rowData(x)$FILTER == "PASS"), class.indelsubst.coding10.zyg),
+    "DP:FILTER" = vcfPerfGrouped(perfdata.indelsubst.coding10, function(x) info(x)$DP*(rowData(x)$FILTER == "PASS"), class.indelsubst.coding10.zyg)))
+
+
+#####################################################################
 # SAVE RESULTS
 #####################################################################
 # For debugging: object sizes in GB

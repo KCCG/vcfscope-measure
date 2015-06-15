@@ -102,6 +102,11 @@ indelsubst.het.perf = calcSensSpecAtCutoff(perf.indelsubst$zyg[[report$specifica
 snv.hom.perf = calcSensSpecAtCutoff(perf.snv$zyg[[report$specifications$measure]]$RRvsAA, report$specifications$cutoff)
 indelsubst.hom.perf = calcSensSpecAtCutoff(perf.indelsubst$zyg[[report$specifications$measure]]$RRvsAA, report$specifications$cutoff)
 
+snv.coding10.het.perf = calcSensSpecAtCutoff(perf.snv.coding10$zyg[[report$specifications$measure]]$RRvsRA, report$specifications$cutoff)
+indelsubst.coding10.het.perf = calcSensSpecAtCutoff(perf.indelsubst.coding10$zyg[[report$specifications$measure]]$RRvsRA, report$specifications$cutoff)
+snv.coding10.hom.perf = calcSensSpecAtCutoff(perf.snv.coding10$zyg[[report$specifications$measure]]$RRvsAA, report$specifications$cutoff)
+indelsubst.coding10.hom.perf = calcSensSpecAtCutoff(perf.indelsubst.coding10$zyg[[report$specifications$measure]]$RRvsAA, report$specifications$cutoff)
+
 report$snv.het.sens.value = snv.het.perf$sens
 report$snv.het.spec.value = snv.het.perf$spec
 report$indelsubst.het.sens.value = indelsubst.het.perf$sens
@@ -192,12 +197,12 @@ print(summary.table, sanitize.text.function = function(x) x, include.rownames = 
 
 \textbf{OVERALL RESULT: \Sexpr{report$overall.call}} \\
 
-<<summary-plots, out.width='.45\\linewidth', out.height='.38\\linewidth', fig.show='hold'>>=
+<<summary-plots, out.width='.45\\linewidth', out.height='.37\\linewidth', fig.show='hold'>>=
 plotROC(perf.snv$zyg[[report$specifications$measure]][c("RRvsAA", "RRvsRA")]) + 
-	ggtitle("SNV") + 
+	ggtitle("SNV: All GiaB") + 
 	labs(colour = "Zygosity") + 
 	scale_colour_brewer(palette = "Set1") +
-	coord_cartesian(xlim = c(-1e-7, 2.5e-6)) + 
+	coord_cartesian(xlim = c(-1e-7, 2.5e-6)) + ylim(0.8, 1) + 
 	geom_point(aes(x = 1 - snv.het.perf$spec, y = snv.het.perf$sens, size = 4, colour = "RRvsRA")) + 
 	geom_point(aes(x = 1 - snv.hom.perf$spec, y = snv.hom.perf$sens, size = 4, colour = "RRvsAA")) + 
 	guides(size = FALSE) + 
@@ -206,11 +211,35 @@ plotROC(perf.snv$zyg[[report$specifications$measure]][c("RRvsAA", "RRvsRA")]) +
 	theme_bw()
 
 plotROC(perf.indelsubst$zyg[[report$specifications$measure]][c("RRvsAA", "RRvsRA")], type.fp = "count") + 
-	ggtitle("Indel") + 
+	ggtitle("Indel: All GiaB") + 
 	labs(colour = "Zygosity") + 
 	scale_colour_brewer(palette = "Set1") +
+	ylim(0.8, 1) + 
 	geom_point(aes(x = indelsubst.het.perf$nfp, y = indelsubst.het.perf$sens, size = 4, colour = "RRvsRA")) + 
 	geom_point(aes(x = indelsubst.hom.perf$nfp, y = indelsubst.hom.perf$sens, size = 4, colour = "RRvsAA")) + 
+	guides(size = FALSE) + 
+	geom_hline(yintercept = report$specifications$indelsubst.het.min.sens, lty = "dashed") + 
+	theme_bw()
+
+plotROC(perf.snv.coding10$zyg[[report$specifications$measure]][c("RRvsAA", "RRvsRA")]) + 
+	ggtitle("SNV: Coding \u00B1 10") + 
+	labs(colour = "Zygosity") + 
+	scale_colour_brewer(palette = "Set1") +
+	coord_cartesian(xlim = c(-1e-7, 2.5e-6)) + ylim(0.8, 1) + 
+	geom_point(aes(x = 1 - snv.coding10.het.perf$spec, y = snv.coding10.het.perf$sens, size = 4, colour = "RRvsRA")) + 
+	geom_point(aes(x = 1 - snv.coding10.hom.perf$spec, y = snv.coding10.hom.perf$sens, size = 4, colour = "RRvsAA")) + 
+	guides(size = FALSE) + 
+	geom_vline(xintercept = 1 - report$specifications$snv.het.min.spec, lty = "dashed") + 
+	geom_hline(yintercept = report$specifications$snv.het.min.sens, lty = "dashed") + 
+	theme_bw()
+
+plotROC(perf.indelsubst.coding10$zyg[[report$specifications$measure]][c("RRvsAA", "RRvsRA")], type.fp = "count") + 
+	ggtitle("Indel: Coding \u00B1 10") + 
+	labs(colour = "Zygosity") + 
+	scale_colour_brewer(palette = "Set1") +
+	ylim(0.8, 1) + 
+	geom_point(aes(x = indelsubst.coding10.het.perf$nfp, y = indelsubst.coding10.het.perf$sens, size = 4, colour = "RRvsRA")) + 
+	geom_point(aes(x = indelsubst.coding10.hom.perf$nfp, y = indelsubst.coding10.hom.perf$sens, size = 4, colour = "RRvsAA")) + 
 	guides(size = FALSE) + 
 	geom_hline(yintercept = report$specifications$indelsubst.het.min.sens, lty = "dashed") + 
 	theme_bw()
@@ -219,28 +248,45 @@ plotROC(perf.indelsubst$zyg[[report$specifications$measure]][c("RRvsAA", "RRvsRA
 \pragraph{Raw counts}
 <<count-table,results='asis'>>=
 count.table = xtable(data.frame(
-	"Zygosity" = c("Het", "", "Hom", ""),
-	"Mutation" = c("SNV", "Indel", "SNV", "Indel"),
+	"Region" = c("GiaB HC", "", "", "", "Coding GiaB HC", "", "", ""),
+	"Zygosity" = c("Het", "", "Hom", "", "Het", "", "Hom", ""),
+	"Mutation" = c("SNV", "Indel", "SNV", "Indel", "SNV", "Indel", "SNV", "Indel"),
 	"TP" = c(
 		snv.het.perf$ntp,
 		indelsubst.het.perf$ntp,
 		snv.hom.perf$ntp,
-		indelsubst.hom.perf$ntp),
+		indelsubst.hom.perf$ntp,
+		snv.coding10.het.perf$ntp,
+		indelsubst.coding10.het.perf$ntp,
+		snv.coding10.hom.perf$ntp,
+		indelsubst.coding10.hom.perf$ntp),
 	"FP" = c(
 		snv.het.perf$nfp,
 		indelsubst.het.perf$nfp,
 		snv.hom.perf$nfp,
-		indelsubst.hom.perf$nfp),
+		indelsubst.hom.perf$nfp,
+		snv.coding10.het.perf$nfp,
+		indelsubst.coding10.het.perf$nfp,
+		snv.coding10.hom.perf$nfp,
+		indelsubst.coding10.hom.perf$nfp),
 	"TN" = c(
 		snv.het.perf$ntn,
 		NA,
 		snv.hom.perf$ntn,
+		NA,
+		snv.coding10.het.perf$ntn,
+		NA,
+		snv.coding10.hom.perf$ntn,
 		NA),
 	"FN" = c(
 		snv.het.perf$nfn,
 		indelsubst.het.perf$nfn,
 		snv.hom.perf$nfn,
-		indelsubst.hom.perf$nfn)),
+		indelsubst.hom.perf$nfn,
+		snv.coding10.het.perf$nfn,
+		indelsubst.coding10.het.perf$nfn,
+		snv.coding10.hom.perf$nfn,
+		indelsubst.coding10.hom.perf$nfn)),
 	digits = 0)
 print(count.table, sanitize.text.function = function(x) x, include.rownames = FALSE)
 @
