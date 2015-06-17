@@ -1,0 +1,63 @@
+{
+    "name": "kccg-validation-reporter-dx",
+    "title": "Create KCCG Validation report.",
+    "dxapi": "1.0.0",
+    "inputSpec": [
+        {
+            "name": "vcfgz",
+            "label": "Variants",
+            "help": "Input NA12878 genotype calls to be validated, in vcf.gz format.",
+            "class": "file",
+            "patterns": [ "*.vcf.gz" ]
+        },
+        {
+            "name": "outfile",
+            "label": "Write the pdf report to OUTFILE",
+            "help": "Write the pdf report to OUTFILE",
+            "class": "string",
+            "default": "report.pdf"
+        },
+        {
+            "name": "debug",
+            "label": "Debug mode",
+            "help": "Debug mode: currently, adds additional debug information to the report, and examines chromosome CHROM only.",
+            "class": "string",
+            "optional": true
+        },
+        {
+            "group": "advanced",
+            "name": "extended",
+            "label": "Write the extended pdf report?",
+            "help": "Generate an extended report, with threshold and score diagnostics.",
+            "class": "boolean",
+            "default": false
+        }
+    ],
+    "outputSpec": [
+        {
+            "name": "report",
+            "label": "Output PDF",
+            "help": "The pdf validation report",
+            "class": "file",
+            "patterns": [ "*.pdf" ]
+        }
+    ],
+    "runSpec": {
+        "execDepends": [
+            { "name": "openjdk-7-jre-headless" },
+            { "name": "texinfo" },
+            { "name": "texlive-latex-base" },
+            { "name": "git" }
+        ],
+        "systemRequirements": {
+            "main": {
+                "instanceType": "mem1_ssd1_x4"
+            }
+        },
+        "file": "src/code.sh",
+        "interpreter": "bash"
+    },
+    "access": {
+        "network": ["*"]
+    }
+}
