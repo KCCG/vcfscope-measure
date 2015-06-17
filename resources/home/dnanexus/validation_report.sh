@@ -24,17 +24,25 @@ if [ ${IS_DNANEXUS} ]; then
   GIT=`which git`
   RESOURCES_HEAD="/home/dnanexus/resources"
   SCRATCH_DEFAULT="/tmp"
+
+  RTG_CORE="${RESOURCES_HEAD}/rtg-core/rtg-core.jar"
+  RTG_THREADS=`nproc`
+  
+  # Calculate 80% of memory size, for java
+  mem_in_mb=`head -n1 /proc/meminfo | awk '{print int($2*0.8/1024)}'`
+  RTG_VCFEVAL="${JAVA} --Xmx${mem_in_mb}m -jar ${RTG_CORE} vcfeval -T ${RTG_THREADS}"
 else
   RSCRIPT="/home/marpin/bin/Rscript"
   JAVA="/usr/java/latest/bin/java"
   GIT="/home/marpin/bin/git"
   RESOURCES_HEAD="/directflow/ClinicalGenomicsPipeline/projects/validation-reporter/resources"
   SCRATCH_DEFAULT="/directflow/ClinicalGenomicsPipeline/tmp"
+
+  RTG_CORE="${RESOURCES_HEAD}/rtg-core/rtg-core.jar"
+  RTG_THREADS=4
+  RTG_VCFEVAL="${JAVA} -Xmx8G -jar ${RTG_CORE} vcfeval -T ${RTG_THREADS}"
 fi
 
-RTG_CORE="${RESOURCES_HEAD}/rtg-core/rtg-core.jar"
-RTG_THREADS=4
-RTG_VCFEVAL="${JAVA} -Xmx8G -jar ${RTG_CORE} vcfeval -T ${RTG_THREADS}"
 
 #
 # Data
@@ -324,7 +332,22 @@ cd ${KNITR_SCRATCH}
 # Ensure that git branch and execution host names can not be under
 # malicious control.
 if [ ${resume} -eq 0 ] || [ ! -e report_data.rda ]; then
-	${RSCRIPT} --vanilla report_calculations.R ${debug} ${debug_chrom} ${extended} ${input_vcfgz_path} ${RTG_OVERLAP_SCRATCH}/tp.vcf.gz ${RTG_OVERLAP_SCRATCH}/fp.vcf.gz ${RTG_OVERLAP_SCRATCH}/fn.vcf.gz ${GOLD_CALLS_VCFGZ} ${REFERENCE_BSGENOME} ${GOLD_HARDMASK_VALID_REGIONS_BEDGZ} ${FUNCTIONAL_REGIONS_BEDGZ_PREFIX} ${MASK_REGIONS_BEDGZ_PREFIX} "'""${VERSION}""'" "${VERSION_GIT_BRANCH}" "${VERSION_GIT_COMMIT}" "${VERSION_EXEC_HOST}"
+# /home/dnanexus/bin/Rscript --vanilla
+#   report_calculations.R
+#   1 22 0
+#   /home/dnanexus/in/vcfgz/R_150203_DAVMIL1_FGS_M001.hc.vqsr.vcf.gz
+#   /tmp/overlap/tp.vcf.gz /tmp/overlap/fp.vcf.gz /tmp/overlap/fn.vcf.gz
+#   /home/dnanexus/resources/gold_standard/calls-2.19.vcf.gz
+#   BSgenome.HSapiens.1000g.37d5
+#   /home/dnanexus/resources/gold_standard/valid_regions-2.19.bed.gz
+#   /home/dnanexus/resources/functional_regions/
+#   /home/dnanexus/resources/mask_regions/ ''\''20150617-1'\''' unknown unknown 'Linux job-Bf0fZ3j0p6743Q86yQF29k4P.dnanex.us 3.13.0-55-generic #92-Ubuntu SMP Sun Jun 14 18:32:20 UTC 2015 x86_64 x86_64 x86_64 GNU/Linux'
+
+	${RSCRIPT} --vanilla report_calculations.R ${debug} ${debug_chrom} ${extended} ${input_vcfgz_path} \
+	  ${RTG_OVERLAP_SCRATCH}/tp.vcf.gz ${RTG_OVERLAP_SCRATCH}/fp.vcf.gz ${RTG_OVERLAP_SCRATCH}/fn.vcf.gz \
+	  ${GOLD_CALLS_VCFGZ} ${REFERENCE_BSGENOME} ${GOLD_HARDMASK_VALID_REGIONS_BEDGZ} \
+	  ${FUNCTIONAL_REGIONS_BEDGZ_PREFIX} ${MASK_REGIONS_BEDGZ_PREFIX} \
+	   "'""${VERSION}""'" "${VERSION_GIT_BRANCH}" "${VERSION_GIT_COMMIT}" "${VERSION_EXEC_HOST}"
 elif [ ${resume} -eq 1 ]; then
 	echo -e "\033[0;32mReport calculation output files found and resume flag set; not recomputing.\033[0m"
 fi

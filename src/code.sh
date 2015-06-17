@@ -7,9 +7,10 @@ set -e -x -o pipefail
 
 main() {
   #
-  # Fetch inputs (~/in/vcfgz/$vcfgz)
+  # Fetch inputs (~/in/vcfgz/* ~/in/tbi/*)
   #
   dx-download-all-inputs --parallel
+  mv in/tbi/* in/vcfgz
 
   #
   # Stream and unpack assets bundle
@@ -25,6 +26,7 @@ main() {
   #
   dx cat "${DX_ASSETS_ID}:/assets/R-3.2.0.compiled.packages_v2.tar.gz" | tar -zxf -
   export PATH="$PWD/bin:$PATH"
+  export RHOME=${HOME} # This is needed to make RScript work, since it was compiled in a different dir.
 
   dx get "${DX_ASSETS_ID}:/assets/BSgenome.HSapiens.1000g.37d5_1.0.0.tar.gz"
   R CMD INSTALL BSgenome.HSapiens.1000g.37d5_1.0.0.tar.gz

@@ -47,7 +47,8 @@ function publish_app {
 # Note, there are more tests within test/smoke_tests.py
 function smoketest {
   vcfgz=project-Bf0J9pQ0p67GjB1k11kxfx0B:file-BbBg1g00z1f8vYJq606Yjv7K
-  jobid=$(dx run /kccg-validation-reporter-dx -ivcfgz=$vcfgz -idebug=22 --yes --brief)
+  tbi=project-Bf0J9pQ0p67GjB1k11kxfx0B:file-BbBg1g00z1f27y9Y0Q6vfb02
+  jobid=$(dx run /kccg-validation-reporter-dx -ivcfgz=$vcfgz -itbi=$tbi -idebug=22 --yes --brief)
 
   #
   # consistent to all applets

@@ -11,6 +11,13 @@
             "patterns": [ "*.vcf.gz" ]
         },
         {
+            "name": "tbi",
+            "label": "Variants index",
+            "help": "The associated TBI file.",
+            "class": "file",
+            "patterns": [ "*.vcf.gz.tbi" ]
+        },
+        {
             "name": "outfile",
             "label": "Write the pdf report to OUTFILE",
             "help": "Write the pdf report to OUTFILE",
