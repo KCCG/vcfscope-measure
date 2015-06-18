@@ -42,8 +42,11 @@ source("report_functions.R")
 # Indel:    Fail if (QD < 2.0 ||              FS > 200.0 ||                     ReadPosRankSum < -20.0)
 filter_1000G = function(vcf)
 {
+    if (nrow(vcf) == 0)
+        return(logical())
+
     # Make sure the vcf has all the metrics used by the filter.
-    stopifnot(length(setdiff("QD", "MQ", "FS", "MQRankSum", "ReadPosRankSum"), colnames(info(vcf))) == 0)
+    stopifnot(length(setdiff(c("QD", "MQ", "FS", "MQRankSum", "ReadPosRankSum"), colnames(info(vcf)))) == 0)
 
     snv = isSNV(vcf)
 
@@ -72,9 +75,8 @@ criteria = list(
     "FILTER" =          list(scoreFunc = function(x) (rowData(x)$FILTER == "PASS")*1,                   callFunc = function(x) rowData(x)$FILTER == "PASS"),
     "VQSLOD:1000G" =    list(scoreFunc = function(x) info(x)$VQSLOD * filter_1000G(x),                  callFunc = function(x) (info(x)$VQSLOD > 2.7) * filter_1000G(x)),
     "QUAL:1000G" =      list(scoreFunc = function(x) rowData(x)$QUAL * filter_1000G(x),                 callFunc = function(x) (rowData(x)$QUAL > 200) * filter_1000G(x)),
-    "FILTER:1000G" =    list(scoreFunc = function(x) (rowData(x)$FILTER == "PASS") * filter_1000G(x),   callFunc = function(x) (rowData(x)$FILTER == "PASS") & filter_1000G(x))
+    "FILTER:1000G" =    list(scoreFunc = function(x) (rowData(x)$FILTER == "PASS") * (filter_1000G(x)*1),   callFunc = function(x) (rowData(x)$FILTER == "PASS") & filter_1000G(x))
 )
-
 
 
 ####################################################################
@@ -157,7 +159,6 @@ if (DEBUG)
 {
     temp = as.data.frame(seqinfo(genome.bsgenome))
     DEBUG.region = GRanges(seqnames = DEBUG.chrom, IRanges(1, temp[DEBUG.chrom,]$seqlengths), seqinfo = genome.seqinfo)
-    stopifnot(length(setdiff("QD", ), colnames(info(vcf))) == 0)
     vcf.scan_param.called = ScanVcfParam(info = c("DP", "GQ_MEAN", "QD", "VQSLOD", "MQ", "FS", "MQRankSum", "ReadPosRankSum"), geno = c("GT", "DP", "GQ"), which = DEBUG.region)
     vcf.scan_param.uncalled = ScanVcfParam(info = c("DP", "TYPE"), geno = c("GT", "DP", "GQ"), which = DEBUG.region)
 } else {
@@ -469,7 +470,7 @@ perf.indelsubst.coding10 = list(zyg = lapply(criteria, function(crit) vcfPerfGro
 # Remove everything but the essential data required by the report.
 temp = NA
 temp = ls()
-temp = temp[!(grepl("^path\\.", temp) | temp %in% c("calls.sampleid", "versions", "DEBUG", "DEBUG.chrom", "genome", "extendedflag") | grepl("^perf\\.", temp))]
+temp = temp[!(grepl("^path\\.", temp) | temp %in% c("criteria", "calls.sampleid", "versions", "DEBUG", "DEBUG.chrom", "genome", "extendedflag") | grepl("^perf\\.", temp))]
 rm(list = temp)
 
 save.image("report_data.rda")

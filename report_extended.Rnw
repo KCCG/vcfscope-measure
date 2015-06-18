@@ -10,7 +10,7 @@ plotROC(perf.snv$all) + coord_cartesian(xlim = c(0, 2.5e-6), ylim = c(0.8, 1)) +
 
 \subsubsection{Indels}
 <<score-plot-indel-all>>=
-plotROC(perf.indel$all, type.fp = "count") + coord_cartesian(ylim = c(0, 1)) + theme_bw() + scale_colour_brewer(palette = "Set1")
+plotROC(perf.indelsubst$all, type.fp = "count") + coord_cartesian(ylim = c(0, 1)) + theme_bw() + scale_colour_brewer(palette = "Set1")
 @
 
 \subsubsection{All variants}
