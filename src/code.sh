@@ -73,3 +73,9 @@ dev_update_aaron_R () {
   dx upload --path /assets/ R-3.2.0.compiled.packages_v2.tar.gz
   rm -rf R-tmp
 }
+
+build_R311 () {
+sudo apt-get install libx11-dev libxml-dev openjdk-7-jre-headless
+./configure --prefix=/home/dnanexus/R-tmp
+
+}

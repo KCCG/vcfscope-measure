@@ -270,13 +270,13 @@ count.table = xtable(data.frame(
 		snv.coding10.hom.perf$nfp,
 		indelsubst.coding10.hom.perf$nfp),
 	"TN" = c(
-		snv.het.perf$ntn,
+		formatC(snv.het.perf$ntn, digits=0, format="f", big.mark=","),
 		NA,
-		snv.hom.perf$ntn,
+		formatC(snv.hom.perf$ntn, digits=0, format="f", big.mark=","),
 		NA,
-		snv.coding10.het.perf$ntn,
+		formatC(snv.coding10.het.perf$ntn, digits=0, format="f", big.mark=","),
 		NA,
-		snv.coding10.hom.perf$ntn,
+		formatC(snv.coding10.hom.perf$ntn, digits=0, format="f", big.mark=","),
 		NA),
 	"FN" = c(
 		snv.het.perf$nfn,
