@@ -267,6 +267,7 @@ mkdir -p ${KNITR_SCRATCH}
 cp -f report.Rnw ${KNITR_SCRATCH}
 cp -f report_functions.R ${KNITR_SCRATCH}
 cp -f report_debug.Rnw ${KNITR_SCRATCH}
+cp -f report_extended.Rnw ${KNITR_SCRATCH}
 cp -f report_calculations.R ${KNITR_SCRATCH}
 cd ${KNITR_SCRATCH}
 
