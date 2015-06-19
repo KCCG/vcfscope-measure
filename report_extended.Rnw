@@ -4,33 +4,18 @@
 \section{Threshold and score diagnostics}
 \subsection{Score comparisons, all contexts}
 \subsubsection{SNVs}
-<<score-plot-snv-all>>=
-temp.allsnvdata = createROCData(perf.snv$all)$data
-colnames(temp.allsnvdata)[colnames(temp.allsnvdata) == "group1"] = "Score"
-colnames(temp.allsnvdata)[colnames(temp.allsnvdata) == "group2"] = "AndFILTER"
-temp.allsnvdata[,"AndFILTER"] = ordered(c("No", "Yes")[grepl("FILTER", temp.allsnvdata[,"Score"])+1])
-temp.allsnvdata[,"Score"] = factor(gsub(":FILTER", "", temp.allsnvdata[,"Score"]))
-ggplot(temp.allsnvdata, aes(x = FP, y = TP, colour = Score, linetype = AndFILTER)) + geom_path() + ylab("True positive rate") + xlab("False positive rate") + coord_cartesian(xlim = c(0, 2.5e-6), ylim = c(0.8, 1)) + theme_bw() + scale_colour_brewer(palette = "Set1")
+<<score-plot-snv-all,out.width='.45\\linewidth', out.height='.35\\linewidth', fig.show='hold'>>=
+plotROC(perf.snv$all) + coord_cartesian(xlim = c(0, 2.5e-6), ylim = c(0.8, 1)) + theme_bw() + scale_colour_brewer(palette = "Set1")
 @
 
 \subsubsection{Indels}
-<<score-plot-indel-all>>=
-temp.allindelsubstdata = createROCData(perf.indelsubst$all, type.fp = "count")$data
-colnames(temp.allindelsubstdata)[colnames(temp.allindelsubstdata) == "group1"] = "Score"
-colnames(temp.allindelsubstdata)[colnames(temp.allindelsubstdata) == "group2"] = "AndFILTER"
-temp.allindelsubstdata[,"AndFILTER"] = ordered(c("No", "Yes")[grepl("FILTER", temp.allindelsubstdata[,"Score"])+1])
-temp.allindelsubstdata[,"Score"] = factor(gsub(":FILTER", "", temp.allindelsubstdata[,"Score"]))
-ggplot(temp.allindelsubstdata, aes(x = FP, y = TP, colour = Score, linetype = AndFILTER)) + geom_path() + ylab("True positive rate") + xlab("False positive count") + coord_cartesian(ylim = c(0, 1)) + theme_bw() + scale_colour_brewer(palette = "Set1")
+<<score-plot-indel-all,out.width='.45\\linewidth', out.height='.35\\linewidth', fig.show='hold'>>=
+plotROC(perf.indelsubst$all, type.fp = "count") + coord_cartesian(ylim = c(0, 1)) + theme_bw() + scale_colour_brewer(palette = "Set1")
 @
 
 \subsubsection{All variants}
-<<score-plot-all-all>>=
-temp.allalldata = createROCData(perf.all$all, type.fp = "count")$data
-colnames(temp.allalldata)[colnames(temp.allalldata) == "group1"] = "Score"
-colnames(temp.allalldata)[colnames(temp.allalldata) == "group2"] = "AndFILTER"
-temp.allalldata[,"AndFILTER"] = ordered(c("No", "Yes")[grepl("FILTER", temp.allalldata[,"Score"])+1])
-temp.allalldata[,"Score"] = factor(gsub(":FILTER", "", temp.allalldata[,"Score"]))
-ggplot(temp.allalldata, aes(x = FP, y = TP, colour = Score, linetype = AndFILTER)) + geom_path() + ylab("True positive rate") + xlab("False positive count") + coord_cartesian(ylim = c(0, 1)) + theme_bw() + scale_colour_brewer(palette = "Set1")
+<<score-plot-all-all,out.width='.45\\linewidth', out.height='.35\\linewidth', fig.show='hold'>>=
+plotROC(perf.all$all, type.fp = "count") + coord_cartesian(ylim = c(0, 1)) + theme_bw() + scale_colour_brewer(palette = "Set1")
 @
 
 \subsection{Covariate effects}
