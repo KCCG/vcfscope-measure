@@ -325,10 +325,6 @@ cp -f report.Rnw ${KNITR_SCRATCH}
 cp -f report_functions.R ${KNITR_SCRATCH}
 cp -f report_debug.Rnw ${KNITR_SCRATCH}
 cp -f report_calculations.R ${KNITR_SCRATCH}
-## DX needs booktabs.sty
-#[[ -f booktabs.sty ]] && cp -f booktabs.sty ${KNITR_SCRATCH}
-#[[ -f xcolor.sty ]] && cp -f xcolor.sty ${KNITR_SCRATCH}
-#[[ -f url.sty ]] && cp -f url.sty ${KNITR_SCRATCH}
 cd ${KNITR_SCRATCH}
 
 # Run the script
