@@ -197,7 +197,7 @@ print(summary.table, sanitize.text.function = function(x) x, include.rownames = 
 
 \textbf{OVERALL RESULT: \Sexpr{report$overall.call}} \\
 
-<<summary-plots, out.width='.45\\linewidth', out.height='.37\\linewidth', fig.show='hold'>>=
+<<summary-plots, out.width='.45\\linewidth', out.height='.35\\linewidth', fig.show='hold'>>=
 plotROC(perf.snv$zyg[[report$specifications$measure]][c("RRvsAA", "RRvsRA")]) + 
 	ggtitle("SNV: Whole genome") + 
 	labs(colour = "Zygosity") + 
