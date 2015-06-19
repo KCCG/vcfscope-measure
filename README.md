@@ -1,6 +1,6 @@
 # KCCG Validation Reporter
 
-A script to build a validation report from a VCF of NA12878 calls.
+Create a WGS validation report from a VCF of NA12878 calls.
 
 
 
@@ -9,7 +9,7 @@ A script to build a validation report from a VCF of NA12878 calls.
 ```
 ./validation_report.sh [-d CHROM] [-t TMPDIR] [-r] [-f] [-x] [-o OUTFILE] <INFILE>
 
-Create a WGS validation report.
+Create a WGS validation report from a VCF of NA12878 calls.
 
     INFILE       Input NA12878 genotype calls, in vcf.gz format.
     -o OUTFILE   Write the report to OUTFILE (default: report.pdf)
@@ -35,7 +35,7 @@ Create a WGS validation report.
                  score diagnostics.
     -h           Display this help and exit.
 
-v20150615-1
+v20150619-1
 
 Mark Pinese
 ```
@@ -45,12 +45,12 @@ Mark Pinese
 ### Examples
 
 Interactive, debug restricted to chromosome 22:
-```bash
+```
 ./validation_report.sh -d 22 /directflow/ClinicalGenomicsPipeline/projects/validation-reporter/test_data/HiSeqX_v2_TKCC/R_150203_DAVMIL1_FGS_M001.hc.vqsr.vep.vcf.gz
 ```
 
 Non-interactive, full run:
-```bash
+```
 qsub -pe smp 4 -cwd -b y -j y bash ./validation_report.sh -f /directflow/ClinicalGenomicsPipeline/projects/validation-reporter/test_data/HiSeqX_v2_TKCC/R_150203_DAVMIL1_FGS_M001.hc.vqsr.vep.vcf.gz
 ```
 
@@ -81,7 +81,7 @@ This package is available at `/share/ClusterShare/biodata/contrib/marpin/referen
 
 To install, run the following:
 
-```bash
+```
 cd /share/ClusterShare/biodata/contrib/marpin/reference/hs37d5/build/
 R CMD INSTALL BSgenome.HSapiens.1000g.37d5_1.0.0.tar.gz
 ```
