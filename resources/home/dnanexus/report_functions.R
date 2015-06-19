@@ -115,7 +115,7 @@ readFunctionalRegions = function(prefix, seqinfo)
 #   ..$ A2: chr "p"
 swapListOrder = function(l)
 {
-	outer_names = sort(names(l))
+	outer_names = suppressWarnings(sort(names(l)))
 	inner_names = sort(unique(unlist(lapply(l, names))))
 	sapply(inner_names, function(inner_name) {
 		sapply(outer_names, function(outer_name) {

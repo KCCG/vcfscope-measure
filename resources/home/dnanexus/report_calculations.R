@@ -32,7 +32,7 @@
 #  
 ####################################################################
 
-options(stringsAsFactors = FALSE, warn = 2)     # Treat warnings as errors -- this will be production code
+options(stringsAsFactors = FALSE, warn = 1)     # Treat warnings as errors -- this will be production code
 
 source("report_functions.R")
 
@@ -168,7 +168,8 @@ if (DEBUG)
 calls = list(
     tp = suppressWarnings(readVcf(TabixFile(path.tp), genome, vcf.scan_param.called)),
     fp = suppressWarnings(readVcf(TabixFile(path.fp), genome, vcf.scan_param.called)),
-    fn = suppressWarnings(readVcf(TabixFile(path.fn), genome, vcf.scan_param.uncalled)))
+    fn = suppressWarnings(readVcf(TabixFile(path.fn), genome, vcf.scan_param.uncalled))
+)
 
 
 # Simple data sanity check: do the vcfs 

@@ -1,6 +1,6 @@
 #!/bin/bash
-set -e
-
+# set -e
+set -x
 #####################################################################
 # VERSION
 #####################################################################
@@ -9,18 +9,44 @@ VERSION="20150619-1"
 #####################################################################
 # SOFTWARE AND DATA LOCATIONS
 #####################################################################
-# Head location for resources bundle
-RESOURCES_HEAD="/directflow/ClinicalGenomicsPipeline/projects/validation-reporter/resources"
 
-# Software
-RSCRIPT="/home/marpin/bin/Rscript"
-JAVA="/usr/java/latest/bin/java"
-RTG_CORE="${RESOURCES_HEAD}/rtg-core/rtg-core.jar"
-RTG_THREADS=4
-RTG_VCFEVAL="${JAVA} -Xmx8G -jar ${RTG_CORE} vcfeval -T ${RTG_THREADS}"
-GIT="/home/marpin/bin/git"
+IS_DNANEXUS=0
+if [ `whoami` == dnanexus ]; then
+  let IS_DNANEXUS=1
+fi
 
+#
+# Software & Resources
+#
+if [ ${IS_DNANEXUS} ]; then
+  RSCRIPT="/home/dnanexus/bin/Rscript"
+  JAVA=`which java`
+  GIT=`which git`
+  RESOURCES_HEAD="/home/dnanexus/resources"
+  SCRATCH_DEFAULT="/tmp"
+
+  RTG_CORE="${RESOURCES_HEAD}/rtg-core/rtg-core.jar"
+  RTG_THREADS=`nproc`
+
+  # Calculate 80% of memory size, for java
+  mem_in_mb=`head -n1 /proc/meminfo | awk '{print int($2*0.8/1024)}'`
+  RTG_VCFEVAL="${JAVA} -Xmx${mem_in_mb}m -jar ${RTG_CORE} vcfeval -T ${RTG_THREADS}"
+else
+  RSCRIPT="/home/marpin/bin/Rscript"
+  JAVA="/usr/java/latest/bin/java"
+  GIT="/home/marpin/bin/git"
+  RESOURCES_HEAD="/directflow/ClinicalGenomicsPipeline/projects/validation-reporter/resources"
+  SCRATCH_DEFAULT="/directflow/ClinicalGenomicsPipeline/tmp"
+
+  RTG_CORE="${RESOURCES_HEAD}/rtg-core/rtg-core.jar"
+  RTG_THREADS=4
+  RTG_VCFEVAL="${JAVA} -Xmx8G -jar ${RTG_CORE} vcfeval -T ${RTG_THREADS}"
+fi
+
+
+#
 # Data
+#
 GOLD_CALLS_VCFGZ="${RESOURCES_HEAD}/gold_standard/calls-2.19.vcf.gz"
 GOLD_CALLS_VCFGZTBI="${RESOURCES_HEAD}/gold_standard/calls-2.19.vcf.gz.tbi"
 GOLD_HARDMASK_VALID_REGIONS_BEDGZ="${RESOURCES_HEAD}/gold_standard/valid_regions-2.19.bed.gz"
@@ -29,9 +55,6 @@ FUNCTIONAL_REGIONS_BEDGZ_PREFIX="${RESOURCES_HEAD}/functional_regions/"
 MASK_REGIONS_BEDGZ_PREFIX="${RESOURCES_HEAD}/mask_regions/"
 REFERENCE_BSGENOME="BSgenome.HSapiens.1000g.37d5"		# This is a custom package, available at /share/ClusterShare/biodata/contrib/marpin/reference/hs37d5/build/BSgenome.HSapiens.1000g.37d5_1.0.0.tar.gz
 
-# Scratch space location (default; this is also set by a command
-# line option, to allow rudimentary restarting of runs)
-SCRATCH_DEFAULT="/directflow/ClinicalGenomicsPipeline/tmp"
 
 EXEC_DIR=$(pwd)
 
@@ -49,7 +72,7 @@ Create a WGS validation report.
     -d CHROM     Debug mode.  Currently, adds additional debug 
                  information to the report, and examines chromosome
                  CHROM only.
-    -t TMPDIR    Path to a temporary scratch space directory.  If 
+    -t TMPDIR    Path to a temporary scratch space directory.  If
                  missing, mktemp will be used to create one.
     -f           Force noninteractive mode; all Y/N prompts will be
                  automatically answered Y.  Default is to run in 
@@ -74,6 +97,7 @@ Mark Pinese
 EOF
 }
 
+# Head location for resources bundle
 OPTIND=1
 input_vcfgz_path=""
 debug=0
@@ -97,7 +121,7 @@ while getopts "d:o:t:hfrx" opt; do
 		o)
 			output_pdf_path=$(readlink -f $OPTARG)
 			;;
-		f)
+    f)
 			noninteractive=1
 			;;
 		t)
@@ -126,15 +150,19 @@ fi
 
 input_vcfgz_path=$1
 
-
 #####################################################################
 # PARAMETER CHECKING
 #####################################################################
+
+if [ ! -d "${RESOURCES_HEAD}" ]; then
+  echo -e >&2 "\033[0;31mError: Resources path ${RESOURCES_HEAD} not found.\033[0m"
+  exit 10
+fi
+
 if [ ! -e ${input_vcfgz_path} ]; then
 	echo -e "\033[0;31mError: Input file ${input_vcfgz_path} not found.\033[0m"
 	exit 2
 fi
-
 
 if [ -e ${output_pdf_path} ]; then
 	if [ ${resume} -eq 0 ]; then
@@ -163,14 +191,41 @@ fi
 RTG_OVERLAP_SCRATCH="${SCRATCH}/overlap"
 KNITR_SCRATCH="${SCRATCH}/knitr"
 
+#####################################################################
+# SOFTWARE CHECKING
+#####################################################################
+if [ ! -e ${RSCRIPT} ]; then
+  echo -e "\033[0;31mError: Rscript executable not found.\033[0m"
+  exit 2
+fi
+if [ ! -e ${JAVA} ]; then
+  echo -e "\033[0;31mError: java executable not found.\033[0m"
+  exit 2
+fi
+if [ ! -e ${GIT} ]; then
+  echo -e "\033[0;31mError: git executable not found.\033[0m"
+  exit 2
+fi
+
+#set -e should catch this.
+[[ -f report.Rnw ]] && [[ -f report_functions.R ]] && [[ -f report_debug.Rnw ]] && [[ -f report_calculations.R ]]
+
+#####################################################################
+# R PACKAGE CHECKING
+#####################################################################
+R --vanilla -e "suppressWarnings(require(\"${REFERENCE_BSGENOME}\", quiet=TRUE)) || stop(\"${REFERENCE_BSGENOME} package not installed\")"
 
 #####################################################################
 # SOFTWARE VERSIONING
 #####################################################################
-VERSION_GIT_BRANCH=$(${GIT} rev-parse --abbrev-ref HEAD)
-VERSION_GIT_COMMIT=$(${GIT} rev-parse --verify HEAD)
+if [ ${IS_DNANEXUS} ]; then
+  VERSION_GIT_BRANCH="unknown"
+  VERSION_GIT_COMMIT="unknown"
+else
+  VERSION_GIT_BRANCH=$(${GIT} rev-parse --abbrev-ref HEAD)
+  VERSION_GIT_COMMIT=$(${GIT} rev-parse --verify HEAD)
+fi
 VERSION_EXEC_HOST=$(uname -a)
-
 
 #####################################################################
 # DEBUG REPORTING
@@ -180,7 +235,8 @@ if [ $debug -eq 1 ]; then
 	echo -e "\033[1;36mVariables:\033[0m"
 	echo -e "\033[1;36m  RSCRIPT=                          \"${RSCRIPT}\"\033[0m"
 	echo -e "\033[1;36m  JAVA=                             \"${JAVA}\"\033[0m"
-	echo 
+	echo -e "\033[1;36m  GIT=                              \"${GIT}\"\033[0m"
+	echo
 	echo -e "\033[1;36m  RTG_CORE=                         \"${RTG_CORE}\"\033[0m"
 	echo -e "\033[1;36m  RTG_THREADS=                      \"${RTG_THREADS}\"\033[0m"
 	echo -e "\033[1;36m  RTG_VCFEVAL=                      \"${RTG_VCFEVAL}\"\033[0m"
@@ -214,6 +270,7 @@ mkdir -p ${KNITR_SCRATCH}
 # VCF OVERLAP EVALUATION
 #####################################################################
 echo -e "\033[0;32mComputing VCF overlaps...\033[0m"
+
 if [ -e ${RTG_OVERLAP_SCRATCH} ]; then
 	if [ ${resume} -eq 0 ]; then
 		echo -e "\033[1;33mOverlap scratch directory ${RTG_OVERLAP_SCRATCH} already exists, and the resume flag is not set; if you continue this will be overwritten.\033[0m"
@@ -259,7 +316,7 @@ fi
 # CALCULATIONS FOR REPORT
 #####################################################################
 echo -e "\033[0;32mPerforming calculations for report...\033[0m"
-mkdir -p ${KNITR_SCRATCH}
+#mkdir -p ${KNITR_SCRATCH}
 # knitr doesn't play well with building knits outside of its working
 # directory.  Currently we get around this with a bit of a kludge, 
 # by copying the report files to ${KNITR_SCRATCH}, then executing in 
@@ -276,7 +333,11 @@ cd ${KNITR_SCRATCH}
 # Ensure that git branch and execution host names can not be under
 # malicious control.
 if [ ${resume} -eq 0 ] || [ ! -e report_data.rda ]; then
-	${RSCRIPT} --vanilla report_calculations.R ${debug} ${debug_chrom} ${extended} ${input_vcfgz_path} ${RTG_OVERLAP_SCRATCH}/tp.vcf.gz ${RTG_OVERLAP_SCRATCH}/fp.vcf.gz ${RTG_OVERLAP_SCRATCH}/fn.vcf.gz ${GOLD_CALLS_VCFGZ} ${REFERENCE_BSGENOME} ${GOLD_HARDMASK_VALID_REGIONS_BEDGZ} ${FUNCTIONAL_REGIONS_BEDGZ_PREFIX} ${MASK_REGIONS_BEDGZ_PREFIX} "'""${VERSION}""'" "${VERSION_GIT_BRANCH}" "${VERSION_GIT_COMMIT}" "${VERSION_EXEC_HOST}"
+	${RSCRIPT} --vanilla report_calculations.R ${debug} ${debug_chrom} ${extended} ${input_vcfgz_path} \
+	  ${RTG_OVERLAP_SCRATCH}/tp.vcf.gz ${RTG_OVERLAP_SCRATCH}/fp.vcf.gz ${RTG_OVERLAP_SCRATCH}/fn.vcf.gz \
+	  ${GOLD_CALLS_VCFGZ} ${REFERENCE_BSGENOME} ${GOLD_HARDMASK_VALID_REGIONS_BEDGZ} \
+	  ${FUNCTIONAL_REGIONS_BEDGZ_PREFIX} ${MASK_REGIONS_BEDGZ_PREFIX} \
+	   "'""${VERSION}""'" "${VERSION_GIT_BRANCH}" "${VERSION_GIT_COMMIT}" "${VERSION_EXEC_HOST}"
 elif [ ${resume} -eq 1 ]; then
 	echo -e "\033[0;32mReport calculation output files found and resume flag set; not recomputing.\033[0m"
 fi
