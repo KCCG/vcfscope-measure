@@ -333,10 +333,4 @@ print(count.table, sanitize.text.function = function(x) x, include.rownames = FA
 @
 
 
-% DEBUG REPORTING
-%--------------------------------------------------------------------
-<<child = if (DEBUG) 'report_debug.Rnw'>>=
-@
-
-
 \end{document}

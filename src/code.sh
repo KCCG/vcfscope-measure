@@ -37,15 +37,15 @@ main() {
   if [ "extended" == "true" ]; then
     opts+=("-x")
   fi
-  if [ -n "${debug}" ]; then
-    opts+=("-d" "${debug}")
+  if [ -n "${region}" ]; then
+    opts+=("-r" "${region}")
   fi
 
   #
   # run report
   #
   export PATH=".:$PATH"
-  validation_report.sh -f -t /tmp -o report.pdf "${opts[@]}" ${vcfgz_path}
+  validation_report.sh -o report.pdf "${opts[@]}" ${vcfgz_path}
 
   #
   # upload results

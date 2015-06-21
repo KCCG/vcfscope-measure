@@ -4,7 +4,7 @@ set -x
 #####################################################################
 # VERSION
 #####################################################################
-VERSION="20150619-1"
+VERSION="20150622-1"
 
 #####################################################################
 # SOFTWARE AND DATA LOCATIONS
@@ -58,37 +58,28 @@ REFERENCE_BSGENOME="BSgenome.HSapiens.1000g.37d5"		# This is a custom package, a
 
 EXEC_DIR=$(pwd)
 
+
+SCRATCH=$(mktemp -d --tmpdir=${SCRATCH_DEFAULT} valrept.XXXXXXXXXX)
+RTG_OVERLAP_SCRATCH="${SCRATCH}/overlap"
+KNITR_SCRATCH="${SCRATCH}/knitr"
+
+
 #####################################################################
 # COMMAND LINE PARSING
 #####################################################################
 print_usage() {
 cat << EOF
-Usage: ${0##*/} [-d CHROM] [-t TMPDIR] [-r] [-f] [-x] [-o OUTFILE] <INFILE>
+Usage: ${0##*/} [-o OUTFILE] [-r BEDFILE] [-x] <INFILE>
 
 Create a WGS validation report.
 
     INFILE       Input NA12878 genotype calls, in vcf.gz format.
     -o OUTFILE   Write the report to OUTFILE (default: report.pdf)
-    -d CHROM     Debug mode.  Currently, adds additional debug 
-                 information to the report, and examines chromosome
-                 CHROM only.
-    -t TMPDIR    Path to a temporary scratch space directory.  If
-                 missing, mktemp will be used to create one.
-    -f           Force noninteractive mode; all Y/N prompts will be
-                 automatically answered Y.  Default is to run in 
-                 interactive mode.
-    -r           Resume flag.  If set, and TMPDIR points to a 
-                 partially-completed run, will attempt to resume
-                 this run.  Default is to not resume; if a partial
-                 run is found in TMPDIR and -f is not set, query
-                 the user as to what to do.  With -f set, any partial
-                 run data in TMPDIR is automatically cleared, and
-                 the validation report generation started from the 
-                 beginning.  Regardless of the resume setting, the
-                 final report generation is always repeated with
-                 every invocation.
+    -r BEDFILE   Restrict analysis to the regions in BEDFILE only.
+                 Default: the full genome is considered.
     -x           Generate an extended report, with threshold and
-                 score diagnostics.
+                 score diagnostics appended to the standard report.
+                 Default: generate the standard report only.
     -h           Display this help and exit.
 
 Version ${VERSION}
@@ -100,36 +91,22 @@ EOF
 # Head location for resources bundle
 OPTIND=1
 input_vcfgz_path=""
-debug=0
-debug_chrom="-"
-noninteractive=0
+region_file_supplied=0
 output_pdf_path="${EXEC_DIR}/report.pdf"
-resume=0
-temp_supplied=0
 extended=0
 
-while getopts "d:o:t:hfrx" opt; do
+while getopts "r:o:hx" opt; do
 	case "$opt" in
 		h)
 			print_usage
 			exit 0
 			;;
-		d)
-			debug=1
-			debug_chrom=$OPTARG
-			;;
 		o)
 			output_pdf_path=$(readlink -f $OPTARG)
 			;;
-    f)
-			noninteractive=1
-			;;
-		t)
-			temp_supplied=1
-			SCRATCH=$OPTARG
-			;;
 		r)
-			resume=1
+			region_file_supplied=1
+			region_file=$(readlink -f $OPTARG)
 			;;
 		x)
 			extended=1
@@ -150,70 +127,52 @@ fi
 
 input_vcfgz_path=$1
 
+
 #####################################################################
 # PARAMETER CHECKING
 #####################################################################
 
 if [ ! -d "${RESOURCES_HEAD}" ]; then
-  echo -e >&2 "\033[0;31mError: Resources path ${RESOURCES_HEAD} not found.\033[0m"
+  echo -e >&2 "Error: Resources path ${RESOURCES_HEAD} not found."
   exit 10
 fi
 
 if [ ! -e ${input_vcfgz_path} ]; then
-	echo -e "\033[0;31mError: Input file ${input_vcfgz_path} not found.\033[0m"
+	echo -e "Error: Input file ${input_vcfgz_path} not found."
 	exit 2
 fi
 
 if [ -e ${output_pdf_path} ]; then
-	if [ ${resume} -eq 0 ]; then
-		echo -e "\033[1;33mOutput file ${output_pdf_path} already exists, and the resume flag is not set; if you continue this will be overwritten.\033[0m"
-		echo -en "\033[1;33mDo you wish to continue? [YES to continue; any other string to cancel] \033[0m"
-		prompt="YES"
-		if [ ${noninteractive} -eq 0 ]; then
-			read prompt
-		fi
-		if [ "${prompt}" == "YES" ]; then
-			echo -e "\033[0;32mRemoving output file and continuing...\033[0m"
-			rm -f ${output_pdf_path}
-		else
-			echo -e "\033[0;31mCancelled.\033[0m"
-			exit 3
-		fi
-	else
-		echo -e "\033[1;33mOutput file ${output_pdf_path} already exists, and resume flag is set.  Attempting to resume run...\033[0m"
-	fi
+	echo -e "Output file ${output_pdf_path} already exists; quitting."
+	exit 3
 fi
 
-if [ ${temp_supplied} -eq 0 ]; then
-	SCRATCH=$(mktemp -d --tmpdir=${SCRATCH_DEFAULT} valrept.XXXXXXXXXX)
-fi
-
-RTG_OVERLAP_SCRATCH="${SCRATCH}/overlap"
-KNITR_SCRATCH="${SCRATCH}/knitr"
 
 #####################################################################
 # SOFTWARE CHECKING
 #####################################################################
 if [ ! -e ${RSCRIPT} ]; then
-  echo -e "\033[0;31mError: Rscript executable not found.\033[0m"
+  echo -e "Error: Rscript executable not found."
   exit 2
 fi
 if [ ! -e ${JAVA} ]; then
-  echo -e "\033[0;31mError: java executable not found.\033[0m"
+  echo -e "Error: java executable not found."
   exit 2
 fi
 if [ ! -e ${GIT} ]; then
-  echo -e "\033[0;31mError: git executable not found.\033[0m"
+  echo -e "Error: git executable not found."
   exit 2
 fi
 
 #set -e should catch this.
 [[ -f report.Rnw ]] && [[ -f report_functions.R ]] && [[ -f report_debug.Rnw ]] && [[ -f report_calculations.R ]]
 
+
 #####################################################################
 # R PACKAGE CHECKING
 #####################################################################
 R --vanilla -e "suppressWarnings(require(\"${REFERENCE_BSGENOME}\", quiet=TRUE)) || stop(\"${REFERENCE_BSGENOME} package not installed\")"
+
 
 #####################################################################
 # SOFTWARE VERSIONING
@@ -227,36 +186,6 @@ else
 fi
 VERSION_EXEC_HOST=$(uname -a)
 
-#####################################################################
-# DEBUG REPORTING
-#####################################################################
-if [ $debug -eq 1 ]; then
-	echo -e "\033[1;36mDebug enabled.\033[0m"
-	echo -e "\033[1;36mVariables:\033[0m"
-	echo -e "\033[1;36m  RSCRIPT=                          \"${RSCRIPT}\"\033[0m"
-	echo -e "\033[1;36m  JAVA=                             \"${JAVA}\"\033[0m"
-	echo -e "\033[1;36m  GIT=                              \"${GIT}\"\033[0m"
-	echo
-	echo -e "\033[1;36m  RTG_CORE=                         \"${RTG_CORE}\"\033[0m"
-	echo -e "\033[1;36m  RTG_THREADS=                      \"${RTG_THREADS}\"\033[0m"
-	echo -e "\033[1;36m  RTG_VCFEVAL=                      \"${RTG_VCFEVAL}\"\033[0m"
-	echo 
-	echo -e "\033[1;36m  RESOURCES_HEAD=                   \"${RESOURCES_HEAD}\"\033[0m"
-	echo -e "\033[1;36m  GOLD_CALLS_VCFGZ=                 \"${GOLD_CALLS_VCFGZ}\"\033[0m"
-	echo -e "\033[1;36m  GOLD_CALLS_VCFGZTBI=              \"${GOLD_CALLS_VCFGZTBI}\"\033[0m"
-	echo -e "\033[1;36m  GOLD_HARDMASK_VALID_REGIONS_BEDGZ=\"${GOLD_HARDMASK_VALID_REGIONS_BEDGZ}\"\033[0m"
-	echo -e "\033[1;36m  KCCG_HARDMASK_CALLABLE_REGIONS=   \"${KCCG_HARDMASK_CALLABLE_REGIONS}\"\033[0m"
-	echo -e "\033[1;36m  REFERENCE_SDF=                    \"${REFERENCE_SDF}\"\033[0m"
-	echo 
-	echo -e "\033[1;36m  REFERENCE_BSGENOME=               \"${REFERENCE_BSGENOME}\"\033[0m"
-	echo 
-	echo -e "\033[1;36m  SCRATCH=                          \"${SCRATCH}\"\033[0m"
-	echo -e "\033[1;36m  RTG_OVERLAP_SCRATCH=              \"${RTG_OVERLAP_SCRATCH}\"\033[0m"
-	echo -e "\033[1;36m  KNITR_SCRATCH=                    \"${KNITR_SCRATCH}\"\033[0m"
-	echo
-	echo -e "\033[1;36m  VERSION=                          \"${VERSION}\"\033[0m"
-fi
-
 
 #####################################################################
 # CREATE TEMPORARY DIRECTORIES
@@ -265,47 +194,17 @@ mkdir -p ${SCRATCH}
 mkdir -p ${KNITR_SCRATCH}
 
 
-
 #####################################################################
 # VCF OVERLAP EVALUATION
 #####################################################################
-echo -e "\033[0;32mComputing VCF overlaps...\033[0m"
+echo -e "Computing VCF overlaps..."
 
 if [ -e ${RTG_OVERLAP_SCRATCH} ]; then
-	if [ ${resume} -eq 0 ]; then
-		echo -e "\033[1;33mOverlap scratch directory ${RTG_OVERLAP_SCRATCH} already exists, and the resume flag is not set; if you continue this will be overwritten.\033[0m"
-		echo -en "\033[1;33mDo you wish to continue? [YES to continue; any other string to cancel] \033[0m"
-		prompt="YES"
-		if [ ${noninteractive} -eq 0 ]; then
-			read prompt
-		fi
-		if [ "${prompt}" == "YES" ]; then
-			echo -e "\033[0;32mClearing scratch directory and continuing...\033[0m"
-			rm -rf ${RTG_OVERLAP_SCRATCH}
-		else
-			echo -e "\033[0;31mCancelled.\033[0m"
-			exit 3
-		fi
-	fi
+	echo -e "Overlap scratch directory ${RTG_OVERLAP_SCRATCH} already exists.  Clearing scratch directory and continuing..."
+	rm -rf ${RTG_OVERLAP_SCRATCH}
 fi
-# Note on the use of --all-records below: if this is absent, then
-# the performance of a given cutoff (for example, GQ > thresh) is
-# actually measuring the more complex condition of GQ > thresh AND
-# FILTER = PASS.  With --all-records, the performance measures just
-# that of the cutoff (eg GQ > thresh) alone.  Considerg including 
-# a script option to control this behaviour, because I can think 
-# of valid use cases for both configurations.  Alternatively, leave
-# --all-records set, and perform some magic in R to move things
-# about appropriately.  Specifically, the absence of --all-records
-# can be simulated by moving sites in R, as follows:
-#   TP for which FILT != PASS  -->  FN
-#   FP for which FILT != PASS  -->  TN
-#   FN for which FILT != PASS  -->  FN (no change)
-if [ ${resume} -eq 0 ] || [ ! -e ${RTG_OVERLAP_SCRATCH}/tp.vcf.gz ] || [ ! -e ${RTG_OVERLAP_SCRATCH}/fp.vcf.gz ] || [ ! -e ${RTG_OVERLAP_SCRATCH}/fn.vcf.gz ]; then
-	${RTG_VCFEVAL} --all-records -b ${GOLD_CALLS_VCFGZ} -c ${input_vcfgz_path} -t ${REFERENCE_SDF} -o ${RTG_OVERLAP_SCRATCH} > /dev/null 2>&1
-elif [ ${resume} -eq 1 ]; then
-	echo -e "\033[0;32mOverlap output files found and resume flag set; not recomputing.\033[0m"
-fi
+
+${RTG_VCFEVAL} --all-records -b ${GOLD_CALLS_VCFGZ} -c ${input_vcfgz_path} -t ${REFERENCE_SDF} -o ${RTG_OVERLAP_SCRATCH} > /dev/null 2>&1
 
 # TODO: Parse ${RTG_OVERLAP_SCRATCH}/vcfeval.log to identify regions to exclude
 # eg Evaluation too complex (5001 unresolved paths, 18033 iterations) at reference region 2:105849275-105849281. Variants in this region will not be included in results.
@@ -315,7 +214,7 @@ fi
 #####################################################################
 # CALCULATIONS FOR REPORT
 #####################################################################
-echo -e "\033[0;32mPerforming calculations for report...\033[0m"
+echo -e "Performing calculations for report..."
 #mkdir -p ${KNITR_SCRATCH}
 # knitr doesn't play well with building knits outside of its working
 # directory.  Currently we get around this with a bit of a kludge, 
@@ -323,7 +222,6 @@ echo -e "\033[0;32mPerforming calculations for report...\033[0m"
 # that directory.
 cp -f report.Rnw ${KNITR_SCRATCH}
 cp -f report_functions.R ${KNITR_SCRATCH}
-cp -f report_debug.Rnw ${KNITR_SCRATCH}
 cp -f report_extended.Rnw ${KNITR_SCRATCH}
 cp -f report_calculations.R ${KNITR_SCRATCH}
 cd ${KNITR_SCRATCH}
@@ -332,21 +230,17 @@ cd ${KNITR_SCRATCH}
 # SECURITY WARNING: Code injection possible in VERSION_ variables.
 # Ensure that git branch and execution host names can not be under
 # malicious control.
-if [ ${resume} -eq 0 ] || [ ! -e report_data.rda ]; then
-	${RSCRIPT} --vanilla report_calculations.R ${debug} ${debug_chrom} ${extended} ${input_vcfgz_path} \
-	  ${RTG_OVERLAP_SCRATCH}/tp.vcf.gz ${RTG_OVERLAP_SCRATCH}/fp.vcf.gz ${RTG_OVERLAP_SCRATCH}/fn.vcf.gz \
-	  ${GOLD_CALLS_VCFGZ} ${REFERENCE_BSGENOME} ${GOLD_HARDMASK_VALID_REGIONS_BEDGZ} \
-	  ${FUNCTIONAL_REGIONS_BEDGZ_PREFIX} ${MASK_REGIONS_BEDGZ_PREFIX} \
-	   "'""${VERSION}""'" "${VERSION_GIT_BRANCH}" "${VERSION_GIT_COMMIT}" "${VERSION_EXEC_HOST}"
-elif [ ${resume} -eq 1 ]; then
-	echo -e "\033[0;32mReport calculation output files found and resume flag set; not recomputing.\033[0m"
-fi
+${RSCRIPT} --vanilla report_calculations.R ${debug} ${debug_chrom} ${extended} ${input_vcfgz_path} \
+  ${RTG_OVERLAP_SCRATCH}/tp.vcf.gz ${RTG_OVERLAP_SCRATCH}/fp.vcf.gz ${RTG_OVERLAP_SCRATCH}/fn.vcf.gz \
+  ${GOLD_CALLS_VCFGZ} ${REFERENCE_BSGENOME} ${GOLD_HARDMASK_VALID_REGIONS_BEDGZ} \
+  ${FUNCTIONAL_REGIONS_BEDGZ_PREFIX} ${MASK_REGIONS_BEDGZ_PREFIX} \
+   "'""${VERSION}""'" "${VERSION_GIT_BRANCH}" "${VERSION_GIT_COMMIT}" "${VERSION_EXEC_HOST}"
 
 
 #####################################################################
 # REPORT GENERATION
 #####################################################################
-echo -e "\033[0;32mGenerating report...\033[0m"
+echo -e "Generating report..."
 
 ${RSCRIPT} --vanilla -e "library(knitr); knit('report.Rnw', output = 'report.tex')"
 
@@ -366,24 +260,14 @@ pdflatex -interaction nonstopmode report.tex
 
 # Check  whether the report.pdf was generated
 if [ ! -e ${KNITR_SCRATCH}/report.pdf ]; then
-	echo -e "\033[0;31mError: pdflatex did not successfully generate a report.pdf.\033[0m"
-	echo -e "\033[0;31mCheck ${KNITR_SCRATCH}/report.tex and the latex log for errors.\033[0m"
+	echo -e "Error: pdflatex did not successfully generate a report.pdf."
+	echo -e "Check ${KNITR_SCRATCH}/report.tex and the latex log for errors."
 	exit 4
 fi
 
 # Copy the completed report to the final destination
 cp "${KNITR_SCRATCH}/report.pdf" "${output_pdf_path}"
 
-echo -e "\033[0;32mReport generated successfully.\033[0m"
+echo -e "Report generated successfully."
 
-# Clean up scratch if everything worked OK, and we're not a debug
-# run.
-# if [ $debug -eq 0 ]; then
-# 	echo -e "\033[0;32mClearing scratch space...\033[0m"
-# 	rm -rf ${SCRATCH}
-# else
-# 	echo -e "\033[1;36mDebug run; not clearing scratch space.\033[0m"
-# 	echo -e "\033[1;36mScratch can be found at: \"${SCRATCH}\"\033[0m"
-# fi
-
-echo -e "\033[0;32mDone.\033[0m"
+echo -e "Done."

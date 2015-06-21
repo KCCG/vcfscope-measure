@@ -25,10 +25,12 @@
             "default": "report.pdf"
         },
         {
-            "name": "debug",
-            "label": "Debug mode",
-            "help": "Debug mode: currently, adds additional debug information to the report, and examines chromosome CHROM only.",
-            "class": "string",
+            "group": "advanced",
+            "name": "region",
+            "label": "Region BED",
+            "help": "Limit analysis to the regions in this BED only.",
+            "class": "file",
+            "patterns": [ "*.bed" ],
             "optional": true
         },
         {
