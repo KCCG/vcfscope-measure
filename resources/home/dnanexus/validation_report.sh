@@ -1,54 +1,97 @@
 #!/bin/bash
-# set -e
+#set -e
 set -x
+
 #####################################################################
 # VERSION
 #####################################################################
-VERSION="20150622-1"
+export CONST_VERSION_SCRIPT="20150623-1"
+
 
 #####################################################################
 # SOFTWARE AND DATA LOCATIONS
 #####################################################################
 
-#
+IS_DNANEXUS=0
+if [ `whoami` == dnanexus ]; then
+  export IS_DNANEXUS=1
+fi
+
 # Software & Resources
-#
-RSCRIPT="/home/dnanexus/bin/Rscript"
-JAVA=`which java`
-GIT=`which git`
-BEDTOOLS=`which bedtools`
-TABIX=`which tabix`
-BGZIP=`which bgzip`
-RESOURCES_HEAD="/home/dnanexus/resources"
-SCRATCH_DEFAULT="/tmp"
+if [ ${IS_DNANEXUS} -eq 1 ]; then
+  PATH_RESOURCES_HEAD="/home/dnanexus/resources"
+  PATH_SCRATCH_DEFAULT="/tmp"
 
-RTG_CORE="${RESOURCES_HEAD}/rtg-core/rtg-core.jar"
-RTG_THREADS=`nproc`
+  RSCRIPT="/home/dnanexus/bin/Rscript"
+  R="/home/dnanexus/bin/R"
+  JAVA=`which java`
+  BEDTOOLS=`which bedtools`
+  TABIX=`which tabix`
+  BGZIP=`which bgzip`
 
-# Calculate 80% of memory size, for java
-mem_in_mb=`head -n1 /proc/meminfo | awk '{print int($2*0.8/1024)}'`
-RTG_VCFEVAL="${JAVA} -Xmx${mem_in_mb}m -jar ${RTG_CORE} vcfeval -T ${RTG_THREADS}"
+  RTG_CORE="${PATH_RESOURCES_HEAD}/rtg-core/rtg-core.jar"
+  RTG_THREADS=`nproc`
+  mem_in_mb=`head -n1 /proc/meminfo | awk '{print int($2*0.8/1024)}'`                 # Calculate 80% of memory size, for java
+  RTG_VCFEVAL="${JAVA} -Xmx${mem_in_mb}m -jar ${RTG_CORE} vcfeval -T ${RTG_THREADS}"
+else
+  PATH_RESOURCES_HEAD="/directflow/ClinicalGenomicsPipeline/projects/validation-reporter/resources"
+  PATH_SCRATCH_DEFAULT="/directflow/ClinicalGenomicsPipeline/tmp"
+
+  RSCRIPT="/home/marpin/bin/Rscript"
+  R="/home/marpin/bin/R"
+  JAVA="/usr/java/latest/bin/java"
+  BEDTOOLS="/home/marpin/software/bedtools2/bin/bedtools"
+  TABIX="/home/marpin/software/htslib/tabix"
+  BGZIP="/home/marpin/software/htslib/bgzip"
+
+  RTG_CORE="${PATH_RESOURCES_HEAD}/rtg-core/rtg-core.jar"
+  RTG_THREADS=4
+  RTG_VCFEVAL="${JAVA} -Xmx8G -jar ${RTG_CORE} vcfeval -T ${RTG_THREADS}"
+fi
 
 
-#
-# Data
-#
-GOLD_CALLS_VCFGZ="${RESOURCES_HEAD}/gold_standard/calls-2.19.vcf.gz"
-GOLD_CALLS_VCFGZTBI="${RESOURCES_HEAD}/gold_standard/calls-2.19.vcf.gz.tbi"
-GOLD_HARDMASK_VALID_REGIONS_BEDGZ="${RESOURCES_HEAD}/gold_standard/valid_regions-2.19.bed.gz"
-REFERENCE_SDF="${RESOURCES_HEAD}/reference/ref.sdf/"
-FUNCTIONAL_REGIONS_BEDGZ_PREFIX="${RESOURCES_HEAD}/functional_regions/"
-MASK_REGIONS_BEDGZ_PREFIX="${RESOURCES_HEAD}/mask_regions/"
-REFERENCE_BSGENOME="BSgenome.HSapiens.1000g.37d5"		# This is a custom package, available at /share/ClusterShare/biodata/contrib/marpin/reference/hs37d5/build/BSgenome.HSapiens.1000g.37d5_1.0.0.tar.gz
+# Set and export location variables, for easy access in R.
 
+# Constant data
+export CONST_GOLD_CALLS_VCFGZ="${PATH_RESOURCES_HEAD}/gold_standard/calls-2.19.vcf.gz"
+export CONST_GOLD_CALLS_VCFGZTBI="${PATH_RESOURCES_HEAD}/gold_standard/calls-2.19.vcf.gz.tbi"
+export CONST_GOLD_HARDMASK_VALID_REGIONS_BEDGZ="${PATH_RESOURCES_HEAD}/gold_standard/valid_regions-2.19.bed.gz"
+export CONST_REFERENCE_SDF="${PATH_RESOURCES_HEAD}/reference/ref.sdf/"
+export CONST_FUNCTIONAL_REGIONS_BEDGZ_PREFIX="${PATH_RESOURCES_HEAD}/functional_regions/"
+export CONST_MASK_REGIONS_BEDGZ_PREFIX="${PATH_RESOURCES_HEAD}/mask_regions/"
+export CONST_REFERENCE_BSGENOME="BSgenome.HSapiens.1000g.37d5"		# This is a custom package, available at /share/ClusterShare/biodata/contrib/marpin/reference/hs37d5/build/BSgenome.HSapiens.1000g.37d5_1.0.0.tar.gz
 
-EXEC_DIR=$(pwd)
+# Script location
+export PARAM_EXEC_PATH=$(pwd)
 
+# Scratch space
+export PARAM_SCRATCH=$(mktemp -d --tmpdir=${PATH_SCRATCH_DEFAULT} valrept.XXXXXXXXXX)
+export PARAM_INPUT_SCRATCH="${PARAM_SCRATCH}/input"
+export PARAM_RTG_OVERLAP_SCRATCH="${PARAM_SCRATCH}/overlap"
+export PARAM_KNITR_SCRATCH="${PARAM_SCRATCH}/knitr"
 
-SCRATCH=$(mktemp -d --tmpdir=${SCRATCH_DEFAULT} valrept.XXXXXXXXXX)
-INPUT_SCRATCH="${SCRATCH}/input"
-RTG_OVERLAP_SCRATCH="${SCRATCH}/overlap"
-KNITR_SCRATCH="${SCRATCH}/knitr"
+# Program parameters
+export PARAM_INPUT_VCFGZ_PATH
+export PARAM_REGION_BED_SUPPLIED
+export PARAM_REGION_BED_PATH
+export PARAM_OUTPUT_PDF_PATH
+export PARAM_EXTENDED
+export PARAM_VERSION_EXEC_HOST
+export PARAM_VERSION_RTG
+export PARAM_VERSION_JAVA
+export PARAM_VERSION_BEDTOOLS
+
+# Temporary file locations
+export PATH_TEST_VARIANTS="${PARAM_INPUT_SCRATCH}/test_variants.vcf.gz"
+export PATH_TEST_VARIANTS_INDEX="${PATH_TEST_VARIANTS}.tbi"
+export PATH_GOLD_VARIANTS="${PARAM_INPUT_SCRATCH}/gold_variants.vcf.gz"
+export PATH_GOLD_VARIANTS_INDEX="${PATH_GOLD_VARIANTS}.tbi"
+export PATH_GOLD_REGIONS="${PARAM_INPUT_SCRATCH}/gold_regions.bed.gz"
+
+# Overlap file locations
+export PATH_OVERLAP_TP="${PARAM_RTG_OVERLAP_SCRATCH}/tp.vcf.gz"
+export PATH_OVERLAP_FP="${PARAM_RTG_OVERLAP_SCRATCH}/fp.vcf.gz"
+export PATH_OVERLAP_FN="${PARAM_RTG_OVERLAP_SCRATCH}/fn.vcf.gz"
 
 
 #####################################################################
@@ -77,11 +120,11 @@ EOF
 
 # Head location for resources bundle
 OPTIND=1
-input_vcfgz_path=""
-region_bed_supplied=0
-region_bed_path="NA"
-output_pdf_path="${EXEC_DIR}/report.pdf"
-extended=0
+PARAM_INPUT_VCFGZ_PATH=""
+PARAM_REGION_BED_SUPPLIED=0
+PARAM_REGION_BED_PATH="NA"
+PARAM_OUTPUT_PDF_PATH="${PARAM_EXEC_PATH}/report.pdf"
+PARAM_EXTENDED=0
 
 while getopts "r:o:hx" opt; do
 	case "$opt" in
@@ -90,14 +133,14 @@ while getopts "r:o:hx" opt; do
 			exit 0
 			;;
 		o)
-			output_pdf_path=$(readlink -f $OPTARG)
+			PARAM_OUTPUT_PDF_PATH=$(readlink -f $OPTARG)
 			;;
 		r)
-			region_bed_supplied=1
-			region_bed_path=$(readlink -f $OPTARG)
+			PARAM_REGION_BED_SUPPLIED=1
+			PARAM_REGION_BED_PATH=$(readlink -f $OPTARG)
 			;;
 		x)
-			extended=1
+			PARAM_EXTENDED=1
 			;;
 		'?')
 			print_usage >&2
@@ -113,30 +156,30 @@ if [ $# -ne 1 ]; then
 	exit 1
 fi
 
-input_vcfgz_path=$1
+PARAM_INPUT_VCFGZ_PATH=$1
 
 
 #####################################################################
 # PARAMETER CHECKING
 #####################################################################
 
-if [ ! -d "${RESOURCES_HEAD}" ]; then
-  echo >&2 "Error: Resources path ${RESOURCES_HEAD} not found."
+if [ ! -d "${PATH_RESOURCES_HEAD}" ]; then
+  echo >&2 "Error: Resources path ${PATH_RESOURCES_HEAD} not found."
   exit 2
 fi
 
-if [ ! -e ${input_vcfgz_path} ]; then
-	echo >&2 "Error: Input file ${input_vcfgz_path} not found."
+if [ ! -e ${PARAM_INPUT_VCFGZ_PATH} ]; then
+	echo >&2 "Error: Input file ${PARAM_INPUT_VCFGZ_PATH} not found."
 	exit 3
 fi
 
-if [ -e ${output_pdf_path} ]; then
-	echo >&2 "Error: Output file ${output_pdf_path} already exists."
+if [ -e ${PARAM_OUTPUT_PDF_PATH} ]; then
+	echo >&2 "Error: Output file ${PARAM_OUTPUT_PDF_PATH} already exists."
 	exit 4
 fi
 
-if [ ${region_bed_supplied} -eq 1 ] && [ ! -e ${region_bed_path} ]; then
-  echo >&2 "Error: Region file ${region_bed_path} not found."
+if [ ${PARAM_REGION_BED_SUPPLIED} -eq 1 ] && [ ! -e ${PARAM_REGION_BED_PATH} ]; then
+  echo >&2 "Error: Region file ${PARAM_REGION_BED_PATH} not found."
   exit 5
 fi
 
@@ -166,52 +209,55 @@ fi
 #####################################################################
 # R PACKAGE CHECKING
 #####################################################################
-R --vanilla -e "suppressWarnings(require(\"${REFERENCE_BSGENOME}\", quiet=TRUE)) || stop(\"${REFERENCE_BSGENOME} package not installed\")"
+${R} --vanilla -e "if (!(\"${CONST_REFERENCE_BSGENOME}\" %in% installed.packages(.Library))) stop(\"${CONST_REFERENCE_BSGENOME} package not installed\")"
 
 
 #####################################################################
 # VERSIONING
 #####################################################################
-VERSION_EXEC_HOST=$(uname -a)
+PARAM_VERSION_EXEC_HOST=$(uname -a)
+PARAM_VERSION_RTG=$(${JAVA} -jar ~/software/rtg-core/build/rtg-core.jar version | grep 'Core Version: ' | sed 's/.*: //g')
+PARAM_VERSION_JAVA=$(${JAVA} -version 2>&1 | grep Runtime | grep -oE 'build [^)]+' | cut -d' ' -f 2)
+PARAM_VERSION_BEDTOOLS=$(${BEDTOOLS} --version | cut -d' ' -f 2)
 
 
 #####################################################################
 # CREATE TEMPORARY DIRECTORIES
 #####################################################################
-mkdir -p ${SCRATCH}
-mkdir -p ${KNITR_SCRATCH}
-mkdir -p ${INPUT_SCRATCH}
+mkdir -p ${PARAM_SCRATCH}
+mkdir -p ${PARAM_KNITR_SCRATCH}
+mkdir -p ${PARAM_INPUT_SCRATCH}
 
 
 #####################################################################
 # SUBSET TO REGION BED
 #####################################################################
-if [ ${region_bed_supplied} -eq 1 ]; then
+if [ ${PARAM_REGION_BED_SUPPLIED} -eq 1 ]; then
   echo "Subsetting input files to supplied BED..."
   # Sort the region bed
-  sort -k1,1 -k2,2n ${region_bed_path} > ${INPUT_SCRATCH}/region.bed
+  sort -k1,1 -k2,2n ${PARAM_REGION_BED_PATH} > ${PARAM_INPUT_SCRATCH}/region.bed
 
   # Perform the intersection
-  ${BEDTOOLS} intersect -wa -sorted -header -a ${input_vcfgz_path} -b ${INPUT_SCRATCH}/region.bed | ${BGZIP} > ${INPUT_SCRATCH}/test_variants.vcf.gz
-  ${BEDTOOLS} intersect -wa -sorted -header -a ${GOLD_CALLS_VCFGZ} -b ${INPUT_SCRATCH}/region.bed | ${BGZIP} > ${INPUT_SCRATCH}/gold_variants.vcf.gz
-  ${BEDTOOLS} intersect -wa -sorted -a ${GOLD_HARDMASK_VALID_REGIONS_BEDGZ} -b ${INPUT_SCRATCH}/region.bed | ${BGZIP} > ${INPUT_SCRATCH}/gold_regions.bed.gz
+  ${BEDTOOLS} intersect -wa -header -a ${PARAM_INPUT_VCFGZ_PATH} -b ${PARAM_INPUT_SCRATCH}/region.bed | ${BGZIP} > ${PATH_TEST_VARIANTS}
+  ${BEDTOOLS} intersect -wa -header -a ${CONST_GOLD_CALLS_VCFGZ} -b ${PARAM_INPUT_SCRATCH}/region.bed | ${BGZIP} > ${PATH_GOLD_VARIANTS}
+  ${BEDTOOLS} intersect -wa -a ${CONST_GOLD_HARDMASK_VALID_REGIONS_BEDGZ} -b ${PARAM_INPUT_SCRATCH}/region.bed | ${BGZIP} > ${PATH_GOLD_REGIONS}
 
   # We need to re-index the gold variants
-  ${TABIX} -p vcf ${INPUT_SCRATCH}/gold_variants.vcf.gz
+  ${TABIX} -p vcf ${PATH_GOLD_VARIANTS}
 else
   # No region bed supplied; copy over the files in their entirety
-  cp ${input_vcfgz_path} ${INPUT_SCRATCH}/test_variants.vcf.gz
-  cp ${GOLD_CALLS_VCFGZ} ${INPUT_SCRATCH}/gold_variants.vcf.gz
-  cp ${GOLD_HARDMASK_VALID_REGIONS_BEDGZ} ${INPUT_SCRATCH}/gold_regions.bed.gz
+  cp ${PARAM_INPUT_VCFGZ_PATH} ${PATH_TEST_VARIANTS}
+  cp ${CONST_GOLD_CALLS_VCFGZ} ${PATH_GOLD_VARIANTS}
+  cp ${CONST_GOLD_HARDMASK_VALID_REGIONS_BEDGZ} ${PATH_GOLD_REGIONS}
 
   # We can use the gold standard index unchanged, so no need to 
   # index it as above.
-  cp ${GOLD_CALLS_VCFGZTBI} ${INPUT_SCRATCH}/gold_variants.vcf.gz.tbi
+  cp ${CONST_GOLD_CALLS_VCFGZTBI} ${PATH_GOLD_VARIANTS_INDEX}
 fi
 
 # Regardless of whether a region bed was supplied or not, we still
 # need to index the test variant vcf.
-${TABIX} -p vcf ${INPUT_SCRATCH}/test_variants.vcf.gz
+${TABIX} -p vcf ${PATH_TEST_VARIANTS}
 
 
 
@@ -220,14 +266,14 @@ ${TABIX} -p vcf ${INPUT_SCRATCH}/test_variants.vcf.gz
 #####################################################################
 echo "Computing VCF overlaps..."
 
-if [ -e ${RTG_OVERLAP_SCRATCH} ]; then
-	echo "Overlap scratch directory ${RTG_OVERLAP_SCRATCH} already exists.  Clearing scratch directory and continuing..."
-	rm -rf ${RTG_OVERLAP_SCRATCH}
+if [ -e ${PARAM_RTG_OVERLAP_SCRATCH} ]; then
+	echo "Overlap scratch directory ${PARAM_RTG_OVERLAP_SCRATCH} already exists.  Clearing scratch directory and continuing..."
+	rm -rf ${PARAM_RTG_OVERLAP_SCRATCH}
 fi
 
-${RTG_VCFEVAL} --all-records -b ${INPUT_SCRATCH}/gold_variants.vcf.gz -c ${INPUT_SCRATCH}/test_variants.vcf.gz -t ${REFERENCE_SDF} -o ${RTG_OVERLAP_SCRATCH} > /dev/null 2>&1
+${RTG_VCFEVAL} --all-records -b ${PATH_GOLD_VARIANTS} -c ${PATH_TEST_VARIANTS} -t ${CONST_REFERENCE_SDF} -o ${PARAM_RTG_OVERLAP_SCRATCH} > /dev/null 2>&1
 
-# TODO: Parse ${RTG_OVERLAP_SCRATCH}/vcfeval.log to identify regions to exclude
+# TODO: Parse ${PARAM_RTG_OVERLAP_SCRATCH}/vcfeval.log to identify regions to exclude
 # eg Evaluation too complex (5001 unresolved paths, 18033 iterations) at reference region 2:105849275-105849281. Variants in this region will not be included in results.
 # This will be required to remove the TNs in this region, but it's polish.
 
@@ -239,28 +285,19 @@ echo "Performing calculations for report..."
 
 # knitr doesn't play well with building knits outside of its working
 # directory.  Currently we get around this with a bit of a kludge, 
-# by copying the report files to ${KNITR_SCRATCH}, then executing in 
+# by copying the report files to ${PARAM_KNITR_SCRATCH}, then executing in 
 # that directory.
-cp -f report.Rnw ${KNITR_SCRATCH}
-cp -f report_functions.R ${KNITR_SCRATCH}
-cp -f report_extended.Rnw ${KNITR_SCRATCH}
-cp -f report_calculations.R ${KNITR_SCRATCH}
-cd ${KNITR_SCRATCH}
+cp -f report.Rnw ${PARAM_KNITR_SCRATCH}
+cp -f report_functions.R ${PARAM_KNITR_SCRATCH}
+cp -f report_extended.Rnw ${PARAM_KNITR_SCRATCH}
+cp -f report_calculations.R ${PARAM_KNITR_SCRATCH}
+cd ${PARAM_KNITR_SCRATCH}
 
-# Run the script
-# SECURITY WARNING: Code injection possible in VERSION_ variables.
-# Ensure that git branch and execution host names can not be under
-# malicious control.
-${RSCRIPT} --vanilla report_calculations.R ${extended} ${input_vcfgz_path} \
-  ${region_bed_supplied} ${region_bed_path} \
-  ${RTG_OVERLAP_SCRATCH}/tp.vcf.gz ${RTG_OVERLAP_SCRATCH}/fp.vcf.gz ${RTG_OVERLAP_SCRATCH}/fn.vcf.gz \
-  ${GOLD_CALLS_VCFGZ} ${REFERENCE_BSGENOME} ${INPUT_SCRATCH}/gold_regions.bed.gz \
-  ${FUNCTIONAL_REGIONS_BEDGZ_PREFIX} ${MASK_REGIONS_BEDGZ_PREFIX} \
-   "'"${VERSION}"'" "${VERSION_EXEC_HOST}"
-
-# NB above: old ${GOLD_CALLS_VCFGZ} kept as it's not actually used in the R script, and gives the full path.
-# Regions subset though, as it *is* actually used in R.
-# TODO for later: Move those cmd line params to a KV file.  In doing so, give both original (for rept), and subset (for actual use) paths
+# Run the script.  All options are passed via exported environment 
+# variables.  Also save these variables to a file for later source-ing,
+# to ease debugging.
+export > environment
+${RSCRIPT} --vanilla report_calculations.R
 
 
 #####################################################################
@@ -278,21 +315,21 @@ set +e
 # Remove the report.pdf that may be present in the scratch directory,
 # so we can later check whether pdflatex successfully built a report
 # or not.
-rm -f ${KNITR_SCRATCH}/report.pdf
+rm -f ${PARAM_KNITR_SCRATCH}/report.pdf
 
 # Run pdflatex
 pdflatex -interaction nonstopmode report.tex
 pdflatex -interaction nonstopmode report.tex
 
 # Check  whether the report.pdf was generated
-if [ ! -e ${KNITR_SCRATCH}/report.pdf ]; then
+if [ ! -e ${PARAM_KNITR_SCRATCH}/report.pdf ]; then
 	echo >&2 "Error: pdflatex did not successfully generate report.pdf."
-	echo >&2 "Check ${KNITR_SCRATCH}/report.tex and the latex log for errors."
+	echo >&2 "Check ${PARAM_KNITR_SCRATCH}/report.tex and the latex log for errors."
 	exit 9
 fi
 
 # Copy the completed report to the final destination
-cp "${KNITR_SCRATCH}/report.pdf" "${output_pdf_path}"
+cp "${PARAM_KNITR_SCRATCH}/report.pdf" "${output_pdf_path}"
 
 echo "Report generated successfully."
 

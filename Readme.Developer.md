@@ -4,6 +4,11 @@ dx run /kccg-validation-reporter-dx -ivcfgz=file-BbBg1g00z1f8vYJq606Yjv7K -itbi=
 dx ssh job-Bf15zx00p67J7g4F31ky8zQV
 dx terminate job-Bf15zx00p67J7g4F31ky8zQV
 
+dx run /kccg-validation-reporter-dx -ivcfgz=file-BbBg1g00z1f8vYJq606Yjv7K -iregion=file-Bf3g5XQ0K74Qg77ZjGV0JqVF --yes --ssh --debug-on AppInternalError
+
+dx ssh job-Bf15zx00p67J7g4F31ky8zQV
+dx terminate job-Bf15zx00p67J7g4F31ky8zQV
+
 <!-- qsub -pe smp 4 -N VR_1_v10 -cwd -j y -b y bash validation_report.sh -f -x -o v10.pdf /directflow/ClinicalGenomicsPipeline/projects/validation-reporter/test_data/HiSeqX_v1_TKCC/NA12878_v1.hc.vqsr.vep.vcf.gz
 qsub -pe smp 4 -N VR_1_v25 -cwd -j y -b y bash validation_report.sh -f -x -o v25.pdf /directflow/ClinicalGenomicsPipeline/projects/validation-reporter/test_data/HiSeqX_v2_TKCC/R_150203_DAVMIL1_FGS_M001.hc.vqsr.vep.vcf.gz
 qsub -pe smp 4 -N VR_1_vEx -cwd -j y -b y bash validation_report.sh -f -o vEx.pdf -x /directflow/ClinicalGenomicsPipeline/projects/validation-reporter/test_data/HiSeq2500_NexteraRapid_Illumina/Basespace_NA12878_HiSeq_2500_Nextera_Rapid_Capture_Exome_CEPH_TRIO.hc.vqsr.vep.vcf.gz
