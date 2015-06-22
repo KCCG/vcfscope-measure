@@ -7,10 +7,9 @@ set -e -x -o pipefail
 
 main() {
   #
-  # Fetch inputs (~/in/vcfgz/* ~/in/tbi/*)
+  # Fetch inputs (~/in/vcfgz/*)
   #
   dx-download-all-inputs --parallel
-  mv in/tbi/* in/vcfgz
 
   #
   # Stream and unpack assets bundle

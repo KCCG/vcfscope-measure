@@ -10,38 +10,24 @@ VERSION="20150622-1"
 # SOFTWARE AND DATA LOCATIONS
 #####################################################################
 
-IS_DNANEXUS=0
-if [ `whoami` == dnanexus ]; then
-  let IS_DNANEXUS=1
-fi
-
 #
 # Software & Resources
 #
-if [ ${IS_DNANEXUS} ]; then
-  RSCRIPT="/home/dnanexus/bin/Rscript"
-  JAVA=`which java`
-  GIT=`which git`
-  RESOURCES_HEAD="/home/dnanexus/resources"
-  SCRATCH_DEFAULT="/tmp"
+RSCRIPT="/home/dnanexus/bin/Rscript"
+JAVA=`which java`
+GIT=`which git`
+BEDTOOLS=`which bedtools`
+TABIX=`which tabix`
+BGZIP=`which bgzip`
+RESOURCES_HEAD="/home/dnanexus/resources"
+SCRATCH_DEFAULT="/tmp"
 
-  RTG_CORE="${RESOURCES_HEAD}/rtg-core/rtg-core.jar"
-  RTG_THREADS=`nproc`
+RTG_CORE="${RESOURCES_HEAD}/rtg-core/rtg-core.jar"
+RTG_THREADS=`nproc`
 
-  # Calculate 80% of memory size, for java
-  mem_in_mb=`head -n1 /proc/meminfo | awk '{print int($2*0.8/1024)}'`
-  RTG_VCFEVAL="${JAVA} -Xmx${mem_in_mb}m -jar ${RTG_CORE} vcfeval -T ${RTG_THREADS}"
-else
-  RSCRIPT="/home/marpin/bin/Rscript"
-  JAVA="/usr/java/latest/bin/java"
-  GIT="/home/marpin/bin/git"
-  RESOURCES_HEAD="/directflow/ClinicalGenomicsPipeline/projects/validation-reporter/resources"
-  SCRATCH_DEFAULT="/directflow/ClinicalGenomicsPipeline/tmp"
-
-  RTG_CORE="${RESOURCES_HEAD}/rtg-core/rtg-core.jar"
-  RTG_THREADS=4
-  RTG_VCFEVAL="${JAVA} -Xmx8G -jar ${RTG_CORE} vcfeval -T ${RTG_THREADS}"
-fi
+# Calculate 80% of memory size, for java
+mem_in_mb=`head -n1 /proc/meminfo | awk '{print int($2*0.8/1024)}'`
+RTG_VCFEVAL="${JAVA} -Xmx${mem_in_mb}m -jar ${RTG_CORE} vcfeval -T ${RTG_THREADS}"
 
 
 #
@@ -60,6 +46,7 @@ EXEC_DIR=$(pwd)
 
 
 SCRATCH=$(mktemp -d --tmpdir=${SCRATCH_DEFAULT} valrept.XXXXXXXXXX)
+INPUT_SCRATCH="${SCRATCH}/input"
 RTG_OVERLAP_SCRATCH="${SCRATCH}/overlap"
 KNITR_SCRATCH="${SCRATCH}/knitr"
 
@@ -91,7 +78,8 @@ EOF
 # Head location for resources bundle
 OPTIND=1
 input_vcfgz_path=""
-region_file_supplied=0
+region_bed_supplied=0
+region_bed_path="NA"
 output_pdf_path="${EXEC_DIR}/report.pdf"
 extended=0
 
@@ -105,8 +93,8 @@ while getopts "r:o:hx" opt; do
 			output_pdf_path=$(readlink -f $OPTARG)
 			;;
 		r)
-			region_file_supplied=1
-			region_file=$(readlink -f $OPTARG)
+			region_bed_supplied=1
+			region_bed_path=$(readlink -f $OPTARG)
 			;;
 		x)
 			extended=1
@@ -133,18 +121,23 @@ input_vcfgz_path=$1
 #####################################################################
 
 if [ ! -d "${RESOURCES_HEAD}" ]; then
-  echo -e >&2 "Error: Resources path ${RESOURCES_HEAD} not found."
-  exit 10
+  echo >&2 "Error: Resources path ${RESOURCES_HEAD} not found."
+  exit 2
 fi
 
 if [ ! -e ${input_vcfgz_path} ]; then
-	echo -e "Error: Input file ${input_vcfgz_path} not found."
-	exit 2
+	echo >&2 "Error: Input file ${input_vcfgz_path} not found."
+	exit 3
 fi
 
 if [ -e ${output_pdf_path} ]; then
-	echo -e "Output file ${output_pdf_path} already exists; quitting."
-	exit 3
+	echo >&2 "Error: Output file ${output_pdf_path} already exists."
+	exit 4
+fi
+
+if [ ${region_bed_supplied} -eq 1 ] && [ ! -e ${region_bed_path} ]; then
+  echo >&2 "Error: Region file ${region_bed_path} not found."
+  exit 5
 fi
 
 
@@ -152,16 +145,18 @@ fi
 # SOFTWARE CHECKING
 #####################################################################
 if [ ! -e ${RSCRIPT} ]; then
-  echo -e "Error: Rscript executable not found."
-  exit 2
+  echo >&2 "Error: Rscript executable not found."
+  exit 6
 fi
+
 if [ ! -e ${JAVA} ]; then
-  echo -e "Error: java executable not found."
-  exit 2
+  echo >&2 "Error: java executable not found."
+  exit 7
 fi
+
 if [ ! -e ${GIT} ]; then
-  echo -e "Error: git executable not found."
-  exit 2
+  echo >&2 "Error: git executable not found."
+  exit 8
 fi
 
 #set -e should catch this.
@@ -175,15 +170,8 @@ R --vanilla -e "suppressWarnings(require(\"${REFERENCE_BSGENOME}\", quiet=TRUE))
 
 
 #####################################################################
-# SOFTWARE VERSIONING
+# VERSIONING
 #####################################################################
-if [ ${IS_DNANEXUS} ]; then
-  VERSION_GIT_BRANCH="unknown"
-  VERSION_GIT_COMMIT="unknown"
-else
-  VERSION_GIT_BRANCH=$(${GIT} rev-parse --abbrev-ref HEAD)
-  VERSION_GIT_COMMIT=$(${GIT} rev-parse --verify HEAD)
-fi
 VERSION_EXEC_HOST=$(uname -a)
 
 
@@ -192,19 +180,52 @@ VERSION_EXEC_HOST=$(uname -a)
 #####################################################################
 mkdir -p ${SCRATCH}
 mkdir -p ${KNITR_SCRATCH}
+mkdir -p ${INPUT_SCRATCH}
+
+
+#####################################################################
+# SUBSET TO REGION BED
+#####################################################################
+if [ ${region_bed_supplied} -eq 1 ]; then
+  echo "Subsetting input files to supplied BED..."
+  # Sort the region bed
+  sort -k1,1 -k2,2n ${region_bed_path} > ${INPUT_SCRATCH}/region.bed
+
+  # Perform the intersection
+  ${BEDTOOLS} intersect -wa -sorted -header -a ${input_vcfgz_path} -b ${INPUT_SCRATCH}/region.bed | ${BGZIP} > ${INPUT_SCRATCH}/test_variants.vcf.gz
+  ${BEDTOOLS} intersect -wa -sorted -header -a ${GOLD_CALLS_VCFGZ} -b ${INPUT_SCRATCH}/region.bed | ${BGZIP} > ${INPUT_SCRATCH}/gold_variants.vcf.gz
+  ${BEDTOOLS} intersect -wa -sorted -a ${GOLD_HARDMASK_VALID_REGIONS_BEDGZ} -b ${INPUT_SCRATCH}/region.bed | ${BGZIP} > ${INPUT_SCRATCH}/gold_regions.bed.gz
+
+  # We need to re-index the gold variants
+  ${TABIX} -p vcf ${INPUT_SCRATCH}/gold_variants.vcf.gz
+else
+  # No region bed supplied; copy over the files in their entirety
+  cp ${input_vcfgz_path} ${INPUT_SCRATCH}/test_variants.vcf.gz
+  cp ${GOLD_CALLS_VCFGZ} ${INPUT_SCRATCH}/gold_variants.vcf.gz
+  cp ${GOLD_HARDMASK_VALID_REGIONS_BEDGZ} ${INPUT_SCRATCH}/gold_regions.bed.gz
+
+  # We can use the gold standard index unchanged, so no need to 
+  # index it as above.
+  cp ${GOLD_CALLS_VCFGZTBI} ${INPUT_SCRATCH}/gold_variants.vcf.gz.tbi
+fi
+
+# Regardless of whether a region bed was supplied or not, we still
+# need to index the test variant vcf.
+${TABIX} -p vcf ${INPUT_SCRATCH}/test_variants.vcf.gz
+
 
 
 #####################################################################
 # VCF OVERLAP EVALUATION
 #####################################################################
-echo -e "Computing VCF overlaps..."
+echo "Computing VCF overlaps..."
 
 if [ -e ${RTG_OVERLAP_SCRATCH} ]; then
-	echo -e "Overlap scratch directory ${RTG_OVERLAP_SCRATCH} already exists.  Clearing scratch directory and continuing..."
+	echo "Overlap scratch directory ${RTG_OVERLAP_SCRATCH} already exists.  Clearing scratch directory and continuing..."
 	rm -rf ${RTG_OVERLAP_SCRATCH}
 fi
 
-${RTG_VCFEVAL} --all-records -b ${GOLD_CALLS_VCFGZ} -c ${input_vcfgz_path} -t ${REFERENCE_SDF} -o ${RTG_OVERLAP_SCRATCH} > /dev/null 2>&1
+${RTG_VCFEVAL} --all-records -b ${INPUT_SCRATCH}/gold_variants.vcf.gz -c ${INPUT_SCRATCH}/test_variants.vcf.gz -t ${REFERENCE_SDF} -o ${RTG_OVERLAP_SCRATCH} > /dev/null 2>&1
 
 # TODO: Parse ${RTG_OVERLAP_SCRATCH}/vcfeval.log to identify regions to exclude
 # eg Evaluation too complex (5001 unresolved paths, 18033 iterations) at reference region 2:105849275-105849281. Variants in this region will not be included in results.
@@ -214,8 +235,8 @@ ${RTG_VCFEVAL} --all-records -b ${GOLD_CALLS_VCFGZ} -c ${input_vcfgz_path} -t ${
 #####################################################################
 # CALCULATIONS FOR REPORT
 #####################################################################
-echo -e "Performing calculations for report..."
-#mkdir -p ${KNITR_SCRATCH}
+echo "Performing calculations for report..."
+
 # knitr doesn't play well with building knits outside of its working
 # directory.  Currently we get around this with a bit of a kludge, 
 # by copying the report files to ${KNITR_SCRATCH}, then executing in 
@@ -230,17 +251,22 @@ cd ${KNITR_SCRATCH}
 # SECURITY WARNING: Code injection possible in VERSION_ variables.
 # Ensure that git branch and execution host names can not be under
 # malicious control.
-${RSCRIPT} --vanilla report_calculations.R ${debug} ${debug_chrom} ${extended} ${input_vcfgz_path} \
+${RSCRIPT} --vanilla report_calculations.R ${extended} ${input_vcfgz_path} \
+  ${region_bed_supplied} ${region_bed_path} \
   ${RTG_OVERLAP_SCRATCH}/tp.vcf.gz ${RTG_OVERLAP_SCRATCH}/fp.vcf.gz ${RTG_OVERLAP_SCRATCH}/fn.vcf.gz \
-  ${GOLD_CALLS_VCFGZ} ${REFERENCE_BSGENOME} ${GOLD_HARDMASK_VALID_REGIONS_BEDGZ} \
+  ${GOLD_CALLS_VCFGZ} ${REFERENCE_BSGENOME} ${INPUT_SCRATCH}/gold_regions.bed.gz \
   ${FUNCTIONAL_REGIONS_BEDGZ_PREFIX} ${MASK_REGIONS_BEDGZ_PREFIX} \
-   "'""${VERSION}""'" "${VERSION_GIT_BRANCH}" "${VERSION_GIT_COMMIT}" "${VERSION_EXEC_HOST}"
+   "'"${VERSION}"'" "${VERSION_EXEC_HOST}"
+
+# NB above: old ${GOLD_CALLS_VCFGZ} kept as it's not actually used in the R script, and gives the full path.
+# Regions subset though, as it *is* actually used in R.
+# TODO for later: Move those cmd line params to a KV file.  In doing so, give both original (for rept), and subset (for actual use) paths
 
 
 #####################################################################
 # REPORT GENERATION
 #####################################################################
-echo -e "Generating report..."
+echo "Generating report..."
 
 ${RSCRIPT} --vanilla -e "library(knitr); knit('report.Rnw', output = 'report.tex')"
 
@@ -260,14 +286,14 @@ pdflatex -interaction nonstopmode report.tex
 
 # Check  whether the report.pdf was generated
 if [ ! -e ${KNITR_SCRATCH}/report.pdf ]; then
-	echo -e "Error: pdflatex did not successfully generate a report.pdf."
-	echo -e "Check ${KNITR_SCRATCH}/report.tex and the latex log for errors."
-	exit 4
+	echo >&2 "Error: pdflatex did not successfully generate report.pdf."
+	echo >&2 "Check ${KNITR_SCRATCH}/report.tex and the latex log for errors."
+	exit 9
 fi
 
 # Copy the completed report to the final destination
 cp "${KNITR_SCRATCH}/report.pdf" "${output_pdf_path}"
 
-echo -e "Report generated successfully."
+echo "Report generated successfully."
 
-echo -e "Done."
+echo "Done."

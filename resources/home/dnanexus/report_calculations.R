@@ -3,19 +3,19 @@
 #  KCCG WGS Validation Reporter -- Report calculations
 #  
 #  Usage: 
-#    Rscript report_calculations.R <debugflag> <debugchrom>
-#      <extendedflag> <input_vcf> <tp> <fp> <fn> <gold_vcf> 
+#    Rscript report_calculations.R <extendedflag> <input_vcf>
+#      <regions_used> <regions_path> <tp> <fp> <fn> <gold_vcf> 
 #      <genome> <gold_regions> <func_regions> <mask_regions> 
-#      <ver_branch> <ver_commit> <ver_host>
+#      <ver_host>
 #  
 #  Positional parameters:
-#    debugflag      Debug mode flag.  1 if this is a debug run,
-#                   any other value otherwise.
-#    debugchrom     If debugging, limit analysis to this chromosome.
-#                   If not in debug mode, this value is ignored.
 #    extendedflag   Generate an extended report, with additional
 #                   plots for threshold and score diagnostics.
 #    input_vcf      Path the the input VCF (can be .vcf or .vcf.gz)
+#    regions_used   If a regions BED was used for subsetting, 1,
+#                   else 0.
+#    regions_path   If a regions BED was used for subsetting, the
+#                   path to the bed, else NA.
 #    tp, fp, fn     Paths to the overlap files output by vcfeval
 #    gold_vcf       Path to the gold-standard VCF (can be .vcf or 
 #                   .vcf.gz)
@@ -85,13 +85,13 @@ criteria = list(
 argv = commandArgs(TRUE)
 if (length(argv) != 16)
 {
-    stop(sprintf("Usage: Rscript report_calculations.R <debugflag> <debugchrom> <extendedflag>\n    <input_vcf> <tp> <fp> <fn> <gold_vcf> <genome> <gold_regions> <func_regions>\n     <mask_regions> <ver_script> <ver_branch> <ver_commit> <ver_host>\n\nargv = %s", paste(argv, sep = " ")))
+    stop(sprintf("Usage: Rscript report_calculations.R <extendedflag> <input_vcf>\n     <regions_used> <regions_path> <tp> <fp> <fn> <gold_vcf> <genome> <gold_regions> <func_regions>\n     <mask_regions> <ver_script> <ver_host>\n\nargv = %s", paste(argv, sep = " ")))
 }
 
-DEBUG = argv[1] == "1"
-DEBUG.chrom = argv[2]
-extendedflag = argv[3] == "1"
-path.input = argv[4]
+extendedflag = argv[1] == "1"
+path.input = argv[2]
+regions.subset = argv[3] == "1"
+path.regions.subset = argv[4]
 path.tp = argv[5]
 path.fp = argv[6]
 path.fn = argv[7]
@@ -100,29 +100,8 @@ genome = argv[9]
 path.gold_regions = argv[10]
 path.function_regions_prefix = argv[11]
 path.mask_regions_prefix = argv[12]
-versions = list(script = argv[13], branch = argv[14], commit = argv[15], host = argv[16])
+versions = list(script = argv[13], host = argv[14])
 
-
-if (DEBUG)
-{
-    message(sprintf("Command line: %s", paste(argv, collapse = " ")))
-    message(sprintf("  DEBUG:             %s", DEBUG))
-    message(sprintf("  DEBUG.chrom:       %s", DEBUG.chrom))
-    message(sprintf("  extendedflag:      %s", extendedflag))
-    message(sprintf("  path.tp:           %s", path.tp))
-    message(sprintf("  path.fp:           %s", path.fp))
-    message(sprintf("  path.fn:           %s", path.fn))
-    message(sprintf("  path.gold:         %s", path.gold))
-    message(sprintf("  genome:            %s", genome))
-    message(sprintf("  path.gold_regions: %s", path.gold_regions))
-    message(sprintf("  path.function_regions_prefix: %s", path.function_regions_prefix))
-    message(sprintf("  path.mask_regions_prefix:     %s", path.mask_regions_prefix))
-    message(        "  versions:")
-    message(sprintf("    script:          %s", versions$script))
-    message(sprintf("    branch:          %s", versions$branch))
-    message(sprintf("    commit:          %s", versions$commit))
-    message(sprintf("    host:            %s", versions$host))
-}
 
 
 #####################################################################
@@ -155,16 +134,8 @@ genome(genome.seqinfo) = genome     # To get around disagreement
 # lines.  TODO: Consider tweaking the front-end so that these entries
 # are de-duplicated.  Then, the suppressWarnings calls can be 
 # removed here, and genuine file read warnings will be caught.
-if (DEBUG)
-{
-    temp = as.data.frame(seqinfo(genome.bsgenome))
-    DEBUG.region = GRanges(seqnames = DEBUG.chrom, IRanges(1, temp[DEBUG.chrom,]$seqlengths), seqinfo = genome.seqinfo)
-    vcf.scan_param.called = ScanVcfParam(info = c("DP", "GQ_MEAN", "QD", "VQSLOD", "MQ", "FS", "MQRankSum", "ReadPosRankSum"), geno = c("GT", "DP", "GQ"), which = DEBUG.region)
-    vcf.scan_param.uncalled = ScanVcfParam(info = c("DP", "TYPE"), geno = c("GT", "DP", "GQ"), which = DEBUG.region)
-} else {
-    vcf.scan_param.called = ScanVcfParam(info = c("DP", "GQ_MEAN", "QD", "VQSLOD", "MQ", "FS", "MQRankSum", "ReadPosRankSum"), geno = c("GT", "DP", "GQ"))
-    vcf.scan_param.uncalled = ScanVcfParam(info = c("DP", "TYPE"), geno = c("GT", "DP", "GQ"))
-}
+vcf.scan_param.called = ScanVcfParam(info = c("DP", "GQ_MEAN", "QD", "VQSLOD", "MQ", "FS", "MQRankSum", "ReadPosRankSum"), geno = c("GT", "DP", "GQ"))
+
 calls = list(
     tp = suppressWarnings(readVcf(TabixFile(path.tp), genome, vcf.scan_param.called)),
     fp = suppressWarnings(readVcf(TabixFile(path.fp), genome, vcf.scan_param.called)),
@@ -182,20 +153,33 @@ stopifnot(length(temp.sample.tp) == 1)
 calls.sampleid = header(calls$tp)@samples
 
 
-# The gold standard calls, subsetting under debug as before
-calls$gold = suppressWarnings(readVcf(TabixFile(path.gold), genome, vcf.scan_param.uncalled))
-
-
 # Various genomic regions, for later subsetting of performance measures
 regions = list(
     gold = list(callable = bed2GRanges(path.gold_regions, genome.seqinfo)),             # Gold standard valid call regions
     mask = readMaskRegions(path.mask_regions_prefix, genome.seqinfo),                   # Masking beds
     functional = readFunctionalRegions(path.function_regions_prefix, genome.seqinfo),   # 'Function classes' of the genome
-    genome = list(genome = GRanges(                                                     # The whole genome, for set ops.
+    universe = list(genome = GRanges(                                                   # The whole genome
         seqnames = seqnames(genome.seqinfo), 
         ranges = IRanges(1, seqlengths(genome.seqinfo)), 
-        strand = "*", seqinfo = genome.seqinfo))
-)
+        strand = "*", seqinfo = genome.seqinfo)))
+
+# The universe for set operations.  If a regions subset BED was supplied, 
+# the universe is this set of regions, and so load it.  Otherwise, the
+# universe is the whole genome.
+if (regions.subset)
+    regions$universe$universe = intersect(regions$universe$genome, bed2GRanges(path.regions.subset, genome.seqinfo))     # Universe is the supplied region BED file.
+else
+    regions$universe$universe = regions$universe$genome                                       # Universe is the whole genome
+
+# Intersect all regions with the universe.
+for (i in names(regions))
+{
+    if (i != "genome")
+    {
+        for (j in names(regions[[i]]))
+            regions[[i]][[j]] = intersect(regions[[i]][[j]], regions$universe$universe)
+    }
+}
 
 # Create a new function class, of coding +/- 10 bp
 regions$functional$coding_10 = suppressWarnings(trim(reduce(
@@ -205,14 +189,8 @@ regions$functional$coding_10 = suppressWarnings(trim(reduce(
         trim(flank(regions$functional$coding, 10, start = FALSE)), ignore.strand = TRUE))))
 
 # And new mask classes, of "unmasked" and "not gold standard callable"
-regions$mask$unmasked = setdiff(regions$genome$genome, reduce(union(union(regions$mask$ambiguous, regions$mask$low_complexity), regions$mask$repetitive)))
-regions$gold$notcallable = setdiff(regions$genome$genome, regions$gold$callable)
-
-# If we're debugging (chr DEBUG.chrom only), subset all regions to just this area
-if (DEBUG)
-{
-    regions = lapply(regions, function(region_class) lapply(region_class, function(region) intersect(region, DEBUG.region)))
-}
+regions$mask$unmasked = setdiff(regions$universe$universe, reduce(union(union(regions$mask$ambiguous, regions$mask$low_complexity), regions$mask$repetitive)))
+regions$gold$notcallable = setdiff(regions$universe$universe, regions$gold$callable)
 
 
 #####################################################################
@@ -471,7 +449,7 @@ perf.indelsubst.coding10 = list(zyg = lapply(criteria, function(crit) vcfPerfGro
 # Remove everything but the essential data required by the report.
 temp = NA
 temp = ls()
-temp = temp[!(grepl("^path\\.", temp) | temp %in% c("criteria", "calls.sampleid", "versions", "DEBUG", "DEBUG.chrom", "genome", "extendedflag") | grepl("^perf\\.", temp))]
+temp = temp[!(grepl("^path\\.", temp) | temp %in% c("criteria", "calls.sampleid", "versions", "genome", "extendedflag") | grepl("^perf\\.", temp))]
 rm(list = temp)
 
 save.image("report_data.rda")
