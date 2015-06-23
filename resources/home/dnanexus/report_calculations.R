@@ -245,12 +245,12 @@ filter_1000G = function(vcf)
 
 
 criteria = list(
-    "VQSLOD" =          list(scoreFunc = function(x) info(x)$VQSLOD,                                        callFunc = function(x) info(x)$VQSLOD > 2.7),
-    "QUAL" =            list(scoreFunc = function(x) rowData(x)$QUAL,                                       callFunc = function(x) rowData(x)$QUAL > 200),
-    "FILTER" =          list(scoreFunc = function(x) (rowData(x)$FILTER == "PASS")*1,                       callFunc = function(x) rowData(x)$FILTER == "PASS"),
-    "VQSLOD:1000G" =    list(scoreFunc = function(x) info(x)$VQSLOD * filter_1000G(x),                      callFunc = function(x) (info(x)$VQSLOD > 2.7) * filter_1000G(x)),
-    "QUAL:1000G" =      list(scoreFunc = function(x) rowData(x)$QUAL * filter_1000G(x),                     callFunc = function(x) (rowData(x)$QUAL > 200) * filter_1000G(x)),
-    "FILTER:1000G" =    list(scoreFunc = function(x) (rowData(x)$FILTER == "PASS") * (filter_1000G(x)*1),   callFunc = function(x) (rowData(x)$FILTER == "PASS") & filter_1000G(x))
+    "VQSLOD" =          list(scoreFunc = function(x) info(x)$VQSLOD,                                    callFunc = function(x) info(x)$VQSLOD > 2.7),
+    "QUAL" =            list(scoreFunc = function(x) rowData(x)$QUAL,                                   callFunc = function(x) rowData(x)$QUAL > 200),
+    "FILTER" =          list(scoreFunc = function(x) (rowData(x)$FILTER == "PASS")*1,                   callFunc = function(x) rowData(x)$FILTER == "PASS"),
+    "VQSLOD:1000G" =    list(scoreFunc = function(x) info(x)$VQSLOD * filter_1000G(x),                  callFunc = function(x) (info(x)$VQSLOD > 2.7) * filter_1000G(x)),
+    "QUAL:1000G" =      list(scoreFunc = function(x) rowData(x)$QUAL * filter_1000G(x),                 callFunc = function(x) (rowData(x)$QUAL > 200) * filter_1000G(x)),
+    "FILTER:1000G" =    list(scoreFunc = function(x) (rowData(x)$FILTER == "PASS") * filter_1000G(x),   callFunc = function(x) (rowData(x)$FILTER == "PASS") & filter_1000G(x))
 )
 
 

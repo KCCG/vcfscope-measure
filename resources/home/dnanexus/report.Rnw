@@ -71,8 +71,8 @@ options(
 	tikzMetricsDictionary="tikzMetrics"
 )
 opts_chunk$set(
-	echo = FALSE, results = 'markup', message = DEBUG, warning = DEBUG, error = DEBUG, 
-	fig.keep = 'high', fig.align = 'center', fig.width = 5, fig.height = 3.5, dpi = 144, 
+	echo = FALSE, results = 'markup', message = FALSE, warning = FALSE, error = FALSE, 
+	fig.keep = 'high', fig.align = 'center', fig.width = 5, fig.height = 4,
 	cache = FALSE, cache.lazy = FALSE)
 opts_knit$set(progress = TRUE, verbose = TRUE)
 options(warn = 1)
@@ -144,7 +144,7 @@ report$overall.call = ifelse(report$overall.pass, "\\textcolor{blue}{PASS}", "\\
 \newcommand{\HRule}{\rule{\linewidth}{0.5mm}}
 
 \fancyhf{}
-\lhead{WGS Validation Report (v\texttt{\Sexpr{versions$script}}): \texttt{\Sexpr{texquote(calls.sampleid)}}}
+\lhead{WGS Validation Report (v\texttt{\Sexpr{param$version$script}}): \texttt{\Sexpr{texquote(calls.sampleid)}}}
 \rhead{Page \thepage\ of \pageref{LastPage}}
 
 \let\endtitlepage\relax
@@ -157,8 +157,8 @@ report$overall.call = ifelse(report$overall.pass, "\\textcolor{blue}{PASS}", "\\
 
 \section{Summary}
 Sample ID: \texttt{\Sexpr{texquote(calls.sampleid)}} \\
-Input VCF: \texttt{\url{\Sexpr{path.input}}} \\
-Report version: \texttt{\Sexpr{versions$script}} \\
+Input VCF: \texttt{\url{\Sexpr{param$path.test.orig}}} \\
+Report version: \texttt{\Sexpr{param$version$script}} \\
 Report time: \texttt{\Sexpr{texquote(report$gentime)}} \\
 
 <<summary-table,results='asis'>>=
@@ -197,7 +197,7 @@ print(summary.table, sanitize.text.function = function(x) x, include.rownames = 
 
 \textbf{OVERALL RESULT: \Sexpr{report$overall.call}} \\
 
-<<summary-plots, out.width='.45\\linewidth', out.height='.35\\linewidth', fig.show='hold'>>=
+<<summary-plots, out.width='.45\\linewidth', fig.show='hold'>>=
 plotROC(perf.snv$zyg[[report$specifications$measure]][c("RRvsAA", "RRvsRA")]) + 
 	ggtitle("SNV: Whole genome") + 
 	labs(colour = "Zygosity") + 
@@ -294,42 +294,55 @@ print(count.table, sanitize.text.function = function(x) x, include.rownames = FA
 
 % DATA AND SOFTWARE VERSIONS
 %--------------------------------------------------------------------
+<<region-version, echo=FALSE, cache=FALSE>>=
+temp.region_md5 = "NA"
+temp.region_label = "NO"
+if (param$region.subset)
+{
+	temp.region_label = "YES"
+	temp.region_md5 = fileMD5(param$region.subset.path)
+}
+@
+
 \section{Versions}
 \begin{itemize}
-%\item Input VCF: \texttt{\url{\Sexpr{path.input}}}
-%\item Sample ID: \texttt{\Sexpr{texquote(calls.sampleid)}}
-\item Validation script: \begin{itemize} 
-	\item version \texttt{\Sexpr{versions$script}}
-	\item branch \texttt{\Sexpr{versions$branch}}
-	\item commit \texttt{\Sexpr{versions$commit}}
-	\end{itemize}
-\item R: \texttt{\Sexpr{R.version$version.string}} (\texttt{\Sexpr{texquote(R.version$platform)}})
-\item Execution host: \texttt{\Sexpr{texquote(versions$host)}}
-%\item Report generated at: \Sexpr{texquote(report$gentime)}
+\item Software: \begin{itemize}
+	\item Validation script: \texttt{\Sexpr{texquote(param$version$script)}}
+	\item R: \texttt{\Sexpr{texquote(R.version$version.string)}} (\texttt{\Sexpr{texquote(R.version$platform)}})
+	\item Genome: \texttt{\Sexpr{texquote(param$genome)}} (\texttt{\Sexpr{packageVersion(param$genome)}})
+	\item Java: \texttt{\Sexpr{texquote(param$version$java)}}
+	\item RTG core: \texttt{\Sexpr{texquote(param$version$rtg)}}
+	\item Bedtools: \texttt{\Sexpr{texquote(param$version$bedtools)}}
+	\item Execution host: \texttt{\Sexpr{texquote(param$version$host)}}
+	\item Execution time: \Sexpr{texquote(report$gentime)}
+\end{itemize}
 \item Data: \begin{itemize}
-	\item GiaB BED: \texttt{\url{\Sexpr{path.gold_regions}}} (MD5 \texttt{\Sexpr{texquote(fileMD5(path.gold_regions))}})
-	\item GiaB VCF: \texttt{\url{\Sexpr{path.gold}}} (MD5 \texttt{\Sexpr{texquote(fileMD5(path.gold))}})
-	\item Sequence masks: \texttt{\url{\Sexpr{path.mask_regions_prefix}}} \begin{itemize}
-		\item Ambiguous: \texttt{ambiguous.bed.gz} (MD5 \texttt{\Sexpr{texquote(fileMD5(paste(path.mask_regions_prefix, "ambiguous.bed.gz", sep = "")))}})
-		\item Low complexity: \texttt{mdust.bed.gz} (MD5 \texttt{\Sexpr{texquote(fileMD5(paste(path.mask_regions_prefix, "mdust.bed.gz", sep = "")))}})
-		\item Repetitive: \texttt{repetitive.bed.gz} (MD5 \texttt{\Sexpr{texquote(fileMD5(paste(path.mask_regions_prefix, "repetitive.bed.gz", sep = "")))}})
+	\item Input VCF: \texttt{\url{\Sexpr{param$path.test.orig}}} (MD5 \texttt{\Sexpr{texquote(fileMD5(param$path.test.orig))}})
+	\item Sample ID: \texttt{\Sexpr{texquote(calls.sampleid)}}
+	\item GiaB VCF: \texttt{\url{\Sexpr{param$path.gold.variants.orig}}} (MD5 \texttt{\Sexpr{texquote(fileMD5(param$path.gold.variants.orig))}})
+	\item GiaB BED: \texttt{\url{\Sexpr{param$path.gold.regions.orig}}} (MD5 \texttt{\Sexpr{texquote(fileMD5(param$path.gold.regions.orig))}})
+	\item Analysis restricted to regions? \Sexpr{temp.region_label} \begin{itemize}
+		\item Analysis region BED: \texttt{\url{\Sexpr{param$region.subset.path}}} (MD5 \texttt{\Sexpr{texquote(temp.region_md5)}})
 	\end{itemize}
-	\item Functional regions: \texttt{\url{\Sexpr{path.function_regions_prefix}}} \begin{itemize}
-		\item Exonic coding: \texttt{exonic\_coding.bed.gz} (MD5 \texttt{\Sexpr{texquote(fileMD5(paste(path.function_regions_prefix, "exonic_coding.bed.gz", sep = "")))}})
-		\item Exonic non-coding: \texttt{exonic\_utr.bed.gz} (MD5 \texttt{\Sexpr{texquote(fileMD5(paste(path.function_regions_prefix, "exonic_utr.bed.gz", sep = "")))}})
-		\item Genic: \texttt{genes.bed.gz} (MD5 \texttt{\Sexpr{texquote(fileMD5(paste(path.function_regions_prefix, "genes.bed.gz", sep = "")))}})
-		\item Intergenic: \texttt{intergenic.bed.gz} (MD5 \texttt{\Sexpr{texquote(fileMD5(paste(path.function_regions_prefix, "intergenic.bed.gz", sep = "")))}})
-		\item Intronic: \texttt{intronic.bed.gz} (MD5 \texttt{\Sexpr{texquote(fileMD5(paste(path.function_regions_prefix, "intronic.bed.gz", sep = "")))}})
-		\item Splice sites: \texttt{splice.bed.gz} (MD5 \texttt{\Sexpr{texquote(fileMD5(paste(path.function_regions_prefix, "splice.bed.gz", sep = "")))}})
+	\item Sequence masks: \texttt{\url{\Sexpr{param$path.mask.regions.prefix}}} \begin{itemize}
+		\item Ambiguous: \texttt{ambiguous.bed.gz} (MD5 \texttt{\Sexpr{texquote(fileMD5(paste(param$path.mask.regions.prefix, "ambiguous.bed.gz", sep = "")))}})
+		\item Low complexity: \texttt{mdust.bed.gz} (MD5 \texttt{\Sexpr{texquote(fileMD5(paste(param$path.mask.regions.prefix, "mdust.bed.gz", sep = "")))}})
+		\item Repetitive: \texttt{repetitive.bed.gz} (MD5 \texttt{\Sexpr{texquote(fileMD5(paste(param$path.mask.regions.prefix, "repetitive.bed.gz", sep = "")))}})
 	\end{itemize}
-	\item Genome: \texttt{\Sexpr{texquote(genome)}} (\texttt{\Sexpr{packageVersion(genome)}})
+	\item Functional regions: \texttt{\url{\Sexpr{param$path.function.regions.prefix}}} \begin{itemize}
+		\item Exonic coding: \texttt{exonic\_coding.bed.gz} (MD5 \texttt{\Sexpr{texquote(fileMD5(paste(param$path.function.regions.prefix, "exonic_coding.bed.gz", sep = "")))}})
+		\item Exonic non-coding: \texttt{exonic\_utr.bed.gz} (MD5 \texttt{\Sexpr{texquote(fileMD5(paste(param$path.function.regions.prefix, "exonic_utr.bed.gz", sep = "")))}})
+		\item Genic: \texttt{genes.bed.gz} (MD5 \texttt{\Sexpr{texquote(fileMD5(paste(param$path.function.regions.prefix, "genes.bed.gz", sep = "")))}})
+		\item Intergenic: \texttt{intergenic.bed.gz} (MD5 \texttt{\Sexpr{texquote(fileMD5(paste(param$path.function.regions.prefix, "intergenic.bed.gz", sep = "")))}})
+		\item Intronic: \texttt{intronic.bed.gz} (MD5 \texttt{\Sexpr{texquote(fileMD5(paste(param$path.function.regions.prefix, "intronic.bed.gz", sep = "")))}})
+		\item Splice sites: \texttt{splice.bed.gz} (MD5 \texttt{\Sexpr{texquote(fileMD5(paste(param$path.function.regions.prefix, "splice.bed.gz", sep = "")))}})
 	\end{itemize}
 \end{itemize}
 
 
 % EXTENDED REPORT
 %--------------------------------------------------------------------
-<<child = if (extendedflag) 'report_extended.Rnw'>>=
+<<child = if (param$extended) 'report_extended.Rnw'>>=
 @
 
 
