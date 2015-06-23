@@ -7,19 +7,18 @@ set -e -x -o pipefail
 
 main() {
   #
-  # Fetch inputs (~/in/vcfgz/* ~/in/tbi/*)
+  # Fetch inputs (~/in/vcfgz/*)
   #
   dx-download-all-inputs --parallel
-  mv in/tbi/* in/vcfgz
 
   #
   # Stream and unpack assets bundle
   #
   [[ -n "$DX_RESOURCES_ID" ]] && DX_ASSETS_ID="$DX_RESOURCES_ID" || DX_ASSETS_ID="$DX_PROJECT_CONTEXT_ID"
-  mkdir ./resources
-  cd ./resources
+  mkdir ~/resources
+  cd ~/resources
   dx cat "${DX_ASSETS_ID}:/assets/kccg_validation_reporter_resources_bundle-1.0.tar.gz" | tar zxf - # => functional_regions/* gold_standard/* kccg/* mask_regions/* orig/*
-  cd -
+  cd ~
 
   #
   # setup R
@@ -37,15 +36,15 @@ main() {
   if [ "extended" == "true" ]; then
     opts+=("-x")
   fi
-  if [ -n "${debug}" ]; then
-    opts+=("-d" "${debug}")
+  if [ -n "${region}" ]; then
+    opts+=("-r" "${region_path}")
   fi
 
   #
   # run report
   #
   export PATH=".:$PATH"
-  validation_report.sh -f -t /tmp -o report.pdf "${opts[@]}" ${vcfgz_path}
+  validation_report.sh -o report.pdf "${opts[@]}" ${vcfgz_path}
 
   #
   # upload results

@@ -11,13 +11,6 @@
             "patterns": [ "*.vcf.gz" ]
         },
         {
-            "name": "tbi",
-            "label": "Variants index",
-            "help": "The associated TBI file.",
-            "class": "file",
-            "patterns": [ "*.vcf.gz.tbi" ]
-        },
-        {
             "name": "outfile",
             "label": "Write the pdf report to OUTFILE",
             "help": "Write the pdf report to OUTFILE",
@@ -25,10 +18,12 @@
             "default": "report.pdf"
         },
         {
-            "name": "debug",
-            "label": "Debug mode",
-            "help": "Debug mode: currently, adds additional debug information to the report, and examines chromosome CHROM only.",
-            "class": "string",
+            "group": "advanced",
+            "name": "region",
+            "label": "Region BED",
+            "help": "Limit analysis to the regions in this BED only.",
+            "class": "file",
+            "patterns": [ "*.bed" ],
             "optional": true
         },
         {
@@ -56,7 +51,8 @@
             { "name": "texlive" },
             { "name": "latex-xcolor" },
             { "name": "texlive-latex-extra" },
-            { "name": "git" }
+            { "name": "bedtools"},
+            { "name": "tabix"}
         ],
         "systemRequirements": {
             "main": {

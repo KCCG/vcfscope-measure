@@ -1,94 +1,118 @@
 #!/bin/bash
-# set -e
-set -x
+#set -e -x -o pipefail
+set -x -o pipefail
+
 #####################################################################
 # VERSION
 #####################################################################
-VERSION="20150619-1"
+export CONST_VERSION_SCRIPT="20150623-1"
+
 
 #####################################################################
 # SOFTWARE AND DATA LOCATIONS
 #####################################################################
 
-IS_DNANEXUS=0
-if [ `whoami` == dnanexus ]; then
-  let IS_DNANEXUS=1
+# dnanexus jobs run as root; assume that if the user is root, we're
+# on dx.
+export IS_DNANEXUS=0
+if [ `whoami` == root ]; then
+  IS_DNANEXUS=1
 fi
 
-#
 # Software & Resources
-#
-if [ ${IS_DNANEXUS} ]; then
+if [ ${IS_DNANEXUS} -eq 1 ]; then
+  PATH_RESOURCES_HEAD="/home/dnanexus/resources"
+  PATH_SCRATCH_DEFAULT="/home/dnanexus/tmp"
+
   RSCRIPT="/home/dnanexus/bin/Rscript"
+  R="/home/dnanexus/bin/R"
   JAVA=`which java`
-  GIT=`which git`
-  RESOURCES_HEAD="/home/dnanexus/resources"
-  SCRATCH_DEFAULT="/tmp"
+  BEDTOOLS_INTERSECT=`which intersectBed`
+  TABIX=`which tabix`
+  BGZIP=`which bgzip`
 
-  RTG_CORE="${RESOURCES_HEAD}/rtg-core/rtg-core.jar"
+  RTG_CORE="${PATH_RESOURCES_HEAD}/rtg-core/rtg-core.jar"
   RTG_THREADS=`nproc`
-
-  # Calculate 80% of memory size, for java
-  mem_in_mb=`head -n1 /proc/meminfo | awk '{print int($2*0.8/1024)}'`
+  mem_in_mb=`head -n1 /proc/meminfo | awk '{print int($2*0.8/1024)}'`                 # Calculate 80% of memory size, for java
   RTG_VCFEVAL="${JAVA} -Xmx${mem_in_mb}m -jar ${RTG_CORE} vcfeval -T ${RTG_THREADS}"
 else
-  RSCRIPT="/home/marpin/bin/Rscript"
-  JAVA="/usr/java/latest/bin/java"
-  GIT="/home/marpin/bin/git"
-  RESOURCES_HEAD="/directflow/ClinicalGenomicsPipeline/projects/validation-reporter/resources"
-  SCRATCH_DEFAULT="/directflow/ClinicalGenomicsPipeline/tmp"
+  PATH_RESOURCES_HEAD="/directflow/ClinicalGenomicsPipeline/projects/validation-reporter/resources"
+  PATH_SCRATCH_DEFAULT="/directflow/ClinicalGenomicsPipeline/tmp"
 
-  RTG_CORE="${RESOURCES_HEAD}/rtg-core/rtg-core.jar"
+  RSCRIPT="/home/marpin/bin/Rscript"
+  R="/home/marpin/bin/R"
+  JAVA="/usr/java/latest/bin/java"
+  BEDTOOLS_INTERSECT="/home/marpin/software/bedtools2/bin/intersectBed"
+  TABIX="/home/marpin/software/htslib/tabix"
+  BGZIP="/home/marpin/software/htslib/bgzip"
+
+  RTG_CORE="${PATH_RESOURCES_HEAD}/rtg-core/rtg-core.jar"
   RTG_THREADS=4
   RTG_VCFEVAL="${JAVA} -Xmx8G -jar ${RTG_CORE} vcfeval -T ${RTG_THREADS}"
 fi
 
 
-#
-# Data
-#
-GOLD_CALLS_VCFGZ="${RESOURCES_HEAD}/gold_standard/calls-2.19.vcf.gz"
-GOLD_CALLS_VCFGZTBI="${RESOURCES_HEAD}/gold_standard/calls-2.19.vcf.gz.tbi"
-GOLD_HARDMASK_VALID_REGIONS_BEDGZ="${RESOURCES_HEAD}/gold_standard/valid_regions-2.19.bed.gz"
-REFERENCE_SDF="${RESOURCES_HEAD}/reference/ref.sdf/"
-FUNCTIONAL_REGIONS_BEDGZ_PREFIX="${RESOURCES_HEAD}/functional_regions/"
-MASK_REGIONS_BEDGZ_PREFIX="${RESOURCES_HEAD}/mask_regions/"
-REFERENCE_BSGENOME="BSgenome.HSapiens.1000g.37d5"		# This is a custom package, available at /share/ClusterShare/biodata/contrib/marpin/reference/hs37d5/build/BSgenome.HSapiens.1000g.37d5_1.0.0.tar.gz
+# Set and export location variables, for easy access in R.
 
+# Constant data
+export CONST_GOLD_CALLS_VCFGZ="${PATH_RESOURCES_HEAD}/gold_standard/calls-2.19.vcf.gz"
+export CONST_GOLD_CALLS_VCFGZTBI="${PATH_RESOURCES_HEAD}/gold_standard/calls-2.19.vcf.gz.tbi"
+export CONST_GOLD_HARDMASK_VALID_REGIONS_BEDGZ="${PATH_RESOURCES_HEAD}/gold_standard/valid_regions-2.19.bed.gz"
+export CONST_REFERENCE_SDF="${PATH_RESOURCES_HEAD}/reference/ref.sdf/"
+export CONST_FUNCTIONAL_REGIONS_BEDGZ_PREFIX="${PATH_RESOURCES_HEAD}/functional_regions/"
+export CONST_MASK_REGIONS_BEDGZ_PREFIX="${PATH_RESOURCES_HEAD}/mask_regions/"
+export CONST_REFERENCE_BSGENOME="BSgenome.HSapiens.1000g.37d5"		# This is a custom package, available at /share/ClusterShare/biodata/contrib/marpin/reference/hs37d5/build/BSgenome.HSapiens.1000g.37d5_1.0.0.tar.gz
 
-EXEC_DIR=$(pwd)
+# Script location
+export PARAM_EXEC_PATH=$(pwd)
+
+# Scratch space
+mkdir -p ${PATH_SCRATCH_DEFAULT}
+export PARAM_SCRATCH=$(mktemp -d --tmpdir=${PATH_SCRATCH_DEFAULT} valrept.XXXXXXXXXX)
+export PARAM_INPUT_SCRATCH="${PARAM_SCRATCH}/input"
+export PARAM_RTG_OVERLAP_SCRATCH="${PARAM_SCRATCH}/overlap"
+export PARAM_KNITR_SCRATCH="${PARAM_SCRATCH}/knitr"
+
+# Program parameters
+export PARAM_INPUT_VCFGZ_PATH
+export PARAM_REGION_BED_SUPPLIED
+export PARAM_REGION_BED_PATH
+export PARAM_OUTPUT_PDF_PATH
+export PARAM_EXTENDED
+export PARAM_VERSION_EXEC_HOST
+export PARAM_VERSION_RTG
+export PARAM_VERSION_JAVA
+export PARAM_VERSION_BEDTOOLS_INTERSECT
+
+# Temporary file locations
+export PATH_TEST_VARIANTS="${PARAM_INPUT_SCRATCH}/test_variants.vcf.gz"
+export PATH_TEST_VARIANTS_INDEX="${PATH_TEST_VARIANTS}.tbi"
+export PATH_GOLD_VARIANTS="${PARAM_INPUT_SCRATCH}/gold_variants.vcf.gz"
+export PATH_GOLD_VARIANTS_INDEX="${PATH_GOLD_VARIANTS}.tbi"
+export PATH_GOLD_REGIONS="${PARAM_INPUT_SCRATCH}/gold_regions.bed.gz"
+
+# Overlap file locations
+export PATH_OVERLAP_TP="${PARAM_RTG_OVERLAP_SCRATCH}/tp.vcf.gz"
+export PATH_OVERLAP_FP="${PARAM_RTG_OVERLAP_SCRATCH}/fp.vcf.gz"
+export PATH_OVERLAP_FN="${PARAM_RTG_OVERLAP_SCRATCH}/fn.vcf.gz"
+
 
 #####################################################################
 # COMMAND LINE PARSING
 #####################################################################
 print_usage() {
 cat << EOF
-Usage: ${0##*/} [-d CHROM] [-t TMPDIR] [-r] [-f] [-x] [-o OUTFILE] <INFILE>
+Usage: ${0##*/} [-o OUTFILE] [-r BEDFILE] [-x] <INFILE>
 
 Create a WGS validation report.
 
     INFILE       Input NA12878 genotype calls, in vcf.gz format.
     -o OUTFILE   Write the report to OUTFILE (default: report.pdf)
-    -d CHROM     Debug mode.  Currently, adds additional debug 
-                 information to the report, and examines chromosome
-                 CHROM only.
-    -t TMPDIR    Path to a temporary scratch space directory.  If
-                 missing, mktemp will be used to create one.
-    -f           Force noninteractive mode; all Y/N prompts will be
-                 automatically answered Y.  Default is to run in 
-                 interactive mode.
-    -r           Resume flag.  If set, and TMPDIR points to a 
-                 partially-completed run, will attempt to resume
-                 this run.  Default is to not resume; if a partial
-                 run is found in TMPDIR and -f is not set, query
-                 the user as to what to do.  With -f set, any partial
-                 run data in TMPDIR is automatically cleared, and
-                 the validation report generation started from the 
-                 beginning.  Regardless of the resume setting, the
-                 final report generation is always repeated with
-                 every invocation.
+    -r BEDFILE   Restrict analysis to the regions in BEDFILE only.
+                 Default: the full genome is considered.
     -x           Generate an extended report, with threshold and
-                 score diagnostics.
+                 score diagnostics appended to the standard report.
+                 Default: generate the standard report only.
     -h           Display this help and exit.
 
 Version ${VERSION}
@@ -99,40 +123,27 @@ EOF
 
 # Head location for resources bundle
 OPTIND=1
-input_vcfgz_path=""
-debug=0
-debug_chrom="-"
-noninteractive=0
-output_pdf_path="${EXEC_DIR}/report.pdf"
-resume=0
-temp_supplied=0
-extended=0
+PARAM_INPUT_VCFGZ_PATH=""
+PARAM_REGION_BED_SUPPLIED=0
+PARAM_REGION_BED_PATH="NA"
+PARAM_OUTPUT_PDF_PATH="${PARAM_EXEC_PATH}/report.pdf"
+PARAM_EXTENDED=0
 
-while getopts "d:o:t:hfrx" opt; do
+while getopts "r:o:hx" opt; do
 	case "$opt" in
 		h)
 			print_usage
 			exit 0
 			;;
-		d)
-			debug=1
-			debug_chrom=$OPTARG
-			;;
 		o)
-			output_pdf_path=$(readlink -f $OPTARG)
-			;;
-    f)
-			noninteractive=1
-			;;
-		t)
-			temp_supplied=1
-			SCRATCH=$OPTARG
+			PARAM_OUTPUT_PDF_PATH=$(readlink -f $OPTARG)
 			;;
 		r)
-			resume=1
+			PARAM_REGION_BED_SUPPLIED=1
+			PARAM_REGION_BED_PATH=$(readlink -f $OPTARG)
 			;;
 		x)
-			extended=1
+			PARAM_EXTENDED=1
 			;;
 		'?')
 			print_usage >&2
@@ -148,166 +159,134 @@ if [ $# -ne 1 ]; then
 	exit 1
 fi
 
-input_vcfgz_path=$1
+PARAM_INPUT_VCFGZ_PATH=$1
+
 
 #####################################################################
 # PARAMETER CHECKING
 #####################################################################
 
-if [ ! -d "${RESOURCES_HEAD}" ]; then
-  echo -e >&2 "\033[0;31mError: Resources path ${RESOURCES_HEAD} not found.\033[0m"
-  exit 10
+if [ ! -d "${PATH_RESOURCES_HEAD}" ]; then
+  echo >&2 "Error: Resources path ${PATH_RESOURCES_HEAD} not found."
+  exit 2
 fi
 
-if [ ! -e ${input_vcfgz_path} ]; then
-	echo -e "\033[0;31mError: Input file ${input_vcfgz_path} not found.\033[0m"
-	exit 2
+if [ ! -e ${PARAM_INPUT_VCFGZ_PATH} ]; then
+	echo >&2 "Error: Input file ${PARAM_INPUT_VCFGZ_PATH} not found."
+	exit 3
 fi
 
-if [ -e ${output_pdf_path} ]; then
-	if [ ${resume} -eq 0 ]; then
-		echo -e "\033[1;33mOutput file ${output_pdf_path} already exists, and the resume flag is not set; if you continue this will be overwritten.\033[0m"
-		echo -en "\033[1;33mDo you wish to continue? [YES to continue; any other string to cancel] \033[0m"
-		prompt="YES"
-		if [ ${noninteractive} -eq 0 ]; then
-			read prompt
-		fi
-		if [ "${prompt}" == "YES" ]; then
-			echo -e "\033[0;32mRemoving output file and continuing...\033[0m"
-			rm -f ${output_pdf_path}
-		else
-			echo -e "\033[0;31mCancelled.\033[0m"
-			exit 3
-		fi
-	else
-		echo -e "\033[1;33mOutput file ${output_pdf_path} already exists, and resume flag is set.  Attempting to resume run...\033[0m"
-	fi
+if [ -e ${PARAM_OUTPUT_PDF_PATH} ]; then
+	echo >&2 "Error: Output file ${PARAM_OUTPUT_PDF_PATH} already exists."
+	exit 4
 fi
 
-if [ ${temp_supplied} -eq 0 ]; then
-	SCRATCH=$(mktemp -d --tmpdir=${SCRATCH_DEFAULT} valrept.XXXXXXXXXX)
+if [ ${PARAM_REGION_BED_SUPPLIED} -eq 1 ] && [ ! -e ${PARAM_REGION_BED_PATH} ]; then
+  echo >&2 "Error: Region file ${PARAM_REGION_BED_PATH} not found."
+  exit 5
 fi
 
-RTG_OVERLAP_SCRATCH="${SCRATCH}/overlap"
-KNITR_SCRATCH="${SCRATCH}/knitr"
 
 #####################################################################
 # SOFTWARE CHECKING
 #####################################################################
 if [ ! -e ${RSCRIPT} ]; then
-  echo -e "\033[0;31mError: Rscript executable not found.\033[0m"
-  exit 2
+  echo >&2 "Error: Rscript executable not found."
+  exit 6
 fi
+
 if [ ! -e ${JAVA} ]; then
-  echo -e "\033[0;31mError: java executable not found.\033[0m"
-  exit 2
+  echo >&2 "Error: java executable not found."
+  exit 7
 fi
-if [ ! -e ${GIT} ]; then
-  echo -e "\033[0;31mError: git executable not found.\033[0m"
-  exit 2
+
+if [ ! -e ${RTG_CORE} ]; then
+  echo >&2 "Error: RTG-core.jar not found."
+  exit 8
 fi
 
 #set -e should catch this.
 [[ -f report.Rnw ]] && [[ -f report_functions.R ]] && [[ -f report_debug.Rnw ]] && [[ -f report_calculations.R ]]
 
+
 #####################################################################
 # R PACKAGE CHECKING
 #####################################################################
-R --vanilla -e "suppressWarnings(require(\"${REFERENCE_BSGENOME}\", quiet=TRUE)) || stop(\"${REFERENCE_BSGENOME} package not installed\")"
+${R} --vanilla -e "if (!(\"${CONST_REFERENCE_BSGENOME}\" %in% installed.packages(.Library))) stop(\"${CONST_REFERENCE_BSGENOME} package not installed\")"
+
 
 #####################################################################
-# SOFTWARE VERSIONING
+# VERSIONING
 #####################################################################
-if [ ${IS_DNANEXUS} ]; then
-  VERSION_GIT_BRANCH="unknown"
-  VERSION_GIT_COMMIT="unknown"
-else
-  VERSION_GIT_BRANCH=$(${GIT} rev-parse --abbrev-ref HEAD)
-  VERSION_GIT_COMMIT=$(${GIT} rev-parse --verify HEAD)
-fi
-VERSION_EXEC_HOST=$(uname -a)
-
-#####################################################################
-# DEBUG REPORTING
-#####################################################################
-if [ $debug -eq 1 ]; then
-	echo -e "\033[1;36mDebug enabled.\033[0m"
-	echo -e "\033[1;36mVariables:\033[0m"
-	echo -e "\033[1;36m  RSCRIPT=                          \"${RSCRIPT}\"\033[0m"
-	echo -e "\033[1;36m  JAVA=                             \"${JAVA}\"\033[0m"
-	echo -e "\033[1;36m  GIT=                              \"${GIT}\"\033[0m"
-	echo
-	echo -e "\033[1;36m  RTG_CORE=                         \"${RTG_CORE}\"\033[0m"
-	echo -e "\033[1;36m  RTG_THREADS=                      \"${RTG_THREADS}\"\033[0m"
-	echo -e "\033[1;36m  RTG_VCFEVAL=                      \"${RTG_VCFEVAL}\"\033[0m"
-	echo 
-	echo -e "\033[1;36m  RESOURCES_HEAD=                   \"${RESOURCES_HEAD}\"\033[0m"
-	echo -e "\033[1;36m  GOLD_CALLS_VCFGZ=                 \"${GOLD_CALLS_VCFGZ}\"\033[0m"
-	echo -e "\033[1;36m  GOLD_CALLS_VCFGZTBI=              \"${GOLD_CALLS_VCFGZTBI}\"\033[0m"
-	echo -e "\033[1;36m  GOLD_HARDMASK_VALID_REGIONS_BEDGZ=\"${GOLD_HARDMASK_VALID_REGIONS_BEDGZ}\"\033[0m"
-	echo -e "\033[1;36m  KCCG_HARDMASK_CALLABLE_REGIONS=   \"${KCCG_HARDMASK_CALLABLE_REGIONS}\"\033[0m"
-	echo -e "\033[1;36m  REFERENCE_SDF=                    \"${REFERENCE_SDF}\"\033[0m"
-	echo 
-	echo -e "\033[1;36m  REFERENCE_BSGENOME=               \"${REFERENCE_BSGENOME}\"\033[0m"
-	echo 
-	echo -e "\033[1;36m  SCRATCH=                          \"${SCRATCH}\"\033[0m"
-	echo -e "\033[1;36m  RTG_OVERLAP_SCRATCH=              \"${RTG_OVERLAP_SCRATCH}\"\033[0m"
-	echo -e "\033[1;36m  KNITR_SCRATCH=                    \"${KNITR_SCRATCH}\"\033[0m"
-	echo
-	echo -e "\033[1;36m  VERSION=                          \"${VERSION}\"\033[0m"
-fi
+PARAM_VERSION_EXEC_HOST=$(uname -a)
+PARAM_VERSION_RTG=$(${JAVA} -jar ${RTG_CORE} version | grep 'Core Version: ' | sed 's/.*: //g')
+PARAM_VERSION_JAVA=$(${JAVA} -version 2>&1 | head -n 1 | sed -E 's/[^"]+"//;s/"$//')
+PARAM_VERSION_BEDTOOLS_INTERSECT=$(${BEDTOOLS_INTERSECT} 2>&1 | grep 'Program: .*' | sed -E 's/.*\(//;s/\)$//')
 
 
 #####################################################################
 # CREATE TEMPORARY DIRECTORIES
 #####################################################################
-mkdir -p ${SCRATCH}
-mkdir -p ${KNITR_SCRATCH}
+mkdir -p ${PARAM_SCRATCH}
+mkdir -p ${PARAM_KNITR_SCRATCH}
+mkdir -p ${PARAM_INPUT_SCRATCH}
+
+
+#####################################################################
+# SUBSET TO REGION BED
+#####################################################################
+
+# Intersects vcf $1 with bed $2, saving result as vcf.gz $3.  Essentially
+# recapitulates bedtools intersect -header, except using the old 
+# intersectBed interface, which doesn't support -header.
+function intersect_vcf_bed {
+  gzip -dc $1 | awk '{ if (substr($0, 1, 1) == "#") {print $0} else {exit 0} }' > ${PARAM_SCRATCH}/temp.vcf
+  ${BEDTOOLS_INTERSECT} -wa -a $1 -b $2 >> ${PARAM_SCRATCH}/temp.vcf
+  ${BGZIP} -c ${PARAM_SCRATCH}/temp.vcf > $3
+}
+
+if [ ${PARAM_REGION_BED_SUPPLIED} -eq 1 ]; then
+  echo "Subsetting input files to supplied BED..."
+  # Sort the region bed
+  sort -k1,1 -k2,2n ${PARAM_REGION_BED_PATH} > ${PARAM_INPUT_SCRATCH}/region.bed
+
+  # Perform the intersection
+  intersect_vcf_bed ${PARAM_INPUT_VCFGZ_PATH} ${PARAM_INPUT_SCRATCH}/region.bed ${PATH_TEST_VARIANTS}
+  intersect_vcf_bed ${CONST_GOLD_CALLS_VCFGZ} ${PARAM_INPUT_SCRATCH}/region.bed ${PATH_GOLD_VARIANTS}
+  ${BEDTOOLS_INTERSECT} -wa -a ${CONST_GOLD_HARDMASK_VALID_REGIONS_BEDGZ} -b ${PARAM_INPUT_SCRATCH}/region.bed | ${BGZIP} > ${PATH_GOLD_REGIONS}
+
+  # We need to re-index the gold variants
+  ${TABIX} -p vcf ${PATH_GOLD_VARIANTS}
+else
+  # No region bed supplied; copy over the files in their entirety
+  cp ${PARAM_INPUT_VCFGZ_PATH} ${PATH_TEST_VARIANTS}
+  cp ${CONST_GOLD_CALLS_VCFGZ} ${PATH_GOLD_VARIANTS}
+  cp ${CONST_GOLD_HARDMASK_VALID_REGIONS_BEDGZ} ${PATH_GOLD_REGIONS}
+
+  # We can use the gold standard index unchanged, so no need to 
+  # index it as above.
+  cp ${CONST_GOLD_CALLS_VCFGZTBI} ${PATH_GOLD_VARIANTS_INDEX}
+fi
+
+# Regardless of whether a region bed was supplied or not, we still
+# need to index the test variant vcf.
+${TABIX} -p vcf ${PATH_TEST_VARIANTS}
 
 
 
 #####################################################################
 # VCF OVERLAP EVALUATION
 #####################################################################
-echo -e "\033[0;32mComputing VCF overlaps...\033[0m"
+echo "Computing VCF overlaps..."
 
-if [ -e ${RTG_OVERLAP_SCRATCH} ]; then
-	if [ ${resume} -eq 0 ]; then
-		echo -e "\033[1;33mOverlap scratch directory ${RTG_OVERLAP_SCRATCH} already exists, and the resume flag is not set; if you continue this will be overwritten.\033[0m"
-		echo -en "\033[1;33mDo you wish to continue? [YES to continue; any other string to cancel] \033[0m"
-		prompt="YES"
-		if [ ${noninteractive} -eq 0 ]; then
-			read prompt
-		fi
-		if [ "${prompt}" == "YES" ]; then
-			echo -e "\033[0;32mClearing scratch directory and continuing...\033[0m"
-			rm -rf ${RTG_OVERLAP_SCRATCH}
-		else
-			echo -e "\033[0;31mCancelled.\033[0m"
-			exit 3
-		fi
-	fi
-fi
-# Note on the use of --all-records below: if this is absent, then
-# the performance of a given cutoff (for example, GQ > thresh) is
-# actually measuring the more complex condition of GQ > thresh AND
-# FILTER = PASS.  With --all-records, the performance measures just
-# that of the cutoff (eg GQ > thresh) alone.  Considerg including 
-# a script option to control this behaviour, because I can think 
-# of valid use cases for both configurations.  Alternatively, leave
-# --all-records set, and perform some magic in R to move things
-# about appropriately.  Specifically, the absence of --all-records
-# can be simulated by moving sites in R, as follows:
-#   TP for which FILT != PASS  -->  FN
-#   FP for which FILT != PASS  -->  TN
-#   FN for which FILT != PASS  -->  FN (no change)
-if [ ${resume} -eq 0 ] || [ ! -e ${RTG_OVERLAP_SCRATCH}/tp.vcf.gz ] || [ ! -e ${RTG_OVERLAP_SCRATCH}/fp.vcf.gz ] || [ ! -e ${RTG_OVERLAP_SCRATCH}/fn.vcf.gz ]; then
-	${RTG_VCFEVAL} --all-records -b ${GOLD_CALLS_VCFGZ} -c ${input_vcfgz_path} -t ${REFERENCE_SDF} -o ${RTG_OVERLAP_SCRATCH} > /dev/null 2>&1
-elif [ ${resume} -eq 1 ]; then
-	echo -e "\033[0;32mOverlap output files found and resume flag set; not recomputing.\033[0m"
+if [ -e ${PARAM_RTG_OVERLAP_SCRATCH} ]; then
+	echo "Overlap scratch directory ${PARAM_RTG_OVERLAP_SCRATCH} already exists.  Clearing scratch directory and continuing..."
+	rm -rf ${PARAM_RTG_OVERLAP_SCRATCH}
 fi
 
-# TODO: Parse ${RTG_OVERLAP_SCRATCH}/vcfeval.log to identify regions to exclude
+${RTG_VCFEVAL} --all-records -b ${PATH_GOLD_VARIANTS} -c ${PATH_TEST_VARIANTS} -t ${CONST_REFERENCE_SDF} -o ${PARAM_RTG_OVERLAP_SCRATCH} > /dev/null 2>&1
+
+# TODO: Parse ${PARAM_RTG_OVERLAP_SCRATCH}/vcfeval.log to identify regions to exclude
 # eg Evaluation too complex (5001 unresolved paths, 18033 iterations) at reference region 2:105849275-105849281. Variants in this region will not be included in results.
 # This will be required to remove the TNs in this region, but it's polish.
 
@@ -315,38 +294,29 @@ fi
 #####################################################################
 # CALCULATIONS FOR REPORT
 #####################################################################
-echo -e "\033[0;32mPerforming calculations for report...\033[0m"
-#mkdir -p ${KNITR_SCRATCH}
+echo "Performing calculations for report..."
+
 # knitr doesn't play well with building knits outside of its working
 # directory.  Currently we get around this with a bit of a kludge, 
-# by copying the report files to ${KNITR_SCRATCH}, then executing in 
+# by copying the report files to ${PARAM_KNITR_SCRATCH}, then executing in 
 # that directory.
-cp -f report.Rnw ${KNITR_SCRATCH}
-cp -f report_functions.R ${KNITR_SCRATCH}
-cp -f report_debug.Rnw ${KNITR_SCRATCH}
-cp -f report_extended.Rnw ${KNITR_SCRATCH}
-cp -f report_calculations.R ${KNITR_SCRATCH}
-cd ${KNITR_SCRATCH}
+cp -f report.Rnw ${PARAM_KNITR_SCRATCH}
+cp -f report_functions.R ${PARAM_KNITR_SCRATCH}
+cp -f report_extended.Rnw ${PARAM_KNITR_SCRATCH}
+cp -f report_calculations.R ${PARAM_KNITR_SCRATCH}
+cd ${PARAM_KNITR_SCRATCH}
 
-# Run the script
-# SECURITY WARNING: Code injection possible in VERSION_ variables.
-# Ensure that git branch and execution host names can not be under
-# malicious control.
-if [ ${resume} -eq 0 ] || [ ! -e report_data.rda ]; then
-	${RSCRIPT} --vanilla report_calculations.R ${debug} ${debug_chrom} ${extended} ${input_vcfgz_path} \
-	  ${RTG_OVERLAP_SCRATCH}/tp.vcf.gz ${RTG_OVERLAP_SCRATCH}/fp.vcf.gz ${RTG_OVERLAP_SCRATCH}/fn.vcf.gz \
-	  ${GOLD_CALLS_VCFGZ} ${REFERENCE_BSGENOME} ${GOLD_HARDMASK_VALID_REGIONS_BEDGZ} \
-	  ${FUNCTIONAL_REGIONS_BEDGZ_PREFIX} ${MASK_REGIONS_BEDGZ_PREFIX} \
-	   "'""${VERSION}""'" "${VERSION_GIT_BRANCH}" "${VERSION_GIT_COMMIT}" "${VERSION_EXEC_HOST}"
-elif [ ${resume} -eq 1 ]; then
-	echo -e "\033[0;32mReport calculation output files found and resume flag set; not recomputing.\033[0m"
-fi
+# Run the script.  All options are passed via exported environment 
+# variables.  Also save these variables to a file for later source-ing,
+# to ease debugging.
+export > environment
+${RSCRIPT} --vanilla report_calculations.R
 
 
 #####################################################################
 # REPORT GENERATION
 #####################################################################
-echo -e "\033[0;32mGenerating report...\033[0m"
+echo "Generating report..."
 
 ${RSCRIPT} --vanilla -e "library(knitr); knit('report.Rnw', output = 'report.tex')"
 
@@ -358,32 +328,22 @@ set +e
 # Remove the report.pdf that may be present in the scratch directory,
 # so we can later check whether pdflatex successfully built a report
 # or not.
-rm -f ${KNITR_SCRATCH}/report.pdf
+rm -f ${PARAM_KNITR_SCRATCH}/report.pdf
 
 # Run pdflatex
 pdflatex -interaction nonstopmode report.tex
 pdflatex -interaction nonstopmode report.tex
 
 # Check  whether the report.pdf was generated
-if [ ! -e ${KNITR_SCRATCH}/report.pdf ]; then
-	echo -e "\033[0;31mError: pdflatex did not successfully generate a report.pdf.\033[0m"
-	echo -e "\033[0;31mCheck ${KNITR_SCRATCH}/report.tex and the latex log for errors.\033[0m"
-	exit 4
+if [ ! -e ${PARAM_KNITR_SCRATCH}/report.pdf ]; then
+	echo >&2 "Error: pdflatex did not successfully generate report.pdf."
+	echo >&2 "Check ${PARAM_KNITR_SCRATCH}/report.tex and the latex log for errors."
+	exit 9
 fi
 
 # Copy the completed report to the final destination
-cp "${KNITR_SCRATCH}/report.pdf" "${output_pdf_path}"
+cp "${PARAM_KNITR_SCRATCH}/report.pdf" "${output_pdf_path}"
 
-echo -e "\033[0;32mReport generated successfully.\033[0m"
+echo "Report generated successfully."
 
-# Clean up scratch if everything worked OK, and we're not a debug
-# run.
-# if [ $debug -eq 0 ]; then
-# 	echo -e "\033[0;32mClearing scratch space...\033[0m"
-# 	rm -rf ${SCRATCH}
-# else
-# 	echo -e "\033[1;36mDebug run; not clearing scratch space.\033[0m"
-# 	echo -e "\033[1;36mScratch can be found at: \"${SCRATCH}\"\033[0m"
-# fi
-
-echo -e "\033[0;32mDone.\033[0m"
+echo "Done."

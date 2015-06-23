@@ -3,126 +3,56 @@
 #  KCCG WGS Validation Reporter -- Report calculations
 #  
 #  Usage: 
-#    Rscript report_calculations.R <debugflag> <debugchrom>
-#      <extendedflag> <input_vcf> <tp> <fp> <fn> <gold_vcf> 
-#      <genome> <gold_regions> <func_regions> <mask_regions> 
-#      <ver_branch> <ver_commit> <ver_host>
+#    Rscript --vanilla report_calculations.R
 #  
-#  Positional parameters:
-#    debugflag      Debug mode flag.  1 if this is a debug run,
-#                   any other value otherwise.
-#    debugchrom     If debugging, limit analysis to this chromosome.
-#                   If not in debug mode, this value is ignored.
-#    extendedflag   Generate an extended report, with additional
-#                   plots for threshold and score diagnostics.
-#    input_vcf      Path the the input VCF (can be .vcf or .vcf.gz)
-#    tp, fp, fn     Paths to the overlap files output by vcfeval
-#    gold_vcf       Path to the gold-standard VCF (can be .vcf or 
-#                   .vcf.gz)
-#    genome         Genome label, as used by the VariantAnnotation
-#                   package (eg. "hg19")
-#    gold_regions   A bed or bed.gz of regions that are considered to
-#                   be callable in the gold standard NA12878 data.
-#    func_regions   A path prefix for the functional region BEDs. 
-#    mask_regions   A path prefix for the masking region BEDs. 
-#    ver_*          Version strings
+#  All parameters are passed via environment variables.  See below
+#  for information on these.
 #  
 #  
 #  Mark Pinese, 2015
 #  
 ####################################################################
 
-options(stringsAsFactors = FALSE, warn = 1)     # Treat warnings as errors -- this will be production code
+options(stringsAsFactors = FALSE, warn = 2)     # Treat warnings as errors -- this will be production code
 
 source("report_functions.R")
 
 
-# 1000 genomes SNV / Indel filter, as described by Brad Chapman.
-# SNV:      Fail if (QD < 2.0 || MQ < 40.0 || FS > 60.0 || MQRankSum < -12.5 || ReadPosRankSum < -8.0)
-# Indel:    Fail if (QD < 2.0 ||              FS > 200.0 ||                     ReadPosRankSum < -20.0)
-filter_1000G = function(vcf)
-{
-    if (nrow(vcf) == 0)
-        return(logical())
-
-    # Make sure the vcf has all the metrics used by the filter.
-    stopifnot(length(setdiff(c("QD", "MQ", "FS", "MQRankSum", "ReadPosRankSum"), colnames(info(vcf)))) == 0)
-
-    snv = isSNV(vcf)
-
-    # Calculate PASS logicals for each metric, splitting by snv / indel as appropriate.
-    QD.pass = info(vcf)$QD >= 2.0
-    MQ.pass = info(vcf)$MQ >= ifelse(snv, 40.0, -Inf)
-    FS.pass = info(vcf)$FS <= ifelse(snv, 60.0, 200.0)
-    MQRankSum.pass = info(vcf)$MQRankSum >= ifelse(snv, -12.5, -Inf)
-    ReadPosRankSum.pass = info(vcf)$ReadPosRankSum >= ifelse(snv, -8.0, -20.0)
-
-    # If the desired values are missing, assume they pass
-    QD.pass[is.na(info(vcf)$QD)] = TRUE
-    MQ.pass[is.na(info(vcf)$MQ)] = TRUE
-    FS.pass[is.na(info(vcf)$FS)] = TRUE
-    MQRankSum.pass[is.na(info(vcf)$MQRankSum)] = TRUE
-    ReadPosRankSum.pass[is.na(info(vcf)$ReadPosRankSum)] = TRUE
-
-    # Final pass is the AND of all individual filters.
-    QD.pass & MQ.pass & FS.pass & MQRankSum.pass & ReadPosRankSum.pass
-}
-
-
-criteria = list(
-    "VQSLOD" =          list(scoreFunc = function(x) info(x)$VQSLOD,                                    callFunc = function(x) info(x)$VQSLOD > 2.7),
-    "QUAL" =            list(scoreFunc = function(x) rowData(x)$QUAL,                                   callFunc = function(x) rowData(x)$QUAL > 200),
-    "FILTER" =          list(scoreFunc = function(x) (rowData(x)$FILTER == "PASS")*1,                   callFunc = function(x) rowData(x)$FILTER == "PASS"),
-    "VQSLOD:1000G" =    list(scoreFunc = function(x) info(x)$VQSLOD * filter_1000G(x),                  callFunc = function(x) (info(x)$VQSLOD > 2.7) * filter_1000G(x)),
-    "QUAL:1000G" =      list(scoreFunc = function(x) rowData(x)$QUAL * filter_1000G(x),                 callFunc = function(x) (rowData(x)$QUAL > 200) * filter_1000G(x)),
-    "FILTER:1000G" =    list(scoreFunc = function(x) (rowData(x)$FILTER == "PASS") * (filter_1000G(x)*1),   callFunc = function(x) (rowData(x)$FILTER == "PASS") & filter_1000G(x))
-)
-
 
 ####################################################################
-# COMMAND LINE PARSING
+# LOAD ENVIRONMENT VARIABLES
 ####################################################################
-argv = commandArgs(TRUE)
-if (length(argv) != 16)
-{
-    stop(sprintf("Usage: Rscript report_calculations.R <debugflag> <debugchrom> <extendedflag>\n    <input_vcf> <tp> <fp> <fn> <gold_vcf> <genome> <gold_regions> <func_regions>\n     <mask_regions> <ver_script> <ver_branch> <ver_commit> <ver_host>\n\nargv = %s", paste(argv, sep = " ")))
-}
+env = as.list(Sys.getenv())
 
-DEBUG = argv[1] == "1"
-DEBUG.chrom = argv[2]
-extendedflag = argv[3] == "1"
-path.input = argv[4]
-path.tp = argv[5]
-path.fp = argv[6]
-path.fn = argv[7]
-path.gold = argv[8]
-genome = argv[9]
-path.gold_regions = argv[10]
-path.function_regions_prefix = argv[11]
-path.mask_regions_prefix = argv[12]
-versions = list(script = argv[13], branch = argv[14], commit = argv[15], host = argv[16])
+param = list()
 
+param$path.test.orig = env$PARAM_INPUT_VCFGZ_PATH                               # Path to the original variant vcf under test
 
-if (DEBUG)
-{
-    message(sprintf("Command line: %s", paste(argv, collapse = " ")))
-    message(sprintf("  DEBUG:             %s", DEBUG))
-    message(sprintf("  DEBUG.chrom:       %s", DEBUG.chrom))
-    message(sprintf("  extendedflag:      %s", extendedflag))
-    message(sprintf("  path.tp:           %s", path.tp))
-    message(sprintf("  path.fp:           %s", path.fp))
-    message(sprintf("  path.fn:           %s", path.fn))
-    message(sprintf("  path.gold:         %s", path.gold))
-    message(sprintf("  genome:            %s", genome))
-    message(sprintf("  path.gold_regions: %s", path.gold_regions))
-    message(sprintf("  path.function_regions_prefix: %s", path.function_regions_prefix))
-    message(sprintf("  path.mask_regions_prefix:     %s", path.mask_regions_prefix))
-    message(        "  versions:")
-    message(sprintf("    script:          %s", versions$script))
-    message(sprintf("    branch:          %s", versions$branch))
-    message(sprintf("    commit:          %s", versions$commit))
-    message(sprintf("    host:            %s", versions$host))
-}
+param$region.subset = env$PARAM_REGION_BED_SUPPLIED == "1"                      # Subset analysis to a set of genomic regions?
+param$region.subset.path = env$PARAM_REGION_BED_PATH                            # If so, the path to the region bed file
+
+param$path.test.subset = env$PATH_TEST_VARIANTS                                 # The test variant vcf, subset to the bed in param$region.subset.path
+param$path.gold.variants.orig = env$CONST_GOLD_CALLS_VCFGZ                      # Original gold standard variant vcf
+param$path.gold.regions.orig = env$CONST_GOLD_HARDMASK_VALID_REGIONS_BEDGZ      # Regions in which the gold standard vcf is reliable, as a bed.gz
+param$path.gold.variants.subset = env$PATH_GOLD_VARIANTS                        # Gold standard variant vcf, subset to the bed in param$region.subset.path
+param$path.gold.regions.subset = env$PATH_GOLD_REGIONS                          # Gold standard valid regions, subset to the bed in param$region.subset.path
+
+param$path.tp = env$PATH_OVERLAP_TP                 # Output from RTG's vcfeval, overlapping
+param$path.fp = env$PATH_OVERLAP_FP                 # param$path.test.subset and 
+param$path.fn = env$PATH_OVERLAP_FN                 # param$path.gold.variants.subset
+
+param$extended = env$PARAM_EXTENDED == "1"          # Create an extended report?
+param$genome = env$CONST_REFERENCE_BSGENOME         # The reference genome R package
+param$version = list()
+param$version$script = env$CONST_VERSION_SCRIPT     # The validation reporter version string
+param$version$host = env$PARAM_VERSION_EXEC_HOST    # The host system for this report.
+param$version$rtg = env$PARAM_VERSION_RTG           # Software versions.
+param$version$java = env$PARAM_VERSION_JAVA         #
+param$version$bedtools = env$PARAM_VERSION_BEDTOOLS #
+
+param$path.function.regions.prefix = env$CONST_FUNCTIONAL_REGIONS_BEDGZ_PREFIX  # Path prefixes for functional region BEDs, and
+param$path.mask.regions.prefix = env$CONST_MASK_REGIONS_BEDGZ_PREFIX            # genomic mask BEDs.
+
 
 
 #####################################################################
@@ -137,9 +67,9 @@ library(BSgenome)
 # LOAD DATA
 #####################################################################
 # The reference genome
-genome.bsgenome = getBSgenome(genome)
+genome.bsgenome = getBSgenome(param$genome)
 genome.seqinfo = seqinfo(genome.bsgenome)
-genome(genome.seqinfo) = genome     # To get around disagreement 
+genome(genome.seqinfo) = param$genome     # To get around disagreement 
         # between the vcfs (which by default use the genome name 
         # abbreviation), and the beds (which use the full name).
 
@@ -155,20 +85,13 @@ genome(genome.seqinfo) = genome     # To get around disagreement
 # lines.  TODO: Consider tweaking the front-end so that these entries
 # are de-duplicated.  Then, the suppressWarnings calls can be 
 # removed here, and genuine file read warnings will be caught.
-if (DEBUG)
-{
-    temp = as.data.frame(seqinfo(genome.bsgenome))
-    DEBUG.region = GRanges(seqnames = DEBUG.chrom, IRanges(1, temp[DEBUG.chrom,]$seqlengths), seqinfo = genome.seqinfo)
-    vcf.scan_param.called = ScanVcfParam(info = c("DP", "GQ_MEAN", "QD", "VQSLOD", "MQ", "FS", "MQRankSum", "ReadPosRankSum"), geno = c("GT", "DP", "GQ"), which = DEBUG.region)
-    vcf.scan_param.uncalled = ScanVcfParam(info = c("DP", "TYPE"), geno = c("GT", "DP", "GQ"), which = DEBUG.region)
-} else {
-    vcf.scan_param.called = ScanVcfParam(info = c("DP", "GQ_MEAN", "QD", "VQSLOD", "MQ", "FS", "MQRankSum", "ReadPosRankSum"), geno = c("GT", "DP", "GQ"))
-    vcf.scan_param.uncalled = ScanVcfParam(info = c("DP", "TYPE"), geno = c("GT", "DP", "GQ"))
-}
+vcf.scan_param.called = ScanVcfParam(info = c("DP", "GQ_MEAN", "QD", "VQSLOD", "MQ", "FS", "MQRankSum", "ReadPosRankSum"), geno = c("GT", "DP", "GQ"))
+vcf.scan_param.uncalled = ScanVcfParam(info = c("DP", "TYPE"), geno = c("GT", "DP", "GQ"))
+
 calls = list(
-    tp = suppressWarnings(readVcf(TabixFile(path.tp), genome, vcf.scan_param.called)),
-    fp = suppressWarnings(readVcf(TabixFile(path.fp), genome, vcf.scan_param.called)),
-    fn = suppressWarnings(readVcf(TabixFile(path.fn), genome, vcf.scan_param.uncalled))
+    tp = suppressWarnings(readVcf(TabixFile(param$path.tp), param$genome, vcf.scan_param.called)),
+    fp = suppressWarnings(readVcf(TabixFile(param$path.fp), param$genome, vcf.scan_param.called)),
+    fn = suppressWarnings(readVcf(TabixFile(param$path.fn), param$genome, vcf.scan_param.uncalled))
 )
 
 
@@ -182,20 +105,15 @@ stopifnot(length(temp.sample.tp) == 1)
 calls.sampleid = header(calls$tp)@samples
 
 
-# The gold standard calls, subsetting under debug as before
-calls$gold = suppressWarnings(readVcf(TabixFile(path.gold), genome, vcf.scan_param.uncalled))
-
-
 # Various genomic regions, for later subsetting of performance measures
 regions = list(
-    gold = list(callable = bed2GRanges(path.gold_regions, genome.seqinfo)),             # Gold standard valid call regions
-    mask = readMaskRegions(path.mask_regions_prefix, genome.seqinfo),                   # Masking beds
-    functional = readFunctionalRegions(path.function_regions_prefix, genome.seqinfo),   # 'Function classes' of the genome
-    genome = list(genome = GRanges(                                                     # The whole genome, for set ops.
+    gold = list(callable = bed2GRanges(param$path.gold.regions.subset, genome.seqinfo)),             # Gold standard valid call regions
+    mask = readMaskRegions(param$path.mask.regions.prefix, genome.seqinfo),                   # Masking beds
+    functional = readFunctionalRegions(param$path.function.regions.prefix, genome.seqinfo),   # 'Function classes' of the genome
+    universe = list(genome = GRanges(                                                   # The whole genome
         seqnames = seqnames(genome.seqinfo), 
         ranges = IRanges(1, seqlengths(genome.seqinfo)), 
-        strand = "*", seqinfo = genome.seqinfo))
-)
+        strand = "*", seqinfo = genome.seqinfo)))
 
 # Create a new function class, of coding +/- 10 bp
 regions$functional$coding_10 = suppressWarnings(trim(reduce(
@@ -204,15 +122,28 @@ regions$functional$coding_10 = suppressWarnings(trim(reduce(
         trim(flank(regions$functional$coding, 10, start = TRUE)), ignore.strand = TRUE), 
         trim(flank(regions$functional$coding, 10, start = FALSE)), ignore.strand = TRUE))))
 
-# And new mask classes, of "unmasked" and "not gold standard callable"
-regions$mask$unmasked = setdiff(regions$genome$genome, reduce(union(union(regions$mask$ambiguous, regions$mask$low_complexity), regions$mask$repetitive)))
-regions$gold$notcallable = setdiff(regions$genome$genome, regions$gold$callable)
-
-# If we're debugging (chr DEBUG.chrom only), subset all regions to just this area
-if (DEBUG)
-{
-    regions = lapply(regions, function(region_class) lapply(region_class, function(region) intersect(region, DEBUG.region)))
+# The universe for set operations.  If a regions subset BED was supplied, 
+# the universe is this set of regions, and so load it.  Otherwise, the
+# universe is the whole genome.
+if (param$region.subset) {
+    regions$universe$universe = intersect(regions$universe$genome, bed2GRanges(param$region.subset.path, genome.seqinfo))     # Universe is the supplied region BED file.
+} else {
+    regions$universe$universe = regions$universe$genome                                       # Universe is the whole genome
 }
+
+# Intersect all regions with the universe.
+for (i in names(regions))
+{
+    if (i != "genome")
+    {
+        for (j in names(regions[[i]]))
+            regions[[i]][[j]] = intersect(regions[[i]][[j]], regions$universe$universe)
+    }
+}
+
+# Create new mask classes, of "unmasked" and "not gold standard callable"
+regions$mask$unmasked = setdiff(regions$universe$universe, reduce(union(union(regions$mask$ambiguous, regions$mask$low_complexity), regions$mask$repetitive)))
+regions$gold$notcallable = setdiff(regions$universe$universe, regions$gold$callable)
 
 
 #####################################################################
@@ -276,9 +207,58 @@ for (temp.i in class)
 }
 
 
+
+#####################################################################
+# SCORE VARIABLES AND CALL CUTOFF DEFINITIONS
+#####################################################################
+
+# 1000 genomes SNV / Indel filter, as described by Brad Chapman.
+# SNV:      Fail if (QD < 2.0 || MQ < 40.0 || FS > 60.0 || MQRankSum < -12.5 || ReadPosRankSum < -8.0)
+# Indel:    Fail if (QD < 2.0 ||              FS > 200.0 ||                     ReadPosRankSum < -20.0)
+filter_1000G = function(vcf)
+{
+    if (nrow(vcf) == 0)
+        return(logical())
+
+    # Make sure the vcf has all the metrics used by the filter.
+    stopifnot(length(setdiff(c("QD", "MQ", "FS", "MQRankSum", "ReadPosRankSum"), colnames(info(vcf)))) == 0)
+
+    snv = isSNV(vcf)
+
+    # Calculate PASS logicals for each metric, splitting by snv / indel as appropriate.
+    QD.pass = info(vcf)$QD >= 2.0
+    MQ.pass = info(vcf)$MQ >= ifelse(snv, 40.0, -Inf)
+    FS.pass = info(vcf)$FS <= ifelse(snv, 60.0, 200.0)
+    MQRankSum.pass = info(vcf)$MQRankSum >= ifelse(snv, -12.5, -Inf)
+    ReadPosRankSum.pass = info(vcf)$ReadPosRankSum >= ifelse(snv, -8.0, -20.0)
+
+    # If the desired values are missing, assume they pass
+    QD.pass[is.na(info(vcf)$QD)] = TRUE
+    MQ.pass[is.na(info(vcf)$MQ)] = TRUE
+    FS.pass[is.na(info(vcf)$FS)] = TRUE
+    MQRankSum.pass[is.na(info(vcf)$MQRankSum)] = TRUE
+    ReadPosRankSum.pass[is.na(info(vcf)$ReadPosRankSum)] = TRUE
+
+    # Final pass is the AND of all individual filters.
+    QD.pass & MQ.pass & FS.pass & MQRankSum.pass & ReadPosRankSum.pass
+}
+
+
+criteria = list(
+    "VQSLOD" =          list(scoreFunc = function(x) info(x)$VQSLOD,                                    callFunc = function(x) info(x)$VQSLOD > 2.7),
+    "QUAL" =            list(scoreFunc = function(x) rowData(x)$QUAL,                                   callFunc = function(x) rowData(x)$QUAL > 200),
+    "FILTER" =          list(scoreFunc = function(x) (rowData(x)$FILTER == "PASS")*1,                   callFunc = function(x) rowData(x)$FILTER == "PASS"),
+    "VQSLOD:1000G" =    list(scoreFunc = function(x) info(x)$VQSLOD * filter_1000G(x),                  callFunc = function(x) (info(x)$VQSLOD > 2.7) * filter_1000G(x)),
+    "QUAL:1000G" =      list(scoreFunc = function(x) rowData(x)$QUAL * filter_1000G(x),                 callFunc = function(x) (rowData(x)$QUAL > 200) * filter_1000G(x)),
+    "FILTER:1000G" =    list(scoreFunc = function(x) (rowData(x)$FILTER == "PASS") * filter_1000G(x),   callFunc = function(x) (rowData(x)$FILTER == "PASS") & filter_1000G(x))
+)
+
+
+
 #####################################################################
 # SNV METRIC COMPARISON AND CUTOFF DETERMINATION: GOLD CALLABLE REGIONS
 #####################################################################
+
 # Subset to SNVs in gold-callable regions
 # NOTE: subset.snv.regions, and subset.snv, MUST MATCH
 subset.snv.regions = regions$gold$callable
@@ -290,7 +270,6 @@ calls.snv = sapply(names(calls), function(name) calls[[name]][subset.snv[[name]]
 stopifnot(sum(width(calls.snv$tp)) == nrow(calls.snv$tp))
 stopifnot(sum(width(calls.snv$fp)) == nrow(calls.snv$fp))
 stopifnot(sum(width(calls.snv$fn)) == nrow(calls.snv$fn))
-stopifnot(sum(width(calls.snv$gold)) == nrow(calls.snv$gold))
 
 # We can define TNs for SNVs
 calls.snv$tn = setdiff(subset.snv.regions, union(rowData(calls.snv$tp), rowData(calls.snv$fp), rowData(calls.snv$fn), ignore.strand = TRUE))
@@ -318,7 +297,7 @@ stopifnot(all(class$zyg$RRvsAA$tp[subset.snv$tp] == class.snv.zyg$RRvsAA$tp))
 
 perf.snv$zyg = lapply(criteria, function(crit) vcfPerfGrouped(perfdata.snv, crit$scoreFunc, class.snv.zyg))
 
-if (extendedflag) {
+if (param$extended) {
 perf.snv$all = lapply(criteria, function(crit) vcfPerf(perfdata.snv, crit$scoreFunc))
 
 # And sequence context
@@ -361,7 +340,7 @@ stopifnot(all(class$zyg$RRvsAA$tp[subset.indelsubst$tp] == class.indelsubst.zyg$
 
 perf.indelsubst$zyg = lapply(criteria, function(crit) vcfPerfGrouped(perfdata.indelsubst, crit$scoreFunc, class.indelsubst.zyg))
 
-if (extendedflag) {
+if (param$extended) {
 perf.indelsubst$all = lapply(criteria, function(crit) vcfPerf(perfdata.indelsubst, crit$scoreFunc))
 
 # And sequence context
@@ -379,7 +358,7 @@ perf.indelsubst$mutsize = lapply(criteria, function(crit) vcfPerfGrouped(perfdat
 #####################################################################
 # ALL VARIANT METRIC COMPARISON AND CUTOFF DETERMINATION: GOLD CALLABLE REGIONS
 #####################################################################
-if (extendedflag) {
+if (param$extended) {
 # Repeat the analysis performed in the SNV case, except this time 
 # consider all variants.
 # As for indels, there is no known TN background (and no practical universe of possible
@@ -465,13 +444,4 @@ perf.indelsubst.coding10 = list(zyg = lapply(criteria, function(crit) vcfPerfGro
 #####################################################################
 # SAVE RESULTS
 #####################################################################
-# For debugging: object sizes in GB
-# sort(sapply(ls(), function(id) object.size(get(id)))) / 1024^3
-
-# Remove everything but the essential data required by the report.
-temp = NA
-temp = ls()
-temp = temp[!(grepl("^path\\.", temp) | temp %in% c("criteria", "calls.sampleid", "versions", "DEBUG", "DEBUG.chrom", "genome", "extendedflag") | grepl("^perf\\.", temp))]
-rm(list = temp)
-
 save.image("report_data.rda")
