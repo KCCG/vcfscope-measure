@@ -1,6 +1,6 @@
 #!/bin/bash
-#set -e
-set -x
+#set -e -x -o pipefail
+set -x -o pipefail
 
 #####################################################################
 # VERSION
@@ -12,20 +12,22 @@ export CONST_VERSION_SCRIPT="20150623-1"
 # SOFTWARE AND DATA LOCATIONS
 #####################################################################
 
-IS_DNANEXUS=0
-if [ `whoami` == dnanexus ]; then
-  export IS_DNANEXUS=1
+# dnanexus jobs run as root; assume that if the user is root, we're
+# on dx.
+export IS_DNANEXUS=0
+if [ `whoami` == root ]; then
+  IS_DNANEXUS=1
 fi
 
 # Software & Resources
 if [ ${IS_DNANEXUS} -eq 1 ]; then
   PATH_RESOURCES_HEAD="/home/dnanexus/resources"
-  PATH_SCRATCH_DEFAULT="/tmp"
+  PATH_SCRATCH_DEFAULT="/home/dnanexus/tmp"
 
   RSCRIPT="/home/dnanexus/bin/Rscript"
   R="/home/dnanexus/bin/R"
   JAVA=`which java`
-  BEDTOOLS=`which bedtools`
+  BEDTOOLS_INTERSECT=`which intersectBed`
   TABIX=`which tabix`
   BGZIP=`which bgzip`
 
@@ -40,7 +42,7 @@ else
   RSCRIPT="/home/marpin/bin/Rscript"
   R="/home/marpin/bin/R"
   JAVA="/usr/java/latest/bin/java"
-  BEDTOOLS="/home/marpin/software/bedtools2/bin/bedtools"
+  BEDTOOLS_INTERSECT="/home/marpin/software/bedtools2/bin/intersectBed"
   TABIX="/home/marpin/software/htslib/tabix"
   BGZIP="/home/marpin/software/htslib/bgzip"
 
@@ -65,6 +67,7 @@ export CONST_REFERENCE_BSGENOME="BSgenome.HSapiens.1000g.37d5"		# This is a cust
 export PARAM_EXEC_PATH=$(pwd)
 
 # Scratch space
+mkdir -p ${PATH_SCRATCH_DEFAULT}
 export PARAM_SCRATCH=$(mktemp -d --tmpdir=${PATH_SCRATCH_DEFAULT} valrept.XXXXXXXXXX)
 export PARAM_INPUT_SCRATCH="${PARAM_SCRATCH}/input"
 export PARAM_RTG_OVERLAP_SCRATCH="${PARAM_SCRATCH}/overlap"
@@ -79,7 +82,7 @@ export PARAM_EXTENDED
 export PARAM_VERSION_EXEC_HOST
 export PARAM_VERSION_RTG
 export PARAM_VERSION_JAVA
-export PARAM_VERSION_BEDTOOLS
+export PARAM_VERSION_BEDTOOLS_INTERSECT
 
 # Temporary file locations
 export PATH_TEST_VARIANTS="${PARAM_INPUT_SCRATCH}/test_variants.vcf.gz"
@@ -197,8 +200,8 @@ if [ ! -e ${JAVA} ]; then
   exit 7
 fi
 
-if [ ! -e ${GIT} ]; then
-  echo >&2 "Error: git executable not found."
+if [ ! -e ${RTG_CORE} ]; then
+  echo >&2 "Error: RTG-core.jar not found."
   exit 8
 fi
 
@@ -216,9 +219,9 @@ ${R} --vanilla -e "if (!(\"${CONST_REFERENCE_BSGENOME}\" %in% installed.packages
 # VERSIONING
 #####################################################################
 PARAM_VERSION_EXEC_HOST=$(uname -a)
-PARAM_VERSION_RTG=$(${JAVA} -jar ~/software/rtg-core/build/rtg-core.jar version | grep 'Core Version: ' | sed 's/.*: //g')
-PARAM_VERSION_JAVA=$(${JAVA} -version 2>&1 | grep Runtime | grep -oE 'build [^)]+' | cut -d' ' -f 2)
-PARAM_VERSION_BEDTOOLS=$(${BEDTOOLS} --version | cut -d' ' -f 2)
+PARAM_VERSION_RTG=$(${JAVA} -jar ${RTG_CORE} version | grep 'Core Version: ' | sed 's/.*: //g')
+PARAM_VERSION_JAVA=$(${JAVA} -version 2>&1 | head -n 1 | sed -E 's/[^"]+"//;s/"$//')
+PARAM_VERSION_BEDTOOLS_INTERSECT=$(${BEDTOOLS_INTERSECT} 2>&1 | grep 'Program: .*' | sed -E 's/.*\(//;s/\)$//')
 
 
 #####################################################################
@@ -232,15 +235,25 @@ mkdir -p ${PARAM_INPUT_SCRATCH}
 #####################################################################
 # SUBSET TO REGION BED
 #####################################################################
+
+# Intersects vcf $1 with bed $2, saving result as vcf.gz $3.  Essentially
+# recapitulates bedtools intersect -header, except using the old 
+# intersectBed interface, which doesn't support -header.
+function intersect_vcf_bed {
+  gzip -dc $1 | awk '{ if (substr($0, 1, 1) == "#") {print $0} else {exit 0} }' > ${PARAM_SCRATCH}/temp.vcf
+  ${BEDTOOLS_INTERSECT} -wa -a $1 -b $2 >> ${PARAM_SCRATCH}/temp.vcf
+  ${BGZIP} -c ${PARAM_SCRATCH}/temp.vcf > $3
+}
+
 if [ ${PARAM_REGION_BED_SUPPLIED} -eq 1 ]; then
   echo "Subsetting input files to supplied BED..."
   # Sort the region bed
   sort -k1,1 -k2,2n ${PARAM_REGION_BED_PATH} > ${PARAM_INPUT_SCRATCH}/region.bed
 
   # Perform the intersection
-  ${BEDTOOLS} intersect -wa -header -a ${PARAM_INPUT_VCFGZ_PATH} -b ${PARAM_INPUT_SCRATCH}/region.bed | ${BGZIP} > ${PATH_TEST_VARIANTS}
-  ${BEDTOOLS} intersect -wa -header -a ${CONST_GOLD_CALLS_VCFGZ} -b ${PARAM_INPUT_SCRATCH}/region.bed | ${BGZIP} > ${PATH_GOLD_VARIANTS}
-  ${BEDTOOLS} intersect -wa -a ${CONST_GOLD_HARDMASK_VALID_REGIONS_BEDGZ} -b ${PARAM_INPUT_SCRATCH}/region.bed | ${BGZIP} > ${PATH_GOLD_REGIONS}
+  intersect_vcf_bed ${PARAM_INPUT_VCFGZ_PATH} ${PARAM_INPUT_SCRATCH}/region.bed ${PATH_TEST_VARIANTS}
+  intersect_vcf_bed ${CONST_GOLD_CALLS_VCFGZ} ${PARAM_INPUT_SCRATCH}/region.bed ${PATH_GOLD_VARIANTS}
+  ${BEDTOOLS_INTERSECT} -wa -a ${CONST_GOLD_HARDMASK_VALID_REGIONS_BEDGZ} -b ${PARAM_INPUT_SCRATCH}/region.bed | ${BGZIP} > ${PATH_GOLD_REGIONS}
 
   # We need to re-index the gold variants
   ${TABIX} -p vcf ${PATH_GOLD_VARIANTS}

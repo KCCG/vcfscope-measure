@@ -15,10 +15,10 @@ main() {
   # Stream and unpack assets bundle
   #
   [[ -n "$DX_RESOURCES_ID" ]] && DX_ASSETS_ID="$DX_RESOURCES_ID" || DX_ASSETS_ID="$DX_PROJECT_CONTEXT_ID"
-  mkdir ./resources
-  cd ./resources
+  mkdir ~/resources
+  cd ~/resources
   dx cat "${DX_ASSETS_ID}:/assets/kccg_validation_reporter_resources_bundle-1.0.tar.gz" | tar zxf - # => functional_regions/* gold_standard/* kccg/* mask_regions/* orig/*
-  cd -
+  cd ~
 
   #
   # setup R
@@ -37,7 +37,7 @@ main() {
     opts+=("-x")
   fi
   if [ -n "${region}" ]; then
-    opts+=("-r" "${region}")
+    opts+=("-r" "${region_path}")
   fi
 
   #
