@@ -25,7 +25,7 @@ function publish_app {
 function run_smoketest {
   vcfgz=project-Bb9KVk8029vp1qzXz4yx4xB3:file-BbBg1g00z1f8vYJq606Yjv7K
   region=project-BZ4JvjQ0K74XK3bP71gykXKQ:file-Bf4JFV00K74xkqBP2Qzbq1p4
-  jobid=$(dx run app-kccg-validation-reporter-dx/smoketest -ivcfgz=$vcfgz -iregion=$region -iextended=true --yes --brief)
+  jobid=$(dx run app-kccg-validation-reporter/smoketest -ivcfgz=$vcfgz -iregion=$region -iextended=true --yes --brief)
 
   #
   # consistent to all applets
