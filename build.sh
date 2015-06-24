@@ -17,18 +17,14 @@ function rmproject {
 
 # Deploy, but do not publish an app, for testing
 function build_smoketest {
-  app_id=`dx build . --version smoketest --app --yes --brief`
-}
-
-function uninstall_smoketest {
-  dx uninstall ${app_id}
+  dx build . --version bamboo_smoketest --app --yes
 }
 
 # Run a basic test of a deployed app.
 function run_smoketest {
   vcfgz=project-Bf525x80YY8XZbFV8kJ50y2f:file-Bf54Jy80YY8Yp7x971x7zv7Z
   region=project-Bf525x80YY8XZbFV8kJ50y2f:file-Bf548200YY8k4XzZZ5FyJFJZ
-  jobid=$(dx run app-kccg-validation-reporter/smoketest -ivcfgz=$vcfgz -iregion=$region -iextended=true --yes --brief)
+  jobid=$(dx run app-kccg-validation-reporter/bamboo_smoketest -ivcfgz=$vcfgz -iregion=$region -iextended=true --yes --brief)
 
   # returns non-0 if there's a problem.
   dx watch -q --no-job-info  -f '{msg}' ${jobid}
@@ -54,7 +50,6 @@ if [[ $1 = "smoketest" ]]; then
   mkproject
   build_smoketest
   run_smoketest
-  uninstall_smoketest
 elif [[ $1 = "publish" ]]; then
   dxlogin
   publish_app
