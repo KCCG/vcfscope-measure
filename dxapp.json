@@ -36,11 +36,13 @@
     ],
     "outputSpec": [
         {
+            "patterns": [
+                "*.valrept.pdf"
+            ],
+            "label": "Validation report PDF",
+            "help": "A PDF of the validation report",
             "name": "report",
-            "label": "Output PDF",
-            "help": "The PDF validation report",
-            "class": "file",
-            "patterns": [ "*.pdf" ]
+            "class": "file"
         }
     ],
     "runSpec": {
