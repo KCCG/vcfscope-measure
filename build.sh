@@ -23,8 +23,8 @@ function publish_app {
 
 # Run a basic test of a deployed app.
 function run_smoketest {
-  vcfgz=project-Bb9KVk8029vp1qzXz4yx4xB3:file-BbBg1g00z1f8vYJq606Yjv7K
-  region=project-BZ4JvjQ0K74XK3bP71gykXKQ:file-Bf4JFV00K74xkqBP2Qzbq1p4
+  vcfgz=project-Bf525x80YY8XZbFV8kJ50y2f:file-Bf54Jy80YY8Yp7x971x7zv7Z
+  region=project-Bf525x80YY8XZbFV8kJ50y2f:file-Bf548200YY8k4XzZZ5FyJFJZ
   jobid=$(dx run app-kccg-validation-reporter/smoketest -ivcfgz=$vcfgz -iregion=$region -iextended=true --yes --brief)
 
   #
