@@ -1,6 +1,5 @@
 #!/bin/bash
-#set -e -x -o pipefail
-set -x -o pipefail
+set -e -x -o pipefail
 
 #####################################################################
 # VERSION

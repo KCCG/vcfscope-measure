@@ -20,6 +20,7 @@ function build_applet {
   dx build .
   dx mkdir /assets
   dx cp kccg:/assets/kccg_validation_reporter_resources_bundle-1.0.tar.gz /assets/
+  dx cp kccg:/assets/R-3.2.0.compiled.packages_v2.tar.gz /assets/
   dx cp kccg:/assets/BSgenome.HSapiens.1000g.37d5_1.0.0.tar.gz /assets/
 }
 
@@ -44,11 +45,11 @@ function publish_app {
   fi
 }
 
-# Note, there are more tests within test/smoke_tests.py
+
 function smoketest {
   vcfgz=project-Bb9KVk8029vp1qzXz4yx4xB3:file-BbBg1g00z1f8vYJq606Yjv7K
   region=project-BZ4JvjQ0K74XK3bP71gykXKQ:file-Bf4JFV00K74xkqBP2Qzbq1p4
-  jobid=$(dx run /kccg-validation-reporter-dx -ivcfgz=$vcfgz -iregion=$region --yes --brief)
+  jobid=$(dx run /kccg-validation-reporter-dx -ivcfgz=$vcfgz -iregion=$region -iextended=true --yes --brief)
 
   #
   # consistent to all applets
