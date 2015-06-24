@@ -1,8 +1,10 @@
 {
     "name": "kccg-validation-reporter",
-    "title": "Create KCCG Validation Report",
+    "title": "KCCG Validation Reporter",
+    "summary": "Create a WGS validation report from a VCF of NA12878 calls",
     "dxapi": "1.0.0",
-    "version": "auto-updated-by-bamboo",
+    "version": "1.0.0",
+    "resources": "project-Bf525x80YY8XZbFV8kJ50y2f",
     "contactOrgs": "http://www.garvan.org.au/research/kinghorn-centre-for-clinical-genomics/clinical-genomics",
     "developers": [ "org-garvan_kccg_developers" ],
     "authorizedUsers": [ "org-garvan_kccg", "org-garvan_kccg_developers" ],
@@ -13,13 +15,6 @@
             "help": "Input NA12878 genotype calls to be validated, in vcf.gz format.",
             "class": "file",
             "patterns": [ "*.vcf.gz" ]
-        },
-        {
-            "name": "outfile",
-            "label": "Write the pdf report to OUTFILE",
-            "help": "Write the pdf report to OUTFILE",
-            "class": "string",
-            "default": "report.pdf"
         },
         {
             "group": "advanced",
@@ -33,7 +28,7 @@
         {
             "group": "advanced",
             "name": "extended",
-            "label": "Write the extended pdf report?",
+            "label": "Extended report?",
             "help": "Generate an extended report, with threshold and score diagnostics.",
             "class": "boolean",
             "default": false
@@ -43,7 +38,7 @@
         {
             "name": "report",
             "label": "Output PDF",
-            "help": "The pdf validation report",
+            "help": "The PDF validation report",
             "class": "file",
             "patterns": [ "*.pdf" ]
         }

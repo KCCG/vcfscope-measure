@@ -59,7 +59,7 @@ main() {
   # run report
   #
   mkdir -p ~/out/report/
-  ./validation_report.sh -o ~/out/report/${outfile} "${opts[@]}" ${vcfgz_path}
+  ./validation_report.sh -o ~/out/report/validation_report.pdf "${opts[@]}" ${vcfgz_path}
 
   #
   # upload results
