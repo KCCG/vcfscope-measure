@@ -1,5 +1,5 @@
 {
-    "name": "kccg-validation-reporter-dx",
+    "name": "kccg-validation-reporter",
     "title": "Create KCCG Validation Report",
     "dxapi": "1.0.0",
     "version": "auto-updated-by-bamboo",
