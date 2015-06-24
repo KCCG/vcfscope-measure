@@ -1,0 +1,66 @@
+{
+    "name": "kccg-validation-reporter",
+    "title": "KCCG Validation Reporter",
+    "summary": "Create a WGS validation report from a VCF of NA12878 calls",
+    "dxapi": "1.0.0",
+    "version": "1.0.0",
+    "resources": "project-Bf525x80YY8XZbFV8kJ50y2f",
+    "contactOrgs": "http://www.garvan.org.au/research/kinghorn-centre-for-clinical-genomics/clinical-genomics",
+    "developers": [ "org-garvan_kccg_developers" ],
+    "authorizedUsers": [ "org-garvan_kccg", "org-garvan_kccg_developers" ],
+    "inputSpec": [
+        {
+            "name": "vcfgz",
+            "label": "Variants",
+            "help": "Input NA12878 genotype calls to be validated, in vcf.gz format.",
+            "class": "file",
+            "patterns": [ "*.vcf.gz" ]
+        },
+        {
+            "group": "advanced",
+            "name": "region",
+            "label": "Region BED",
+            "help": "Limit analysis to the regions in this BED only.",
+            "class": "file",
+            "patterns": [ "*.bed" ],
+            "optional": true
+        },
+        {
+            "group": "advanced",
+            "name": "extended",
+            "label": "Extended report?",
+            "help": "Generate an extended report, with threshold and score diagnostics.",
+            "class": "boolean",
+            "default": false
+        }
+    ],
+    "outputSpec": [
+        {
+            "name": "report",
+            "label": "Output PDF",
+            "help": "The PDF validation report",
+            "class": "file",
+            "patterns": [ "*.pdf" ]
+        }
+    ],
+    "runSpec": {
+        "execDepends": [
+            { "name": "openjdk-7-jre-headless" },
+            { "name": "texinfo" },
+            { "name": "texlive" },
+            { "name": "latex-xcolor" },
+            { "name": "texlive-latex-extra" },
+            { "name": "tabix"}
+        ],
+        "systemRequirements": {
+            "main": {
+                "instanceType": "mem1_ssd1_x4"
+            }
+        },
+        "file": "src/code.sh",
+        "interpreter": "bash"
+    },
+    "access": {
+        "network": ["*"]
+    }
+}

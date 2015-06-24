@@ -1,0 +1,48 @@
+% SCORE AND THRESHOLD DIAGNOSTICS
+%--------------------------------------------------------------------
+
+\section{Threshold and score diagnostics}
+\subsection{Score comparisons, all contexts}
+<<score-plot-snv-all, out.width='.45\\linewidth', fig.show='hold', fig.height=3.5>>=
+plotROC(perf.snv$all) + coord_cartesian(xlim = c(0, 2.5e-6), ylim = c(0.8, 1)) + theme_bw() + scale_colour_brewer(palette = "Set1") + ggtitle("SNVs")
+plotROC(perf.indelsubst$all, type.fp = "count") + coord_cartesian(ylim = c(0, 1)) + theme_bw() + scale_colour_brewer(palette = "Set1") + ggtitle("Indels")
+@
+
+\subsection{Covariate effects}
+\subsubsection{SNVs}
+<<score-plot-snv-covs, out.width='.45\\linewidth', fig.show='hold', fig.height=3.5>>=
+plotROC(lapply(perf.snv$zyg, function(x) x[c("RRvsAA", "RRvsRA")])) + coord_cartesian(xlim = c(0, 2.5e-6), ylim = c(0.8, 1)) + 
+	labs(colour = "Score", linetype = "Zygosity") + 
+	scale_colour_brewer(palette = "Set1") + 
+	scale_linetype_manual(breaks = c("RRvsAA", "RRvsRA", "RRvsAB"), values = c("solid", "dashed", "blank")) + 
+	theme_bw() + ggtitle("Zygosity")
+plotROC(lapply(perf.snv$mask, function(x) x[c("unmasked", "repetitive", "low_complexity")])) + coord_cartesian(xlim = c(0, 2.5e-6), ylim = c(0.8, 1)) + 
+	labs(colour = "Score", linetype = "Sequence mask") + 
+	scale_colour_brewer(palette = "Set1") + 
+	scale_linetype_manual(breaks = c("low_complexity", "repetitive", "unmasked"), values = c("dashed", "dotted", "solid")) + 
+	theme_bw() + ggtitle("Sequence type")
+@
+
+\subsubsection{Indels}
+<<score-plot-indel-covs-1, out.width='\\linewidth',fig.width=8>>=
+plotROC(lapply(perf.indelsubst$zyg, function(x) x[c("RRvsAA", "RRvsRA")]), type.fp = "count", facet = 2) + 
+	labs(colour = "Score", linetype = "Zygosity") + 
+	scale_colour_brewer(palette = "Set1") + 
+	scale_linetype_manual(breaks = c("RRvsAA", "RRvsRA"), values = c("solid", "dashed")) + 
+	theme_bw() + ggtitle("Zygosity")
+@
+
+<<score-plot-indel-covs-2, out.width='\\linewidth',fig.width=9>>=
+plotROC(lapply(perf.indelsubst$mask, function(x) x[c("unmasked", "repetitive", "low_complexity")]), type.fp = "count", facet = 2) + 
+	labs(colour = "Score", linetype = "Sequence mask") + 
+	scale_colour_brewer(palette = "Set1") + 
+	scale_linetype_manual(breaks = c("low_complexity", "repetitive", "unmasked"), values = c("dashed", "dotted", "solid")) + 
+	theme_bw() + ggtitle("Sequence type")
+@
+
+<<score-plot-indel-covs-3, out.width='\\linewidth', fig.width=7>>=
+plotROC(perf.indelsubst$mutsize, type.fp = "count", facet = 2) + 
+	labs(colour = "Score", linetype = "Mutation size") + 
+	scale_colour_brewer(palette = "Set1") + 
+	theme_bw() + ggtitle("Mutation size")
+@

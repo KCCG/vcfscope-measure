@@ -1,0 +1,349 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%  
+%  KCCG WGS Validation Reporter -- Report generator
+%  
+%  Usage: 
+%    Rscript --vanilla -e "library(knitr); knit('report.Rnw', output = 'report.tex')"
+%  
+%
+%  Mark Pinese, 2015
+%  
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\documentclass[10pt,a4paper]{article}
+\usepackage{geometry}
+\usepackage{amsmath}
+\usepackage{booktabs}
+\usepackage[usenames,dvipsnames,svgnames,table]{xcolor}
+\usepackage{url}
+
+\usepackage{fancyhdr}
+\setlength{\headheight}{15.2pt}
+\pagestyle{fancyplain}
+\usepackage{lastpage}
+
+\begin{document}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% PREPARATION
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+% LOAD PRECOMPUTED RESULTS
+%--------------------------------------------------------------------
+<<load-results, cache=FALSE, echo=FALSE>>=
+load("report_data.rda")
+@
+
+
+% LIBRARIES
+%--------------------------------------------------------------------
+<<load-libs, cache=FALSE, echo=FALSE>>=
+suppressPackageStartupMessages(library(VariantAnnotation))
+suppressPackageStartupMessages(library(GenomicRanges))
+suppressPackageStartupMessages(library(BSgenome))
+
+suppressPackageStartupMessages(library(Rcpp))
+suppressPackageStartupMessages(library(inline))
+
+suppressPackageStartupMessages(library(ggplot2))
+suppressPackageStartupMessages(library(xtable))
+@
+
+
+% HELPER FUNCTIONS
+%--------------------------------------------------------------------
+<<load-funcs, cache=FALSE, echo=FALSE>>=
+source("report_functions.R")
+@
+
+
+% KNITR SETUP
+%--------------------------------------------------------------------
+<<setup, cache=FALSE, echo=FALSE>>=
+library(knitr)
+options(
+	tikzDocumentDeclaration = "\\documentclass[11pt]{article}",
+	tikzLatexPackages = c(
+		getOption("tikzLatexPackages"),
+		"\\usepackage{amsmath}"),
+	tikzMetricsDictionary="tikzMetrics"
+)
+opts_chunk$set(
+	echo = FALSE, results = 'markup', message = FALSE, warning = FALSE, error = FALSE, 
+	fig.keep = 'high', fig.align = 'center', fig.width = 5, fig.height = 4,
+	cache = FALSE, cache.lazy = FALSE)
+opts_knit$set(progress = TRUE, verbose = TRUE)
+options(warn = 1)
+@
+
+
+
+% REPORT COMPUTATIONS
+%--------------------------------------------------------------------
+<<report-calcs, cache=FALSE, echo=FALSE>>=
+report = list()
+
+report$gentime = date()
+
+report$specifications = list(
+	measure = "QUAL",
+	cutoff = 200,
+	snv.het.min.sens = 0.95,
+	snv.het.min.spec = 0.95,
+	snv.hom.min.sens = 0.99,
+	snv.hom.min.spec = 0.99,
+	indelsubst.het.min.sens = 0.95,
+	indelsubst.hom.min.sens = 0.99)
+
+snv.het.perf = calcSensSpecAtCutoff(perf.snv$zyg[[report$specifications$measure]]$RRvsRA, report$specifications$cutoff)
+indelsubst.het.perf = calcSensSpecAtCutoff(perf.indelsubst$zyg[[report$specifications$measure]]$RRvsRA, report$specifications$cutoff)
+snv.hom.perf = calcSensSpecAtCutoff(perf.snv$zyg[[report$specifications$measure]]$RRvsAA, report$specifications$cutoff)
+indelsubst.hom.perf = calcSensSpecAtCutoff(perf.indelsubst$zyg[[report$specifications$measure]]$RRvsAA, report$specifications$cutoff)
+
+snv.coding10.het.perf = calcSensSpecAtCutoff(perf.snv.coding10$zyg[[report$specifications$measure]]$RRvsRA, report$specifications$cutoff)
+indelsubst.coding10.het.perf = calcSensSpecAtCutoff(perf.indelsubst.coding10$zyg[[report$specifications$measure]]$RRvsRA, report$specifications$cutoff)
+snv.coding10.hom.perf = calcSensSpecAtCutoff(perf.snv.coding10$zyg[[report$specifications$measure]]$RRvsAA, report$specifications$cutoff)
+indelsubst.coding10.hom.perf = calcSensSpecAtCutoff(perf.indelsubst.coding10$zyg[[report$specifications$measure]]$RRvsAA, report$specifications$cutoff)
+
+report$snv.het.sens.value = snv.het.perf$sens
+report$snv.het.spec.value = snv.het.perf$spec
+report$indelsubst.het.sens.value = indelsubst.het.perf$sens
+report$snv.hom.sens.value = snv.hom.perf$sens
+report$snv.hom.spec.value = snv.hom.perf$spec
+report$indelsubst.hom.sens.value = indelsubst.hom.perf$sens
+
+report$snv.het.sens.pass = report$snv.het.sens.value >= report$specifications$snv.het.min.sens
+report$snv.het.spec.pass = report$snv.het.spec.value >= report$specifications$snv.het.min.spec
+report$indelsubst.het.sens.pass = report$indelsubst.het.sens.value >= report$specifications$indelsubst.het.min.sens
+report$snv.hom.sens.pass = report$snv.hom.sens.value >= report$specifications$snv.hom.min.sens
+report$snv.hom.spec.pass = report$snv.hom.spec.value >= report$specifications$snv.hom.min.spec
+report$indelsubst.hom.sens.pass = report$indelsubst.hom.sens.value >= report$specifications$indelsubst.hom.min.sens
+
+report$overall.pass = 
+	report$snv.het.sens.pass & report$snv.het.spec.pass & report$indelsubst.het.sens.pass &
+	report$snv.hom.sens.pass & report$snv.hom.spec.pass & report$indelsubst.hom.sens.pass
+
+report$snv.het.sens.call = ifelse(report$snv.het.sens.pass, "Pass", "\\textcolor{red}{\\textbf{FAIL}}")
+report$snv.het.spec.call = ifelse(report$snv.het.spec.pass, "Pass", "\\textcolor{red}{\\textbf{FAIL}}")
+report$indelsubst.het.sens.call = ifelse(report$indelsubst.het.sens.pass, "Pass", "\\textcolor{red}{\\textbf{FAIL}}")
+report$snv.hom.sens.call = ifelse(report$snv.hom.sens.pass, "Pass", "\\textcolor{red}{\\textbf{FAIL}}")
+report$snv.hom.spec.call = ifelse(report$snv.hom.spec.pass, "Pass", "\\textcolor{red}{\\textbf{FAIL}}")
+report$indelsubst.hom.sens.call = ifelse(report$indelsubst.hom.sens.pass, "Pass", "\\textcolor{red}{\\textbf{FAIL}}")
+
+report$overall.call = ifelse(report$overall.pass, "\\textcolor{blue}{PASS}", "\\textcolor{red}{\\textbf{FAIL}}")
+@
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% REPORT STARTS HERE
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\newcommand{\HRule}{\rule{\linewidth}{0.5mm}}
+
+\fancyhf{}
+\lhead{WGS Validation Report (v\texttt{\Sexpr{param$version$script}}): \texttt{\Sexpr{texquote(calls.sampleid)}}}
+\rhead{Page \thepage\ of \pageref{LastPage}}
+
+\let\endtitlepage\relax
+\begin{titlepage}
+\begin{flushleft}
+\LARGE{WGS Validation Report: \texttt{\Sexpr{texquote(calls.sampleid)}}}
+\HRule
+\end{flushleft}
+\end{titlepage}
+
+\section{Summary}
+Sample ID: \texttt{\Sexpr{texquote(calls.sampleid)}} \\
+Input VCF: \texttt{\url{\Sexpr{param$path.test.orig}}} \\
+Report version: \texttt{\Sexpr{param$version$script}} \\
+Report time: \texttt{\Sexpr{texquote(report$gentime)}} \\
+
+<<summary-table,results='asis'>>=
+summary.table = xtable(data.frame(
+	Criterion = c(
+		"Het SNV sensitivity", 
+		"Het SNV specificity", 
+		"Het Indel sensitivity",
+		"Hom SNV sensitivity", 
+		"Hom SNV specificity", 
+		"Hom Indel sensitivity"),
+	"Measured" = c(
+		report$snv.het.sens.value, 
+		report$snv.het.spec.value, 
+		report$indelsubst.het.sens.value,
+		report$snv.hom.sens.value, 
+		report$snv.hom.spec.value, 
+		report$indelsubst.hom.sens.value),
+	"Requirement" = c(
+		sprintf("$\\ge %.2f$", report$specifications$snv.het.min.sens), 
+		sprintf("$\\ge %.2f$", report$specifications$snv.het.min.spec), 
+		sprintf("$\\ge %.2f", report$specifications$indelsubst.het.min.sens),
+		sprintf("$\\ge %.2f$", report$specifications$snv.hom.min.sens), 
+		sprintf("$\\ge %.2f$", report$specifications$snv.hom.min.spec), 
+		sprintf("$\\ge %.2f", report$specifications$indelsubst.hom.min.sens)),
+	"Call" = c(
+		report$snv.het.sens.call, 
+		report$snv.het.spec.call, 
+		report$indelsubst.het.sens.call, 
+		report$snv.hom.sens.call, 
+		report$snv.hom.spec.call, 
+		report$indelsubst.hom.sens.call)), 
+	digits = 4)
+print(summary.table, sanitize.text.function = function(x) x, include.rownames = FALSE)
+@
+
+\textbf{OVERALL RESULT: \Sexpr{report$overall.call}} \\
+
+<<summary-plots, out.width='.45\\linewidth', fig.show='hold'>>=
+plotROC(perf.snv$zyg[[report$specifications$measure]][c("RRvsAA", "RRvsRA")]) + 
+	ggtitle("SNV: Whole genome") + 
+	labs(colour = "Zygosity") + 
+	scale_colour_brewer(palette = "Set1") +
+	coord_cartesian(xlim = c(-1e-7, 2.5e-6)) + ylim(0.8, 1) + 
+	geom_point(aes(x = 1 - snv.het.perf$spec, y = snv.het.perf$sens, size = 4, colour = "RRvsRA")) + 
+	geom_point(aes(x = 1 - snv.hom.perf$spec, y = snv.hom.perf$sens, size = 4, colour = "RRvsAA")) + 
+	guides(size = FALSE) + 
+	geom_vline(xintercept = 1 - report$specifications$snv.het.min.spec, lty = "dashed") + 
+	geom_hline(yintercept = report$specifications$snv.het.min.sens, lty = "dashed") + 
+	theme_bw()
+
+plotROC(perf.indelsubst$zyg[[report$specifications$measure]][c("RRvsAA", "RRvsRA")], type.fp = "count") + 
+	ggtitle("Indel: Whole genome") + 
+	labs(colour = "Zygosity") + 
+	scale_colour_brewer(palette = "Set1") +
+	ylim(0.8, 1) + 
+	geom_point(aes(x = indelsubst.het.perf$nfp, y = indelsubst.het.perf$sens, size = 4, colour = "RRvsRA")) + 
+	geom_point(aes(x = indelsubst.hom.perf$nfp, y = indelsubst.hom.perf$sens, size = 4, colour = "RRvsAA")) + 
+	guides(size = FALSE) + 
+	geom_hline(yintercept = report$specifications$indelsubst.het.min.sens, lty = "dashed") + 
+	theme_bw()
+
+plotROC(perf.snv.coding10$zyg[[report$specifications$measure]][c("RRvsAA", "RRvsRA")]) + 
+	ggtitle("SNV: Coding \u00B110 bp") + 
+	labs(colour = "Zygosity") + 
+	scale_colour_brewer(palette = "Set1") +
+	coord_cartesian(xlim = c(-1e-7, 2.5e-6)) + ylim(0.8, 1) + 
+	geom_point(aes(x = 1 - snv.coding10.het.perf$spec, y = snv.coding10.het.perf$sens, size = 4, colour = "RRvsRA")) + 
+	geom_point(aes(x = 1 - snv.coding10.hom.perf$spec, y = snv.coding10.hom.perf$sens, size = 4, colour = "RRvsAA")) + 
+	guides(size = FALSE) + 
+	geom_vline(xintercept = 1 - report$specifications$snv.het.min.spec, lty = "dashed") + 
+	geom_hline(yintercept = report$specifications$snv.het.min.sens, lty = "dashed") + 
+	theme_bw()
+
+plotROC(perf.indelsubst.coding10$zyg[[report$specifications$measure]][c("RRvsAA", "RRvsRA")], type.fp = "count") + 
+	ggtitle("Indel: Coding \u00B110 bp") + 
+	labs(colour = "Zygosity") + 
+	scale_colour_brewer(palette = "Set1") +
+	ylim(0.8, 1) + 
+	geom_point(aes(x = indelsubst.coding10.het.perf$nfp, y = indelsubst.coding10.het.perf$sens, size = 4, colour = "RRvsRA")) + 
+	geom_point(aes(x = indelsubst.coding10.hom.perf$nfp, y = indelsubst.coding10.hom.perf$sens, size = 4, colour = "RRvsAA")) + 
+	guides(size = FALSE) + 
+	geom_hline(yintercept = report$specifications$indelsubst.het.min.sens, lty = "dashed") + 
+	theme_bw()
+@
+
+\subsection{Raw Counts at Cutoff}
+<<count-table,results='asis'>>=
+count.table = xtable(data.frame(
+	"Region" = c("Whole genome", "", "", "", "Coding $\\pm10$ bp", "", "", ""),
+	"Zygosity" = c("Het", "", "Hom", "", "Het", "", "Hom", ""),
+	"Mutation" = c("SNV", "Indel", "SNV", "Indel", "SNV", "Indel", "SNV", "Indel"),
+	"TP" = c(
+		snv.het.perf$ntp,
+		indelsubst.het.perf$ntp,
+		snv.hom.perf$ntp,
+		indelsubst.hom.perf$ntp,
+		snv.coding10.het.perf$ntp,
+		indelsubst.coding10.het.perf$ntp,
+		snv.coding10.hom.perf$ntp,
+		indelsubst.coding10.hom.perf$ntp),
+	"FP" = c(
+		snv.het.perf$nfp,
+		indelsubst.het.perf$nfp,
+		snv.hom.perf$nfp,
+		indelsubst.hom.perf$nfp,
+		snv.coding10.het.perf$nfp,
+		indelsubst.coding10.het.perf$nfp,
+		snv.coding10.hom.perf$nfp,
+		indelsubst.coding10.hom.perf$nfp),
+	"TN" = c(
+		formatC(snv.het.perf$ntn, digits=0, format="f", big.mark=","),
+		NA,
+		formatC(snv.hom.perf$ntn, digits=0, format="f", big.mark=","),
+		NA,
+		formatC(snv.coding10.het.perf$ntn, digits=0, format="f", big.mark=","),
+		NA,
+		formatC(snv.coding10.hom.perf$ntn, digits=0, format="f", big.mark=","),
+		NA),
+	"FN" = c(
+		snv.het.perf$nfn,
+		indelsubst.het.perf$nfn,
+		snv.hom.perf$nfn,
+		indelsubst.hom.perf$nfn,
+		snv.coding10.het.perf$nfn,
+		indelsubst.coding10.het.perf$nfn,
+		snv.coding10.hom.perf$nfn,
+		indelsubst.coding10.hom.perf$nfn)),
+	digits = 0)
+print(count.table, sanitize.text.function = function(x) x, include.rownames = FALSE)
+@
+
+
+% DATA AND SOFTWARE VERSIONS
+%--------------------------------------------------------------------
+<<region-version, echo=FALSE, cache=FALSE>>=
+temp.region_md5 = "NA"
+temp.region_label = "NO"
+if (param$region.subset)
+{
+	temp.region_label = "YES"
+	temp.region_md5 = fileMD5(param$region.subset.path)
+}
+@
+
+\section{Versions}
+\begin{itemize}
+\item Software: \begin{itemize}
+	\item Validation script: \texttt{\Sexpr{texquote(param$version$script)}}
+	\item R: \texttt{\Sexpr{texquote(R.version$version.string)}} (\texttt{\Sexpr{texquote(R.version$platform)}})
+	\item Genome: \texttt{\Sexpr{texquote(param$genome)}} (\texttt{\Sexpr{packageVersion(param$genome)}})
+	\item Java: \texttt{\Sexpr{texquote(param$version$java)}}
+	\item RTG core: \texttt{\Sexpr{texquote(param$version$rtg)}}
+	\item Bedtools: \texttt{\Sexpr{texquote(param$version$bedtools)}}
+	\item Execution host: \texttt{\Sexpr{texquote(param$version$host)}}
+	\item Execution time: \Sexpr{texquote(report$gentime)}
+\end{itemize}
+\item Data: \begin{itemize}
+	\item Input VCF: \texttt{\url{\Sexpr{param$path.test.orig}}} (MD5 \texttt{\Sexpr{texquote(fileMD5(param$path.test.orig))}})
+	\item Sample ID: \texttt{\Sexpr{texquote(calls.sampleid)}}
+	\item GiaB VCF: \texttt{\url{\Sexpr{param$path.gold.variants.orig}}} (MD5 \texttt{\Sexpr{texquote(fileMD5(param$path.gold.variants.orig))}})
+	\item GiaB BED: \texttt{\url{\Sexpr{param$path.gold.regions.orig}}} (MD5 \texttt{\Sexpr{texquote(fileMD5(param$path.gold.regions.orig))}})
+	\item Analysis restricted to regions? \Sexpr{temp.region_label} \begin{itemize}
+		\item Analysis region BED: \texttt{\url{\Sexpr{param$region.subset.path}}} (MD5 \texttt{\Sexpr{texquote(temp.region_md5)}})
+	\end{itemize}
+	\item Sequence masks: \texttt{\url{\Sexpr{param$path.mask.regions.prefix}}} \begin{itemize}
+		\item Ambiguous: \texttt{ambiguous.bed.gz} (MD5 \texttt{\Sexpr{texquote(fileMD5(paste(param$path.mask.regions.prefix, "ambiguous.bed.gz", sep = "")))}})
+		\item Low complexity: \texttt{mdust.bed.gz} (MD5 \texttt{\Sexpr{texquote(fileMD5(paste(param$path.mask.regions.prefix, "mdust.bed.gz", sep = "")))}})
+		\item Repetitive: \texttt{repetitive.bed.gz} (MD5 \texttt{\Sexpr{texquote(fileMD5(paste(param$path.mask.regions.prefix, "repetitive.bed.gz", sep = "")))}})
+	\end{itemize}
+	\item Functional regions: \texttt{\url{\Sexpr{param$path.function.regions.prefix}}} \begin{itemize}
+		\item Exonic coding: \texttt{exonic\_coding.bed.gz} (MD5 \texttt{\Sexpr{texquote(fileMD5(paste(param$path.function.regions.prefix, "exonic_coding.bed.gz", sep = "")))}})
+		\item Exonic non-coding: \texttt{exonic\_utr.bed.gz} (MD5 \texttt{\Sexpr{texquote(fileMD5(paste(param$path.function.regions.prefix, "exonic_utr.bed.gz", sep = "")))}})
+		\item Genic: \texttt{genes.bed.gz} (MD5 \texttt{\Sexpr{texquote(fileMD5(paste(param$path.function.regions.prefix, "genes.bed.gz", sep = "")))}})
+		\item Intergenic: \texttt{intergenic.bed.gz} (MD5 \texttt{\Sexpr{texquote(fileMD5(paste(param$path.function.regions.prefix, "intergenic.bed.gz", sep = "")))}})
+		\item Intronic: \texttt{intronic.bed.gz} (MD5 \texttt{\Sexpr{texquote(fileMD5(paste(param$path.function.regions.prefix, "intronic.bed.gz", sep = "")))}})
+		\item Splice sites: \texttt{splice.bed.gz} (MD5 \texttt{\Sexpr{texquote(fileMD5(paste(param$path.function.regions.prefix, "splice.bed.gz", sep = "")))}})
+	\end{itemize}
+\end{itemize}
+
+
+% EXTENDED REPORT
+%--------------------------------------------------------------------
+<<child = if (param$extended) 'report_extended.Rnw'>>=
+@
+
+
+\end{document}
