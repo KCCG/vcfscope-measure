@@ -43,14 +43,12 @@ main() {
   #
   # run report
   #
-  export PATH=".:$PATH"
-  validation_report.sh -o report.pdf "${opts[@]}" ${vcfgz_path}
+  mkdir -p ~/out/report/
+  ./validation_report.sh -o ~/out/report/${outfile} "${opts[@]}" ${vcfgz_path}
 
   #
   # upload results
   #
-  mkdir -p ~/out/report/
-  mv report.pdf ~/out/report/${outfile}
   dx-upload-all-outputs
   propagate-user-meta vcfgz report
 }

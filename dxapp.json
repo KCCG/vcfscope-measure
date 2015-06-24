@@ -51,7 +51,6 @@
             { "name": "texlive" },
             { "name": "latex-xcolor" },
             { "name": "texlive-latex-extra" },
-            { "name": "bedtools"},
             { "name": "tabix"}
         ],
         "systemRequirements": {
