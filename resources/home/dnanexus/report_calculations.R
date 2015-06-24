@@ -246,11 +246,11 @@ filter_1000G = function(vcf)
 
 criteria = list(
     "VQSLOD" =          list(scoreFunc = function(x) info(x)$VQSLOD,                                    callFunc = function(x) info(x)$VQSLOD > 2.7),
-    "QUAL" =            list(scoreFunc = function(x) rowData(x)$QUAL,                                   callFunc = function(x) rowData(x)$QUAL > 200),
-    "FILTER" =          list(scoreFunc = function(x) (rowData(x)$FILTER == "PASS")*1,                   callFunc = function(x) rowData(x)$FILTER == "PASS"),
+    "QUAL" =            list(scoreFunc = function(x) rowRanges(x)$QUAL,                                   callFunc = function(x) rowRanges(x)$QUAL > 200),
+    "FILTER" =          list(scoreFunc = function(x) (rowRanges(x)$FILTER == "PASS")*1,                   callFunc = function(x) rowRanges(x)$FILTER == "PASS"),
     "VQSLOD:1000G" =    list(scoreFunc = function(x) info(x)$VQSLOD * filter_1000G(x),                  callFunc = function(x) (info(x)$VQSLOD > 2.7) * filter_1000G(x)),
-    "QUAL:1000G" =      list(scoreFunc = function(x) rowData(x)$QUAL * filter_1000G(x),                 callFunc = function(x) (rowData(x)$QUAL > 200) * filter_1000G(x)),
-    "FILTER:1000G" =    list(scoreFunc = function(x) (rowData(x)$FILTER == "PASS") * filter_1000G(x),   callFunc = function(x) (rowData(x)$FILTER == "PASS") & filter_1000G(x))
+    "QUAL:1000G" =      list(scoreFunc = function(x) rowRanges(x)$QUAL * filter_1000G(x),                 callFunc = function(x) (rowRanges(x)$QUAL > 200) * filter_1000G(x)),
+    "FILTER:1000G" =    list(scoreFunc = function(x) (rowRanges(x)$FILTER == "PASS") * filter_1000G(x),   callFunc = function(x) (rowRanges(x)$FILTER == "PASS") & filter_1000G(x))
 )
 
 
@@ -272,7 +272,7 @@ stopifnot(sum(width(calls.snv$fp)) == nrow(calls.snv$fp))
 stopifnot(sum(width(calls.snv$fn)) == nrow(calls.snv$fn))
 
 # We can define TNs for SNVs
-calls.snv$tn = setdiff(subset.snv.regions, union(rowData(calls.snv$tp), rowData(calls.snv$fp), rowData(calls.snv$fn), ignore.strand = TRUE))
+calls.snv$tn = setdiff(subset.snv.regions, union(rowRanges(calls.snv$tp), rowRanges(calls.snv$fp), rowRanges(calls.snv$fn), ignore.strand = TRUE))
 
 count.snv.fn = nrow(calls.snv$fn)
 count.snv.tn = sum(as.numeric(width(calls.snv$tn)))
@@ -413,7 +413,7 @@ subset.snv.coding10.regions = intersect(regions$gold$callable, regions$functiona
 subset.snv.coding10 = sapply(names(calls), function(name) class$muttype$SNV[[name]] & class$goldcall$callable[[name]] & class$functional$coding_10[[name]], simplify = FALSE, USE.NAMES = TRUE)
 
 calls.snv.coding10 = sapply(names(calls), function(name) calls[[name]][subset.snv.coding10[[name]]], simplify = FALSE, USE.NAMES = TRUE)
-calls.snv.coding10$tn = setdiff(subset.snv.coding10.regions, union(rowData(calls.snv.coding10$tp), rowData(calls.snv.coding10$fp), rowData(calls.snv.coding10$fn), ignore.strand = TRUE))
+calls.snv.coding10$tn = setdiff(subset.snv.coding10.regions, union(rowRanges(calls.snv.coding10$tp), rowRanges(calls.snv.coding10$fp), rowRanges(calls.snv.coding10$fn), ignore.strand = TRUE))
 
 count.snv.coding10.fn = nrow(calls.snv.coding10$fn)
 count.snv.coding10.tn = sum(as.numeric(width(calls.snv.coding10$tn)))

@@ -250,9 +250,9 @@ classifyRegionOverlapVcf = function(vcf, regions, mode)
 		this_region_granges = regions[[region_name]]
 		this_region_mode = mode[region_name]
 		if (this_region_mode == "Any")
-			return(Rle(overlapsAny(rowData(vcf), regions[[region_name]], maxgap = 0L, minoverlap = 1L, type = "any", ignore.strand = TRUE)))
+			return(Rle(overlapsAny(rowRanges(vcf), regions[[region_name]], maxgap = 0L, minoverlap = 1L, type = "any", ignore.strand = TRUE)))
 		else
-			return(Rle(overlapsAny(rowData(vcf), regions[[region_name]], maxgap = 0L, minoverlap = 1L, type = "within", ignore.strand = TRUE)))
+			return(Rle(overlapsAny(rowRanges(vcf), regions[[region_name]], maxgap = 0L, minoverlap = 1L, type = "within", ignore.strand = TRUE)))
 	}, simplify = FALSE, USE.NAMES = TRUE)
 }
 

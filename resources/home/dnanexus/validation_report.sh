@@ -5,7 +5,7 @@ set -x -o pipefail
 #####################################################################
 # VERSION
 #####################################################################
-export CONST_VERSION_SCRIPT="20150623-1"
+export CONST_VERSION_SCRIPT="20150624-1"
 
 
 #####################################################################
@@ -22,12 +22,12 @@ fi
 # Software & Resources
 if [ ${IS_DNANEXUS} -eq 1 ]; then
   PATH_RESOURCES_HEAD="/home/dnanexus/resources"
-  PATH_SCRATCH_DEFAULT="/home/dnanexus/tmp"
+  PATH_SCRATCH_DEFAULT="/tmp"
 
   RSCRIPT="/home/dnanexus/bin/Rscript"
   R="/home/dnanexus/bin/R"
   JAVA=`which java`
-  BEDTOOLS_INTERSECT=`which intersectBed`
+  BEDTOOLS=`which bedtools`
   TABIX=`which tabix`
   BGZIP=`which bgzip`
 
@@ -42,7 +42,7 @@ else
   RSCRIPT="/home/marpin/bin/Rscript"
   R="/home/marpin/bin/R"
   JAVA="/usr/java/latest/bin/java"
-  BEDTOOLS_INTERSECT="/home/marpin/software/bedtools2/bin/intersectBed"
+  BEDTOOLS="/home/marpin/software/bedtools2/bin/bedtools"
   TABIX="/home/marpin/software/htslib/tabix"
   BGZIP="/home/marpin/software/htslib/bgzip"
 
@@ -82,7 +82,7 @@ export PARAM_EXTENDED
 export PARAM_VERSION_EXEC_HOST
 export PARAM_VERSION_RTG
 export PARAM_VERSION_JAVA
-export PARAM_VERSION_BEDTOOLS_INTERSECT
+export PARAM_VERSION_BEDTOOLS
 
 # Temporary file locations
 export PATH_TEST_VARIANTS="${PARAM_INPUT_SCRATCH}/test_variants.vcf.gz"
@@ -221,7 +221,7 @@ ${R} --vanilla -e "if (!(\"${CONST_REFERENCE_BSGENOME}\" %in% installed.packages
 PARAM_VERSION_EXEC_HOST=$(uname -a)
 PARAM_VERSION_RTG=$(${JAVA} -jar ${RTG_CORE} version | grep 'Core Version: ' | sed 's/.*: //g')
 PARAM_VERSION_JAVA=$(${JAVA} -version 2>&1 | head -n 1 | sed -E 's/[^"]+"//;s/"$//')
-PARAM_VERSION_BEDTOOLS_INTERSECT=$(${BEDTOOLS_INTERSECT} 2>&1 | grep 'Program: .*' | sed -E 's/.*\(//;s/\)$//')
+PARAM_VERSION_BEDTOOLS=$(${BEDTOOLS} --version | cut -d' ' -f 2)
 
 
 #####################################################################
@@ -236,24 +236,15 @@ mkdir -p ${PARAM_INPUT_SCRATCH}
 # SUBSET TO REGION BED
 #####################################################################
 
-# Intersects vcf $1 with bed $2, saving result as vcf.gz $3.  Essentially
-# recapitulates bedtools intersect -header, except using the old 
-# intersectBed interface, which doesn't support -header.
-function intersect_vcf_bed {
-  gzip -dc $1 | awk '{ if (substr($0, 1, 1) == "#") {print $0} else {exit 0} }' > ${PARAM_SCRATCH}/temp.vcf
-  ${BEDTOOLS_INTERSECT} -wa -a $1 -b $2 >> ${PARAM_SCRATCH}/temp.vcf
-  ${BGZIP} -c ${PARAM_SCRATCH}/temp.vcf > $3
-}
-
 if [ ${PARAM_REGION_BED_SUPPLIED} -eq 1 ]; then
   echo "Subsetting input files to supplied BED..."
   # Sort the region bed
   sort -k1,1 -k2,2n ${PARAM_REGION_BED_PATH} > ${PARAM_INPUT_SCRATCH}/region.bed
 
   # Perform the intersection
-  intersect_vcf_bed ${PARAM_INPUT_VCFGZ_PATH} ${PARAM_INPUT_SCRATCH}/region.bed ${PATH_TEST_VARIANTS}
-  intersect_vcf_bed ${CONST_GOLD_CALLS_VCFGZ} ${PARAM_INPUT_SCRATCH}/region.bed ${PATH_GOLD_VARIANTS}
-  ${BEDTOOLS_INTERSECT} -wa -a ${CONST_GOLD_HARDMASK_VALID_REGIONS_BEDGZ} -b ${PARAM_INPUT_SCRATCH}/region.bed | ${BGZIP} > ${PATH_GOLD_REGIONS}
+  ${BEDTOOLS} intersect -header -wa -a ${PARAM_INPUT_VCFGZ_PATH} -b ${PARAM_INPUT_SCRATCH}/region.bed | ${BGZIP} > ${PATH_TEST_VARIANTS}
+  ${BEDTOOLS} intersect -header -wa -a ${CONST_GOLD_CALLS_VCFGZ} -b ${PARAM_INPUT_SCRATCH}/region.bed | ${BGZIP} > ${PATH_GOLD_VARIANTS}
+  ${BEDTOOLS} intersect -wa -a ${CONST_GOLD_HARDMASK_VALID_REGIONS_BEDGZ} -b ${PARAM_INPUT_SCRATCH}/region.bed | ${BGZIP} > ${PATH_GOLD_REGIONS}
 
   # We need to re-index the gold variants
   ${TABIX} -p vcf ${PATH_GOLD_VARIANTS}
@@ -284,7 +275,22 @@ if [ -e ${PARAM_RTG_OVERLAP_SCRATCH} ]; then
 	rm -rf ${PARAM_RTG_OVERLAP_SCRATCH}
 fi
 
-${RTG_VCFEVAL} --all-records -b ${PATH_GOLD_VARIANTS} -c ${PATH_TEST_VARIANTS} -t ${CONST_REFERENCE_SDF} -o ${PARAM_RTG_OVERLAP_SCRATCH} > /dev/null 2>&1
+${RTG_VCFEVAL} --all-records -b ${PATH_GOLD_VARIANTS} -c ${PATH_TEST_VARIANTS} -t ${CONST_REFERENCE_SDF} -o ${PARAM_RTG_OVERLAP_SCRATCH}
+
+#####################################################################
+# DIRTY DIRTY DIRTY
+# For some reason, dx is running RTG (via java) as root, and so 
+# output files are owned by root.  Unfortunately, later R invocations
+# are run as dnanexus, and can't access the root-owned output files
+# from RTG vcfeval.  Get around this by explicitly chowning files 
+# dnanexus.  We run as root at this point, so no sudo is needed.
+# (My current guess is that R drops root, but it's just a guess
+# right now.)
+if [ ${IS_DNANEXUS} -eq 1 ]; then
+  chown -R dnanexus:dnanexus ${PARAM_SCRATCH}
+fi
+# DIRTY DIRTY DIRTY
+#####################################################################
 
 # TODO: Parse ${PARAM_RTG_OVERLAP_SCRATCH}/vcfeval.log to identify regions to exclude
 # eg Evaluation too complex (5001 unresolved paths, 18033 iterations) at reference region 2:105849275-105849281. Variants in this region will not be included in results.
@@ -342,7 +348,7 @@ if [ ! -e ${PARAM_KNITR_SCRATCH}/report.pdf ]; then
 fi
 
 # Copy the completed report to the final destination
-cp "${PARAM_KNITR_SCRATCH}/report.pdf" "${output_pdf_path}"
+cp "${PARAM_KNITR_SCRATCH}/report.pdf" "${PARAM_OUTPUT_PDF_PATH}"
 
 echo "Report generated successfully."
 
