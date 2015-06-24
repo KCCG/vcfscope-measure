@@ -17,7 +17,11 @@ function rmproject {
 
 # Deploy, but do not publish an app, for testing
 function build_smoketest {
-  dx build . --version smoketest --app --yes
+  app_id=`dx build . --version smoketest --app --yes --brief`
+}
+
+function uninstall_smoketest {
+  dx uninstall ${app_id}
 }
 
 # Run a basic test of a deployed app.
@@ -37,7 +41,7 @@ function run_smoketest {
 # Deploy and publish an app. This is irreversible (but the release can be deprecated).
 function publish_app {
   if [[ -n "${VERSION}" ]]; then
-    dx build . --version ${VERSION} --app --publish --yes
+    dx build . --version ${VERSION} --no-version-autonumbering --no-update --app --publish --yes
   else
     echo >&2 "Error, $$VERSION not set. Looks like you are trying to deploy from a build agent"
     exit 1
@@ -50,6 +54,7 @@ if [[ $1 = "smoketest" ]]; then
   mkproject
   build_smoketest
   run_smoketest
+  uninstall_smoketest
 elif [[ $1 = "publish" ]]; then
   dxlogin
   publish_app
