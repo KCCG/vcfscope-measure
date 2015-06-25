@@ -1,10 +1,11 @@
 #!/bin/bash
-set -e -x -o pipefail
+set -e -u -o pipefail
+IFS=$'\n\t'
 
 #####################################################################
 # VERSION
 #####################################################################
-export CONST_VERSION_SCRIPT="20150624-1"
+export CONST_VERSION_SCRIPT="1.1.0"
 
 
 #####################################################################
@@ -29,6 +30,8 @@ if [ ${IS_DNANEXUS} -eq 1 ]; then
   BEDTOOLS=`which bedtools`
   TABIX=`which tabix`
   BGZIP=`which bgzip`
+  BCFTOOLS=`which bcftools`
+  GHOSTSCRIPT=`which gs`
 
   RTG_CORE="${PATH_RESOURCES_HEAD}/rtg-core/rtg-core.jar"
   RTG_THREADS=`nproc`
@@ -44,6 +47,8 @@ else
   BEDTOOLS="/home/marpin/software/bedtools2/bin/bedtools"
   TABIX="/home/marpin/software/htslib/tabix"
   BGZIP="/home/marpin/software/htslib/bgzip"
+  BCFTOOLS="/home/marpin/software/bcftools/bcftools"
+  GHOSTSCRIPT=`which gs`
 
   RTG_CORE="${PATH_RESOURCES_HEAD}/rtg-core/rtg-core.jar"
   RTG_THREADS=4
@@ -90,10 +95,16 @@ export PATH_GOLD_VARIANTS="${PARAM_INPUT_SCRATCH}/gold_variants.vcf.gz"
 export PATH_GOLD_VARIANTS_INDEX="${PATH_GOLD_VARIANTS}.tbi"
 export PATH_GOLD_REGIONS="${PARAM_INPUT_SCRATCH}/gold_regions.bed.gz"
 
-# Overlap file locations
-export PATH_OVERLAP_TP="${PARAM_RTG_OVERLAP_SCRATCH}/tp.vcf.gz"
-export PATH_OVERLAP_FP="${PARAM_RTG_OVERLAP_SCRATCH}/fp.vcf.gz"
-export PATH_OVERLAP_FN="${PARAM_RTG_OVERLAP_SCRATCH}/fn.vcf.gz"
+# Variables to iterate over samples in a multi-sample VCF
+export LOOP_SAMPLE_IDS
+export LOOP_THIS_SAMPLE_ID
+export LOOP_NUM_SAMPLES
+export LOOP_SAMPLE_INDEX
+
+# Overlap file locations.  Updated as the sample loops iterate.
+export LOOP_PATH_SAMPLE_OVERLAP_TP
+export LOOP_PATH_SAMPLE_OVERLAP_FP
+export LOOP_PATH_SAMPLE_OVERLAP_FN
 
 
 #####################################################################
@@ -114,7 +125,7 @@ Create a WGS validation report.
                  Default: generate the standard report only.
     -h           Display this help and exit.
 
-Version ${VERSION}
+Version ${CONST_VERSION_SCRIPT}
 
 Mark Pinese
 EOF
@@ -227,7 +238,6 @@ PARAM_VERSION_BEDTOOLS=$(${BEDTOOLS} --version | cut -d' ' -f 2)
 # CREATE TEMPORARY DIRECTORIES
 #####################################################################
 mkdir -p ${PARAM_SCRATCH}
-mkdir -p ${PARAM_KNITR_SCRATCH}
 mkdir -p ${PARAM_INPUT_SCRATCH}
 
 
@@ -269,12 +279,25 @@ ${TABIX} -p vcf ${PATH_TEST_VARIANTS}
 #####################################################################
 echo "Computing VCF overlaps..."
 
-if [ -e ${PARAM_RTG_OVERLAP_SCRATCH} ]; then
-	echo "Overlap scratch directory ${PARAM_RTG_OVERLAP_SCRATCH} already exists.  Clearing scratch directory and continuing..."
-	rm -rf ${PARAM_RTG_OVERLAP_SCRATCH}
-fi
+# Handle a multi-sample VCF by getting sample IDs and splitting by them
+LOOP_SAMPLE_IDS=($(gzip -dc ${PATH_TEST_VARIANTS} | grep -E '^#[^#]' -m 1 | cut -f 1-9 --complement || true))
+LOOP_NUM_SAMPLES=${#LOOP_SAMPLE_IDS[@]}
+for (( LOOP_SAMPLE_INDEX=0; LOOP_SAMPLE_INDEX<${LOOP_NUM_SAMPLES}; LOOP_SAMPLE_INDEX++ )); do
+  echo "  Sample ${LOOP_SAMPLE_IDS[LOOP_SAMPLE_INDEX]}..."
+  LOOP_INPUT_PATH="${PARAM_INPUT_SCRATCH}_${LOOP_SAMPLE_INDEX}"
+  LOOP_TEST_VARIANTS_PATH="${LOOP_INPUT_PATH}/test_variants.vcf.gz"
+  LOOP_RTG_OVERLAP_PATH="${PARAM_RTG_OVERLAP_SCRATCH}_${LOOP_SAMPLE_INDEX}"
+  mkdir -p ${LOOP_INPUT_PATH}
 
-${RTG_VCFEVAL} --all-records -b ${PATH_GOLD_VARIANTS} -c ${PATH_TEST_VARIANTS} -t ${CONST_REFERENCE_SDF} -o ${PARAM_RTG_OVERLAP_SCRATCH}
+  if [ -e ${LOOP_RTG_OVERLAP_PATH} ]; then
+    echo "Overlap scratch directory ${LOOP_RTG_OVERLAP_PATH} already exists.  Clearing scratch directory and continuing..."
+    rm -rf ${LOOP_RTG_OVERLAP_PATH}
+  fi
+
+  ${BCFTOOLS} view -s ${LOOP_SAMPLE_IDS[LOOP_SAMPLE_INDEX]} -O v ${PATH_TEST_VARIANTS} | ${BGZIP} > ${LOOP_TEST_VARIANTS_PATH}
+  ${TABIX} -p vcf ${LOOP_TEST_VARIANTS_PATH}
+  eval ${RTG_VCFEVAL} --all-records -b ${PATH_GOLD_VARIANTS} -c ${LOOP_TEST_VARIANTS_PATH} -t ${CONST_REFERENCE_SDF} -o ${LOOP_RTG_OVERLAP_PATH}
+done
 
 #####################################################################
 # DIRTY DIRTY DIRTY
@@ -305,17 +328,27 @@ echo "Performing calculations for report..."
 # directory.  Currently we get around this with a bit of a kludge, 
 # by copying the report files to ${PARAM_KNITR_SCRATCH}, then executing in 
 # that directory.
-cp -f report.Rnw ${PARAM_KNITR_SCRATCH}
-cp -f report_functions.R ${PARAM_KNITR_SCRATCH}
-cp -f report_extended.Rnw ${PARAM_KNITR_SCRATCH}
-cp -f report_calculations.R ${PARAM_KNITR_SCRATCH}
-cd ${PARAM_KNITR_SCRATCH}
+for (( LOOP_SAMPLE_INDEX = 0; LOOP_SAMPLE_INDEX < ${LOOP_NUM_SAMPLES}; LOOP_SAMPLE_INDEX++ )); do
+  LOOP_PATH_SAMPLE_OVERLAP_TP="${PARAM_RTG_OVERLAP_SCRATCH}_${LOOP_SAMPLE_INDEX}/tp.vcf.gz"
+  LOOP_PATH_SAMPLE_OVERLAP_FP="${PARAM_RTG_OVERLAP_SCRATCH}_${LOOP_SAMPLE_INDEX}/fp.vcf.gz"
+  LOOP_PATH_SAMPLE_OVERLAP_FN="${PARAM_RTG_OVERLAP_SCRATCH}_${LOOP_SAMPLE_INDEX}/fn.vcf.gz"
+  LOOP_THIS_SAMPLE_ID=${LOOP_SAMPLE_IDS[LOOP_SAMPLE_INDEX]}
+  LOOP_KNITR_PATH="${PARAM_KNITR_SCRATCH}_${LOOP_SAMPLE_INDEX}"
 
-# Run the script.  All options are passed via exported environment 
-# variables.  Also save these variables to a file for later source-ing,
-# to ease debugging.
-export > environment
-${RSCRIPT} --vanilla report_calculations.R
+  echo "  Sample ${LOOP_THIS_SAMPLE_ID}..."
+  mkdir -p ${LOOP_KNITR_PATH}
+  cp -f report.Rnw ${LOOP_KNITR_PATH}
+  cp -f report_functions.R ${LOOP_KNITR_PATH}
+  cp -f report_extended.Rnw ${LOOP_KNITR_PATH}
+  cp -f report_calculations.R ${LOOP_KNITR_PATH}
+  cd ${LOOP_KNITR_PATH}
+
+  # Run the script.  All options are passed via exported environment 
+  # variables.  Also save these variables to a file for later source-ing,
+  # to ease debugging.
+  export > environment
+  ${RSCRIPT} --vanilla report_calculations.R
+done
 
 
 #####################################################################
@@ -323,32 +356,43 @@ ${RSCRIPT} --vanilla report_calculations.R
 #####################################################################
 echo "Generating report..."
 
-${RSCRIPT} --vanilla -e "library(knitr); knit('report.Rnw', output = 'report.tex')"
+SUBREPORT_ARRAY=("")
+for (( LOOP_SAMPLE_INDEX = 0; LOOP_SAMPLE_INDEX < ${LOOP_NUM_SAMPLES}; LOOP_SAMPLE_INDEX++ )); do
+  LOOP_THIS_SAMPLE_ID=${LOOP_SAMPLE_IDS[LOOP_SAMPLE_INDEX]}
+  LOOP_KNITR_PATH="${PARAM_KNITR_SCRATCH}_${LOOP_SAMPLE_INDEX}"
+  cd ${LOOP_KNITR_PATH}
 
-# Latex often 'fails' (returns a nonzero exit status), but still 
-# generates a report.  Keep going when this happens, and test for
-# failure explicitly later.
-set +e
+  echo "  Sample ${LOOP_THIS_SAMPLE_ID}..."
 
-# Remove the report.pdf that may be present in the scratch directory,
-# so we can later check whether pdflatex successfully built a report
-# or not.
-rm -f ${PARAM_KNITR_SCRATCH}/report.pdf
+  ${RSCRIPT} --vanilla -e "library(knitr); knit('report.Rnw', output = 'report.tex')"
 
-# Run pdflatex
-pdflatex -interaction nonstopmode report.tex
-pdflatex -interaction nonstopmode report.tex
+  # Latex often 'fails' (returns a nonzero exit status), but still 
+  # generates a report.  Keep going when this happens, and test for
+  # failure explicitly later.
+  set +e
 
-# Check  whether the report.pdf was generated
-if [ ! -e ${PARAM_KNITR_SCRATCH}/report.pdf ]; then
-	echo >&2 "Error: pdflatex did not successfully generate report.pdf."
-	echo >&2 "Check ${PARAM_KNITR_SCRATCH}/report.tex and the latex log for errors."
-	exit 9
-fi
+  # Remove the report.pdf that may be present in the scratch directory,
+  # so we can later check whether pdflatex successfully built a report
+  # or not.
+  rm -f ${LOOP_KNITR_PATH}/report.pdf
 
-# Copy the completed report to the final destination
-cp "${PARAM_KNITR_SCRATCH}/report.pdf" "${PARAM_OUTPUT_PDF_PATH}"
+  # Run pdflatex
+  pdflatex -interaction nonstopmode report.tex
+  pdflatex -interaction nonstopmode report.tex
 
-echo "Report generated successfully."
+  # Check  whether the report.pdf was generated
+  if [ ! -e ${LOOP_KNITR_PATH}/report.pdf ]; then
+  	echo >&2 "    Error: pdflatex did not successfully generate report.pdf."
+  	echo >&2 "    Check ${LOOP_KNITR_PATH}/report.tex and the latex log for errors."
+  	exit 9
+  fi
+
+  SUBREPORT_ARRAY=("${SUBREPORT_ARRAY[@]}" "${LOOP_KNITR_PATH}/report.pdf")
+  echo "    Sub-report generated successfully."
+done
+
+echo "Concatenating sub-reports..."
+
+${GHOSTSCRIPT} -q -dNOPAUSE -dBATCH -sDEVICE=pdfwrite -sOutputFile=${PARAM_OUTPUT_PDF_PATH} ${SUBREPORT_ARRAY[*]}
 
 echo "Done."

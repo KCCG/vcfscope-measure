@@ -150,16 +150,17 @@ classifyZygosityVcf = function(vcf)
 	genotypes = strsplit(genotypes, "/", fixed = TRUE)
 
 	# Convert components to numeric
-	genotypes = lapply(genotypes, as.numeric)
+	genotypes = suppressWarnings(lapply(genotypes, as.integer))
 
 	# Perfom the zygosity classification
 	result = sapply(genotypes, function(gt) {
 		if (length(gt) == 1)
 		{
+			if (is.na(gt))		# as.numeric(".") = NA, so this condition catches the GT = "." case
+				return(NA)
+			
 			if (gt == 0)
 				return("R")
-			else if (is.na(gt))		# as.numeric(".") = NA, so this condition catches the GT = "." case
-				return(NA)
 			return("A")
 		}
 		else if (length(gt) == 2)

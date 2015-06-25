@@ -7,51 +7,31 @@ Create a WGS validation report from a VCF of NA12878 calls.
 ## Usage
 
 ```
-./validation_report.sh [-d CHROM] [-t TMPDIR] [-r] [-f] [-x] [-o OUTFILE] <INFILE>
+Usage: validation_report.sh [-o OUTFILE] [-r BEDFILE] [-x] <INFILE>
 
 Create a WGS validation report from a VCF of NA12878 calls.
 
     INFILE       Input NA12878 genotype calls, in vcf.gz format.
     -o OUTFILE   Write the report to OUTFILE (default: report.pdf)
-    -d CHROM     Debug mode.  Currently, adds additional debug 
-                 information to the report, and examines chromosome
-                 CHROM only.
-    -t TMPDIR    Path to a temporary scratch space directory.  If 
-                 missing, mktemp will be used to create one.
-    -f           Force noninteractive mode; all Y/N prompts will be
-                 automatically answered Y.  Default is to run in 
-                 interactive mode.
-    -r           Resume flag.  If set, and TMPDIR points to a 
-                 partially-completed run, will attempt to resume
-                 this run.  Default is to not resume; if a partial
-                 run is found in TMPDIR and -f is not set, query
-                 the user as to what to do.  With -f set, any partial
-                 run data in TMPDIR is automatically cleared, and
-                 the validation report generation started from the 
-                 beginning.  Regardless of the resume setting, the
-                 final report generation is always repeated with
-                 every invocation.
+    -r BEDFILE   Restrict analysis to the regions in BEDFILE only.
+                 Default: the full genome is considered.
     -x           Generate an extended report, with threshold and
-                 score diagnostics.
+                 score diagnostics appended to the standard report.
+                 Default: generate the standard report only.
     -h           Display this help and exit.
 
-v20150619-1
+v1.1.0
 
 Mark Pinese
+20150625
 ```
 
 
 
 ### Examples
 
-Interactive, debug restricted to chromosome 22:
 ```
-./validation_report.sh -d 22 /directflow/ClinicalGenomicsPipeline/projects/validation-reporter/test_data/HiSeqX_v2_TKCC/R_150203_DAVMIL1_FGS_M001.hc.vqsr.vep.vcf.gz
-```
-
-Non-interactive, full run:
-```
-qsub -pe smp 4 -cwd -b y -j y bash ./validation_report.sh -f /directflow/ClinicalGenomicsPipeline/projects/validation-reporter/test_data/HiSeqX_v2_TKCC/R_150203_DAVMIL1_FGS_M001.hc.vqsr.vep.vcf.gz
+./validation_report.sh /directflow/ClinicalGenomicsPipeline/projects/validation-reporter/test_data/HiSeqX_v2_TKCC/R_150203_DAVMIL1_FGS_M001.hc.vqsr.vep.vcf.gz
 ```
 
 
@@ -66,6 +46,7 @@ qsub -pe smp 4 -cwd -b y -j y bash ./validation_report.sh -f /directflow/Clinica
  * inline (CRAN)
  * ggplot2 (CRAN)
  * knitr (CRAN)
+ * xtable (CRAN)
  * BSgenome.HSapiens.1000g.37d5 (this is a custom package, for installation instructions see below)
 * A functional LaTeX installation
 * Real Time Genomics Core (from [here](http://realtimegenomics.com/products/rtg-core-downloads/), currently included in the resources bundle)
