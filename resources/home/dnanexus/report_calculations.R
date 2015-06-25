@@ -37,9 +37,13 @@ param$path.gold.regions.orig = env$CONST_GOLD_HARDMASK_VALID_REGIONS_BEDGZ      
 param$path.gold.variants.subset = env$PATH_GOLD_VARIANTS                        # Gold standard variant vcf, subset to the bed in param$region.subset.path
 param$path.gold.regions.subset = env$PATH_GOLD_REGIONS                          # Gold standard valid regions, subset to the bed in param$region.subset.path
 
-param$path.tp = env$PATH_OVERLAP_TP                 # Output from RTG's vcfeval, overlapping
-param$path.fp = env$PATH_OVERLAP_FP                 # param$path.test.subset and 
-param$path.fn = env$PATH_OVERLAP_FN                 # param$path.gold.variants.subset
+param$sample.index = as.integer(env$LOOP_SAMPLE_INDEX)
+param$sample.count = as.integer(env$LOOP_NUM_SAMPLES)
+param$sample.id = env$LOOP_THIS_SAMPLE_ID
+
+param$path.tp = env$LOOP_PATH_SAMPLE_OVERLAP_TP     # Output from RTG's vcfeval, overlapping
+param$path.fp = env$LOOP_PATH_SAMPLE_OVERLAP_FP     # param$path.test.subset and 
+param$path.fn = env$LOOP_PATH_SAMPLE_OVERLAP_FN     # param$path.gold.variants.subset
 
 param$extended = env$PARAM_EXTENDED == "1"          # Create an extended report?
 param$genome = env$CONST_REFERENCE_BSGENOME         # The reference genome R package
