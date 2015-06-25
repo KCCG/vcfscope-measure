@@ -60,7 +60,7 @@ main() {
   #
   mkdir -p ~/out/report/
   sample_basename=$(basename ${vcfgz_path} .vcf.gz)
-  bash validation_report.sh -o ~/out/report/${sample_basename}.valrept.pdf "${opts[@]}" ${vcfgz_path}
+  ./validation_report.sh -o ~/out/report/${sample_basename}.valrept.pdf "${opts[@]}" ${vcfgz_path}
 
   #
   # upload results
