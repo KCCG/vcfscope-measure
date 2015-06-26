@@ -1,6 +1,6 @@
 {
     "name": "kccg-validation-reporter",
-    "title": "KCCG Validation Reporter",
+    "title": "Validation Reporter (KCCG)",
     "summary": "Create a WGS validation report from a VCF of NA12878 calls",
     "dxapi": "1.0.0",
     "version": "auto-updated-by-bamboo",
@@ -62,8 +62,5 @@
         },
         "file": "src/code.sh",
         "interpreter": "bash"
-    },
-    "access": {
-        "network": ["*"]
     }
 }
