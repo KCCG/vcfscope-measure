@@ -346,7 +346,7 @@ for (( LOOP_SAMPLE_INDEX = 0; LOOP_SAMPLE_INDEX < ${LOOP_NUM_SAMPLES}; LOOP_SAMP
   # Run the script.  All options are passed via exported environment 
   # variables.  Also save these variables to a file for later source-ing,
   # to ease debugging.
-  export > environment
+  export > environment_${LOOP_SAMPLE_INDEX}
   ${RSCRIPT} --vanilla report_calculations.R
 done
 

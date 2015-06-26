@@ -248,6 +248,14 @@ filter_1000G = function(vcf)
 }
 
 
+# TODO: There is currently no check that the VCFs do in fact contain the following
+# fields.  If they don't there will be an obscure error at a later point, along the
+# lines of:
+# Error in is.na(x) : 
+#   (converted from warning) is.na() applied to non-(list or vector) of type 'NULL'
+# Furthermore, in some cases (eg. interactions with filter_1000G), this condition
+# will be masked, and the results will simply be wrong.  Fix this unsatisfactory situation.
+
 criteria = list(
     "VQSLOD" =          list(scoreFunc = function(x) info(x)$VQSLOD,                                    callFunc = function(x) info(x)$VQSLOD > 2.7),
     "QUAL" =            list(scoreFunc = function(x) rowRanges(x)$QUAL,                                   callFunc = function(x) rowRanges(x)$QUAL > 200),
