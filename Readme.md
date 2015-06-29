@@ -14,6 +14,7 @@ Create a WGS validation report, by comparing a test VCF of NA12878 calls to a Gi
 
 ## VCF requirements
 The following fields are *required* to be present in the supplied VCF:
+
 * QD
 * MQ
 * FS
@@ -29,6 +30,4 @@ The script does *not* currently verify the presence of the above fields.  If one
 These are currently handled, in which case a separate analysis is performed for each sample, and all sub-reports are concatenated to form the final validation report.  All samples should be NA12878, although this is not required or checked.
 
 ## Instance type
-Usually, a mem1_ssd1_x4 instance is sufficient.  Occasionally this size instance has encountered an out-of-memory error during the R calculations (from limited testing, this appears to be an intermittent issue); in those cases, an mem2_ssd1_x4 instance worked.
-
-## Runtime
+mem2_ssd1_x4 is recommended.
