@@ -94,8 +94,8 @@ report$specifications = list(
 	snv.het.min.spec = 0.95,
 	snv.hom.min.sens = 0.99,
 	snv.hom.min.spec = 0.99,
-	indelsubst.het.min.sens = 0.95,
-	indelsubst.hom.min.sens = 0.99)
+	indelsubst.het.min.sens = 0.80,
+	indelsubst.hom.min.sens = 0.95)
 
 snv.het.perf = calcSensSpecAtCutoff(perf.snv$zyg[[report$specifications$measure]]$RRvsRA, report$specifications$cutoff)
 indelsubst.het.perf = calcSensSpecAtCutoff(perf.indelsubst$zyg[[report$specifications$measure]]$RRvsRA, report$specifications$cutoff)
