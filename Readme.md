@@ -14,6 +14,7 @@ Create a WGS validation report, by comparing a test VCF of NA12878 calls to a Gi
 
 ## VCF requirements
 The following fields are *required* to be present in the supplied VCF:
+
 * QD
 * MQ
 * FS
