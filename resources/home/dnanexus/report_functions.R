@@ -223,7 +223,7 @@ classifyMutationTypeVcf = function(vcf)
 	}
 	result = list(
 		SNV = Rle(isSNV(vcf)),
-		InsDelSubst = Rle(isInsertion(vcf) | isDeletion(vcf) | isSubstitution(vcf)))
+		InsDelSubst = Rle(isInsertion(vcf) | isDeletion(vcf) | (isSubstitution(vcf) & !isSNV(vcf))))
 	result$Other = !(result$SNV | result$InsDelSubst)
 	result
 }
@@ -645,5 +645,22 @@ plotROC = function(perf, type.fp = c("rate", "count"), facet = c())
 calcSensSpecAtCutoff = function(perf, cutoff)
 {
 	sel = which.max(perf$cutoff * (perf$cutoff <= cutoff))
-	list(sens = perf$tp[sel] / (perf$tp[sel] + perf$fn[sel]), spec = perf$tn[sel] / (perf$tn[sel] + perf$fp[sel]), ntp = perf$tp[sel], nfp = perf$fp[sel], ntn = perf$tn[sel], nfn = perf$fn[sel])
+
+	if (!is.finite(perf$cutoff[sel]))
+	{
+		# Boundary cases (see vcfPerf for details); although --
+		# technically -- performance can be determined for these,
+		# it isn't particularly useful.  Return NA here so that
+		# the relevant table entries will be clearly missing, 
+		# rather than present and misleading.
+		return(list(sens = NA, spec = NA, ntp = NA, nfp = NA, ntn = NA, nfn = NA))
+	}
+
+	list(
+		sens = perf$tp[sel] / (perf$tp[sel] + perf$fn[sel]), 
+		spec = perf$tn[sel] / (perf$tn[sel] + perf$fp[sel]), 
+		ntp = perf$tp[sel], 
+		nfp = perf$fp[sel], 
+		ntn = perf$tn[sel], 
+		nfn = perf$fn[sel])
 }

@@ -77,7 +77,7 @@ genome(genome.seqinfo) = param$genome     # To get around disagreement
         # between the vcfs (which by default use the genome name 
         # abbreviation), and the beds (which use the full name).
 
-# The call overlaps.  If in debug mode, subset to chromosome DEBUG.chrom
+# The call overlaps.
 # Note the use of suppressWarnings.  The following readVcf calls result
 # in warnings of the form:
 #   Warning in FUN(X[[5L]], ...) :
@@ -89,6 +89,11 @@ genome(genome.seqinfo) = param$genome     # To get around disagreement
 # lines.  TODO: Consider tweaking the front-end so that these entries
 # are de-duplicated.  Then, the suppressWarnings calls can be 
 # removed here, and genuine file read warnings will be caught.
+
+# Load just the required fields from the VCFs.  Which fields to
+# fetch depends on the vcf type, as TP and FP vcf entries are sourced
+# from the call VCF, whereas FN entries are sourced from the gold
+# standard VCF.
 vcf.scan_param.called = ScanVcfParam(info = c("DP", "GQ_MEAN", "QD", "VQSLOD", "MQ", "FS", "MQRankSum", "ReadPosRankSum"), geno = c("GT", "DP", "GQ"))
 vcf.scan_param.uncalled = ScanVcfParam(info = c("DP", "TYPE"), geno = c("GT", "DP", "GQ"))
 
@@ -172,7 +177,6 @@ class = list(
     mask = classifyRegionOverlap(calls, regions$mask, c("ambiguous" = "Any", "low_complexity" = "Any", "repetitive" = "Any", "unmasked" = "All"))
 )
 
-
 # There is a bit of subtlety in this.  Some classes (zygosity, muttype,
 # and mutsize), are based on the properties of the mutation, as given
 # in the gold standard.  However, in the case of FP or FN calls, 
@@ -209,6 +213,25 @@ for (temp.i in class)
             stopifnot(length(temp.j[[temp.k]]) == nrow(calls[[temp.k]]))
     }
 }
+
+# Sanity check: are the classes that should be exclusive, in 
+# fact exclusive?  An example is mutation type, in which each
+# vcf entry should be at most one type of mutation.
+checkClassExclusive = function(class)
+{
+    groups = names(class[[1]])
+    for (group in groups)
+    {
+        if (length(class[[1]][[group]]) == 0)
+            next
+        indicators = sapply(class, function(subclass) as.vector(subclass[[group]]))
+        stopifnot(all(rowSums(indicators) == 1))
+    }
+}
+checkClassExclusive(class$somy)
+checkClassExclusive(class$muttype)
+checkClassExclusive(class$mutsize)
+checkClassExclusive(class$goldcall)
 
 
 
@@ -419,7 +442,7 @@ perf.all$mutsize = lapply(criteria, function(crit) vcfPerfGrouped(perfdata.all, 
 #####################################################################
 # SNV METRIC PERFORMANCE: GOLD CALLABLE, CODING +/- 10 REGIONS
 #####################################################################
-# Subset to SNVs in gold-callable regions within 10 bp of CDs
+# Subset to SNVs in gold-callable regions within 10 bp of CDSs
 # NOTE: subset.snv.coding10.regions, and subset.snv.coding10, MUST MATCH
 subset.snv.coding10.regions = intersect(regions$gold$callable, regions$functional$coding_10)
 subset.snv.coding10 = sapply(names(calls), function(name) class$muttype$SNV[[name]] & class$goldcall$callable[[name]] & class$functional$coding_10[[name]], simplify = FALSE, USE.NAMES = TRUE)
@@ -439,7 +462,7 @@ perf.snv.coding10 = list(zyg = lapply(criteria, function(crit) vcfPerfGrouped(pe
 #####################################################################
 # INDEL AND SUBSTITUTION METRIC PERFORMANCE: GOLD CALLABLE, CODING +/- 10 REGIONS
 #####################################################################
-# Subset to SNVs in gold-callable regions within 10 bp of CDs
+# Subset to SNVs in gold-callable regions within 10 bp of CDSs
 # NOTE: subset.indelsubst.coding10.regions, and subset.indelsubst.coding10, MUST MATCH
 subset.indelsubst.coding10 = sapply(names(calls), function(name) class$muttype$InsDelSubst[[name]] & class$goldcall$callable[[name]] & class$functional$coding_10[[name]], simplify = FALSE, USE.NAMES = TRUE)
 
