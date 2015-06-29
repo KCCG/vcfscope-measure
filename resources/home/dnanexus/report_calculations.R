@@ -216,8 +216,8 @@ for (temp.i in class)
 
 # Sanity check: are the classes that should be exclusive, in 
 # fact exclusive?  An example is mutation type, in which each
-# vcf entry should be at most one type of mutation.
-checkClassExclusive = function(class)
+# vcf entry should be correspond to exactly one type of mutation.
+checkClassExclusive = function(class, exact = TRUE)
 {
     groups = names(class[[1]])
     for (group in groups)
@@ -225,10 +225,13 @@ checkClassExclusive = function(class)
         if (length(class[[1]][[group]]) == 0)
             next
         indicators = sapply(class, function(subclass) as.vector(subclass[[group]]))
-        stopifnot(all(rowSums(indicators) == 1))
+        if (exact)
+            stopifnot(all(rowSums(indicators) == 1))
+        else
+            stopifnot(all(rowSums(indicators) <= 1))
     }
 }
-checkClassExclusive(class$somy)
+checkClassExclusive(class$somy, exact = FALSE)      # exact=FALSE, as 'chromosomes' such as GL000207.1 have no somy assignation by this code
 checkClassExclusive(class$muttype)
 checkClassExclusive(class$mutsize)
 checkClassExclusive(class$goldcall)
