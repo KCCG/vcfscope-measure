@@ -8,6 +8,7 @@
     "contactOrgs": "http://www.garvan.org.au/research/kinghorn-centre-for-clinical-genomics/clinical-genomics",
     "developers": [ "org-garvan_kccg_developers" ],
     "authorizedUsers": [ "org-garvan_kccg", "org-garvan_kccg_developers" ],
+    "categories": [ "Reports", "Statistics" ],
     "inputSpec": [
         {
             "name": "vcfgz",
@@ -57,7 +58,7 @@
         ],
         "systemRequirements": {
             "main": {
-                "instanceType": "mem1_ssd1_x4"
+                "instanceType": "mem2_ssd1_x4"
             }
         },
         "file": "src/code.sh",
