@@ -259,7 +259,7 @@ count.table = xtable(data.frame(
 		formatC(snv.coding10.het.perf$ntp, digits=0, format="f", big.mark=","),
 		formatC(indelsubst.coding10.het.perf$ntp, digits=0, format="f", big.mark=","),
 		formatC(snv.coding10.hom.perf$ntp, digits=0, format="f", big.mark=","),
-		formatC(indelsubst.coding10.hom.perf$ntp), digits=0, format="f", big.mark=","),
+		formatC(indelsubst.coding10.hom.perf$ntp, digits=0, format="f", big.mark=",")),
 	"FP" = c(
 		formatC(snv.het.perf$nfp, digits=0, format="f", big.mark=","),
 		formatC(indelsubst.het.perf$nfp, digits=0, format="f", big.mark=","),
@@ -268,7 +268,7 @@ count.table = xtable(data.frame(
 		formatC(snv.coding10.het.perf$nfp, digits=0, format="f", big.mark=","),
 		formatC(indelsubst.coding10.het.perf$nfp, digits=0, format="f", big.mark=","),
 		formatC(snv.coding10.hom.perf$nfp, digits=0, format="f", big.mark=","),
-		formatC(indelsubst.coding10.hom.perf$nfp), digits=0, format="f", big.mark=","),
+		formatC(indelsubst.coding10.hom.perf$nfp, digits=0, format="f", big.mark=",")),
 	"TN" = c(
 		formatC(snv.het.perf$ntn, digits=0, format="f", big.mark=","),
 		NA,
