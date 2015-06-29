@@ -217,6 +217,10 @@ classifyMutationType = function(vcfs)
 
 classifyMutationTypeVcf = function(vcf)
 {
+	if (nrow(vcf) == 0)
+	{
+		return(list(SNV = Rle(), InsDelSubst = Rle(), Other = Rle()))
+	}
 	result = list(
 		SNV = Rle(isSNV(vcf)),
 		InsDelSubst = Rle(isInsertion(vcf) | isDeletion(vcf) | isSubstitution(vcf)))
@@ -273,6 +277,10 @@ classifyMutationSize = function(vcfs)
 
 classifyMutationSizeVcf = function(vcf)
 {
+	if (nrow(vcf) == 0) 
+	{
+		return(list("[01,02)" = Rle(), "[02,06)" = Rle(), "[06,11)" = Rle(), "[11,21)" = Rle(), "[21,inf)" = Rle(), "NA" = Rle()))
+	}
 	size = getMutationSizeVcf(vcf)
 	list(
 		"[01,02)" = Rle(size == 1 & !is.na(size)),
