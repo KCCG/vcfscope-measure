@@ -143,7 +143,7 @@ PARAM_OUTPUT_PDF_PATH="${PARAM_EXEC_PATH}/report.pdf"
 PARAM_EXTENDED=0
 PARAM_DOTESTS=0
 
-while getopts "r:o:hx" opt; do
+while getopts "r:o:hxt" opt; do
 	case "$opt" in
 		h)
 			print_usage
@@ -348,6 +348,7 @@ for (( LOOP_SAMPLE_INDEX = 0; LOOP_SAMPLE_INDEX < ${LOOP_NUM_SAMPLES}; LOOP_SAMP
   cp -f report_functions.R ${LOOP_KNITR_PATH}
   cp -f report_extended.Rnw ${LOOP_KNITR_PATH}
   cp -f report_calculations.R ${LOOP_KNITR_PATH}
+  cp -f "test-calcs.R" ${LOOP_KNITR_PATH}
   cd ${LOOP_KNITR_PATH}
 
   # Run the script.  All options are passed via exported environment 
