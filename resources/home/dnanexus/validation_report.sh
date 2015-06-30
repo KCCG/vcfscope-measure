@@ -5,7 +5,7 @@ IFS=$'\n\t'
 #####################################################################
 # VERSION
 #####################################################################
-export CONST_VERSION_SCRIPT="1.1.0"
+export CONST_VERSION_SCRIPT="1.1.2"
 
 
 #####################################################################
@@ -112,7 +112,7 @@ export LOOP_PATH_SAMPLE_OVERLAP_FN
 #####################################################################
 print_usage() {
 cat << EOF
-Usage: ${0##*/} [-o OUTFILE] [-r BEDFILE] [-x] <INFILE>
+Usage: ${0##*/} [-o OUTFILE] [-r BEDFILE] [-x] [-t] <INFILE>
 
 Create a WGS validation report.
 
@@ -123,6 +123,9 @@ Create a WGS validation report.
     -x           Generate an extended report, with threshold and
                  score diagnostics appended to the standard report.
                  Default: generate the standard report only.
+    -t           Perfom regression tests and consistency checks 
+                 prior to report generation.  Generally only for
+                 development use.  Default: tests are not performed.
     -h           Display this help and exit.
 
 Version ${CONST_VERSION_SCRIPT}
@@ -138,6 +141,7 @@ PARAM_REGION_BED_SUPPLIED=0
 PARAM_REGION_BED_PATH="NA"
 PARAM_OUTPUT_PDF_PATH="${PARAM_EXEC_PATH}/report.pdf"
 PARAM_EXTENDED=0
+PARAM_DOTESTS=0
 
 while getopts "r:o:hx" opt; do
 	case "$opt" in
@@ -155,6 +159,9 @@ while getopts "r:o:hx" opt; do
 		x)
 			PARAM_EXTENDED=1
 			;;
+    t)
+      PARAM_DOTESTS=1
+      ;;
 		'?')
 			print_usage >&2
 			exit 1
@@ -348,8 +355,16 @@ for (( LOOP_SAMPLE_INDEX = 0; LOOP_SAMPLE_INDEX < ${LOOP_NUM_SAMPLES}; LOOP_SAMP
   # to ease debugging.
   export > environment_${LOOP_SAMPLE_INDEX}
   ${RSCRIPT} --vanilla report_calculations.R
+
+  if [ ${PARAM_DOTESTS} -eq 1 ]; then
+    ${RSCRIPT} --vanilla test-calcs.R
+  fi
 done
 
+
+#####################################################################
+# REGRESSION TESTS
+#####################################################################
 
 #####################################################################
 # REPORT GENERATION
