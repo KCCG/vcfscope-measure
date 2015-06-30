@@ -644,7 +644,8 @@ plotROC = function(perf, type.fp = c("rate", "count"), facet = c())
 
 calcSensSpecAtCutoff = function(perf, cutoff)
 {
-	sel = which.max(perf$cutoff * (perf$cutoff <= cutoff))
+	perf = perf[order(perf$cutoff),]
+	sel = max(which(perf$cutoff <= cutoff))
 
 	if (!is.finite(perf$cutoff[sel]))
 	{
