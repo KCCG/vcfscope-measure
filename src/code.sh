@@ -51,6 +51,9 @@ main() {
   if [ "${extended}" == "true" ]; then
     opts+=("-x")
   fi
+  if [ "${runtests}" == "true" ]; then
+    opts+=("-t")
+  fi
   if [ -n "${region}" ]; then
     opts+=("-r" "${region_path}")
   fi

@@ -286,9 +286,11 @@ criteria = list(
     "VQSLOD" =          list(scoreFunc = function(x) info(x)$VQSLOD,                                    callFunc = function(x) info(x)$VQSLOD > 2.7),
     "QUAL" =            list(scoreFunc = function(x) rowRanges(x)$QUAL,                                 callFunc = function(x) rowRanges(x)$QUAL > 200),
     "FILTER" =          list(scoreFunc = function(x) (rowRanges(x)$FILTER == "PASS")*1,                 callFunc = function(x) rowRanges(x)$FILTER == "PASS"),
+    "DEPTH" =           list(scoreFunc = function(x) info(x)$DP,                                        callFunc = function(x) info(x)$DP >= 15),
     "VQSLOD:1000G" =    list(scoreFunc = function(x) info(x)$VQSLOD * filter_1000G(x),                  callFunc = function(x) (info(x)$VQSLOD > 2.7) * filter_1000G(x)),
     "QUAL:1000G" =      list(scoreFunc = function(x) rowRanges(x)$QUAL * filter_1000G(x),               callFunc = function(x) (rowRanges(x)$QUAL > 200) * filter_1000G(x)),
-    "FILTER:1000G" =    list(scoreFunc = function(x) (rowRanges(x)$FILTER == "PASS") * filter_1000G(x), callFunc = function(x) (rowRanges(x)$FILTER == "PASS") & filter_1000G(x))
+    "FILTER:1000G" =    list(scoreFunc = function(x) (rowRanges(x)$FILTER == "PASS") * filter_1000G(x), callFunc = function(x) (rowRanges(x)$FILTER == "PASS") & filter_1000G(x)),
+    "DEPTH:1000G" =     list(scoreFunc = function(x) info(x)$DP * filter_1000G(x),                      callFunc = function(x) (info(x)$DP >= 15) * filter_1000G(x))
 )
 
 

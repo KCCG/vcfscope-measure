@@ -20,6 +20,15 @@ fileMD5 = function(path) {
 }
 
 
+formatC2 = function(x, ...)
+{
+    if (is.na(x))
+        return("")
+    else
+        return(formatC(x, ...))
+}
+
+
 bed2GRanges = function(path, seqinfo)
 {
     # Read first line, to get the number of columns

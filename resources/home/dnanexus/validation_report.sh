@@ -38,6 +38,7 @@ if [ ${IS_DNANEXUS} -eq 1 ]; then
   mem_in_mb=`head -n1 /proc/meminfo | awk '{print int($2*0.8/1024)}'`                 # Calculate 80% of memory size, for java
   RTG_VCFEVAL="${JAVA} -Xmx${mem_in_mb}m -jar ${RTG_CORE} vcfeval -T ${RTG_THREADS}"
 else
+  # Wolfpack settings (marpin only for now)
   PATH_RESOURCES_HEAD="/directflow/ClinicalGenomicsPipeline/projects/validation-reporter/resources"
   PATH_SCRATCH_DEFAULT="/directflow/ClinicalGenomicsPipeline/tmp"
 
@@ -53,6 +54,23 @@ else
   RTG_CORE="${PATH_RESOURCES_HEAD}/rtg-core/rtg-core.jar"
   RTG_THREADS=4
   RTG_VCFEVAL="${JAVA} -Xmx8G -jar ${RTG_CORE} vcfeval -T ${RTG_THREADS}"
+
+  # Local settings (mark's laptop)
+  # PATH_RESOURCES_HEAD="/home/mark/Desktop/valrept_test/resources"
+  # PATH_SCRATCH_DEFAULT="/home/mark/Desktop/valrept_test/tmp"
+
+  # RSCRIPT=`which Rscript`
+  # R=`which R`
+  # JAVA=`which java`
+  # BEDTOOLS=`which bedtools`
+  # TABIX=`which tabix`
+  # BGZIP=`which bgzip`
+  # BCFTOOLS="/home/mark/Desktop/valrept_test/resources/bcftools-1.2/bcftools"
+  # GHOSTSCRIPT=`which gs`
+
+  # RTG_CORE="${PATH_RESOURCES_HEAD}/rtg-core/rtg-core.jar"
+  # RTG_THREADS=4
+  # RTG_VCFEVAL="${JAVA} -Xmx4G -jar ${RTG_CORE} vcfeval -T ${RTG_THREADS}"
 fi
 
 
@@ -126,6 +144,7 @@ Create a WGS validation report.
     -t           Perfom regression tests and consistency checks 
                  prior to report generation.  Generally only for
                  development use.  Default: tests are not performed.
+                 Implies -x.
     -h           Display this help and exit.
 
 Version ${CONST_VERSION_SCRIPT}
@@ -161,6 +180,7 @@ while getopts "r:o:hxt" opt; do
 			;;
     t)
       PARAM_DOTESTS=1
+      PARAM_EXTENDED=1
       ;;
 		'?')
 			print_usage >&2
