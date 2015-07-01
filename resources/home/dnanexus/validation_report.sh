@@ -5,7 +5,7 @@ IFS=$'\n\t'
 #####################################################################
 # VERSION
 #####################################################################
-export CONST_VERSION_SCRIPT="1.1.0"
+export CONST_VERSION_SCRIPT="1.1.2"
 
 
 #####################################################################
@@ -38,6 +38,7 @@ if [ ${IS_DNANEXUS} -eq 1 ]; then
   mem_in_mb=`head -n1 /proc/meminfo | awk '{print int($2*0.8/1024)}'`                 # Calculate 80% of memory size, for java
   RTG_VCFEVAL="${JAVA} -Xmx${mem_in_mb}m -jar ${RTG_CORE} vcfeval -T ${RTG_THREADS}"
 else
+  # Wolfpack settings (marpin only for now)
   PATH_RESOURCES_HEAD="/directflow/ClinicalGenomicsPipeline/projects/validation-reporter/resources"
   PATH_SCRATCH_DEFAULT="/directflow/ClinicalGenomicsPipeline/tmp"
 
@@ -53,6 +54,23 @@ else
   RTG_CORE="${PATH_RESOURCES_HEAD}/rtg-core/rtg-core.jar"
   RTG_THREADS=4
   RTG_VCFEVAL="${JAVA} -Xmx8G -jar ${RTG_CORE} vcfeval -T ${RTG_THREADS}"
+
+  # Local settings (mark's laptop)
+  # PATH_RESOURCES_HEAD="/home/mark/Desktop/valrept_test/resources"
+  # PATH_SCRATCH_DEFAULT="/home/mark/Desktop/valrept_test/tmp"
+
+  # RSCRIPT=`which Rscript`
+  # R=`which R`
+  # JAVA=`which java`
+  # BEDTOOLS=`which bedtools`
+  # TABIX=`which tabix`
+  # BGZIP=`which bgzip`
+  # BCFTOOLS="/home/mark/Desktop/valrept_test/resources/bcftools-1.2/bcftools"
+  # GHOSTSCRIPT=`which gs`
+
+  # RTG_CORE="${PATH_RESOURCES_HEAD}/rtg-core/rtg-core.jar"
+  # RTG_THREADS=4
+  # RTG_VCFEVAL="${JAVA} -Xmx4G -jar ${RTG_CORE} vcfeval -T ${RTG_THREADS}"
 fi
 
 
@@ -112,7 +130,7 @@ export LOOP_PATH_SAMPLE_OVERLAP_FN
 #####################################################################
 print_usage() {
 cat << EOF
-Usage: ${0##*/} [-o OUTFILE] [-r BEDFILE] [-x] <INFILE>
+Usage: ${0##*/} [-o OUTFILE] [-r BEDFILE] [-x] [-t] <INFILE>
 
 Create a WGS validation report.
 
@@ -123,6 +141,10 @@ Create a WGS validation report.
     -x           Generate an extended report, with threshold and
                  score diagnostics appended to the standard report.
                  Default: generate the standard report only.
+    -t           Perfom regression tests and consistency checks 
+                 prior to report generation.  Generally only for
+                 development use.  Default: tests are not performed.
+                 Implies -x.
     -h           Display this help and exit.
 
 Version ${CONST_VERSION_SCRIPT}
@@ -138,8 +160,9 @@ PARAM_REGION_BED_SUPPLIED=0
 PARAM_REGION_BED_PATH="NA"
 PARAM_OUTPUT_PDF_PATH="${PARAM_EXEC_PATH}/report.pdf"
 PARAM_EXTENDED=0
+PARAM_DOTESTS=0
 
-while getopts "r:o:hx" opt; do
+while getopts "r:o:hxt" opt; do
 	case "$opt" in
 		h)
 			print_usage
@@ -155,6 +178,10 @@ while getopts "r:o:hx" opt; do
 		x)
 			PARAM_EXTENDED=1
 			;;
+    t)
+      PARAM_DOTESTS=1
+      PARAM_EXTENDED=1
+      ;;
 		'?')
 			print_usage >&2
 			exit 1
@@ -341,6 +368,7 @@ for (( LOOP_SAMPLE_INDEX = 0; LOOP_SAMPLE_INDEX < ${LOOP_NUM_SAMPLES}; LOOP_SAMP
   cp -f report_functions.R ${LOOP_KNITR_PATH}
   cp -f report_extended.Rnw ${LOOP_KNITR_PATH}
   cp -f report_calculations.R ${LOOP_KNITR_PATH}
+  cp -f "test-calcs.R" ${LOOP_KNITR_PATH}
   cd ${LOOP_KNITR_PATH}
 
   # Run the script.  All options are passed via exported environment 
@@ -348,8 +376,16 @@ for (( LOOP_SAMPLE_INDEX = 0; LOOP_SAMPLE_INDEX < ${LOOP_NUM_SAMPLES}; LOOP_SAMP
   # to ease debugging.
   export > environment_${LOOP_SAMPLE_INDEX}
   ${RSCRIPT} --vanilla report_calculations.R
+
+  if [ ${PARAM_DOTESTS} -eq 1 ]; then
+    ${RSCRIPT} --vanilla test-calcs.R
+  fi
 done
 
+
+#####################################################################
+# REGRESSION TESTS
+#####################################################################
 
 #####################################################################
 # REPORT GENERATION

@@ -33,6 +33,14 @@
             "help": "Generate an extended report, with threshold and score diagnostics.",
             "class": "boolean",
             "default": false
+        },
+        {
+            "group": "advanced",
+            "name": "runtests",
+            "label": "Run integration tests?",
+            "help": "Run integration tests during calculations.  For build use only.",
+            "class": "boolean",
+            "default": false
         }
     ],
     "outputSpec": [

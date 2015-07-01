@@ -72,12 +72,11 @@ options(
 )
 opts_chunk$set(
 	echo = FALSE, results = 'markup', message = FALSE, warning = FALSE, error = FALSE, 
-	fig.keep = 'high', fig.align = 'center', fig.width = 5, fig.height = 4,
+	fig.keep = 'high', fig.align = 'center', fig.width = 5, fig.height = 3.5,
 	cache = FALSE, cache.lazy = FALSE)
 opts_knit$set(progress = TRUE, verbose = TRUE)
 options(warn = 1)
 @
-
 
 
 % REPORT COMPUTATIONS
@@ -96,6 +95,8 @@ report$specifications = list(
 	snv.hom.min.spec = 0.99,
 	indelsubst.het.min.sens = 0.80,
 	indelsubst.hom.min.sens = 0.95)
+report$specifications$label = sprintf("%s >= %3g", report$specifications$measure, report$specifications$cutoff)
+report$specifications$label_latex = sprintf("$\\mathrm{%s} \\geq %3g$", report$specifications$measure, report$specifications$cutoff)
 
 snv.het.perf = calcSensSpecAtCutoff(perf.snv$zyg[[report$specifications$measure]]$RRvsRA, report$specifications$cutoff)
 indelsubst.het.perf = calcSensSpecAtCutoff(perf.indelsubst$zyg[[report$specifications$measure]]$RRvsRA, report$specifications$cutoff)
@@ -106,6 +107,16 @@ snv.coding10.het.perf = calcSensSpecAtCutoff(perf.snv.coding10$zyg[[report$speci
 indelsubst.coding10.het.perf = calcSensSpecAtCutoff(perf.indelsubst.coding10$zyg[[report$specifications$measure]]$RRvsRA, report$specifications$cutoff)
 snv.coding10.hom.perf = calcSensSpecAtCutoff(perf.snv.coding10$zyg[[report$specifications$measure]]$RRvsAA, report$specifications$cutoff)
 indelsubst.coding10.hom.perf = calcSensSpecAtCutoff(perf.indelsubst.coding10$zyg[[report$specifications$measure]]$RRvsAA, report$specifications$cutoff)
+
+snv.het.perf_FILTER = calcSensSpecAtCutoff(perf.snv$zyg[["FILTER"]]$RRvsRA, 0.5)
+indelsubst.het.perf_FILTER = calcSensSpecAtCutoff(perf.indelsubst$zyg[["FILTER"]]$RRvsRA, 0.5)
+snv.hom.perf_FILTER = calcSensSpecAtCutoff(perf.snv$zyg[["FILTER"]]$RRvsAA, 0.5)
+indelsubst.hom.perf_FILTER = calcSensSpecAtCutoff(perf.indelsubst$zyg[["FILTER"]]$RRvsAA, 0.5)
+
+snv.coding10.het.perf_FILTER = calcSensSpecAtCutoff(perf.snv.coding10$zyg[["FILTER"]]$RRvsRA, 0.5)
+indelsubst.coding10.het.perf_FILTER = calcSensSpecAtCutoff(perf.indelsubst.coding10$zyg[["FILTER"]]$RRvsRA, 0.5)
+snv.coding10.hom.perf_FILTER = calcSensSpecAtCutoff(perf.snv.coding10$zyg[["FILTER"]]$RRvsAA, 0.5)
+indelsubst.coding10.hom.perf_FILTER = calcSensSpecAtCutoff(perf.indelsubst.coding10$zyg[["FILTER"]]$RRvsAA, 0.5)
 
 report$snv.het.sens.value = snv.het.perf$sens
 report$snv.het.spec.value = snv.het.perf$spec
@@ -160,6 +171,7 @@ Sample ID: \texttt{\Sexpr{texquote(calls.sampleid)}} \\
 Input VCF: \texttt{\url{\Sexpr{param$path.test.orig}}} \\
 Report version: \texttt{\Sexpr{param$version$script}} \\
 Report time: \texttt{\Sexpr{texquote(report$gentime)}} \\
+Call criterion: \Sexpr{report$specifications$label_latex} \\
 
 <<summary-table,results='asis'>>=
 summary.table = xtable(data.frame(
@@ -180,10 +192,10 @@ summary.table = xtable(data.frame(
 	"Requirement" = c(
 		sprintf("$\\ge %.2f$", report$specifications$snv.het.min.sens), 
 		sprintf("$\\ge %.2f$", report$specifications$snv.het.min.spec), 
-		sprintf("$\\ge %.2f", report$specifications$indelsubst.het.min.sens),
+		sprintf("$\\ge %.2f$", report$specifications$indelsubst.het.min.sens),
 		sprintf("$\\ge %.2f$", report$specifications$snv.hom.min.sens), 
 		sprintf("$\\ge %.2f$", report$specifications$snv.hom.min.spec), 
-		sprintf("$\\ge %.2f", report$specifications$indelsubst.hom.min.sens)),
+		sprintf("$\\ge %.2f$", report$specifications$indelsubst.hom.min.sens)),
 	"Call" = c(
 		report$snv.het.sens.call, 
 		report$snv.het.spec.call, 
@@ -191,7 +203,7 @@ summary.table = xtable(data.frame(
 		report$snv.hom.sens.call, 
 		report$snv.hom.spec.call, 
 		report$indelsubst.hom.sens.call)), 
-	digits = 4)
+	digits = 4, align = "llrll")
 print(summary.table, sanitize.text.function = function(x) x, include.rownames = FALSE)
 @
 
@@ -202,9 +214,13 @@ plotROC(perf.snv$zyg[[report$specifications$measure]][c("RRvsAA", "RRvsRA")]) +
 	ggtitle("SNV: Whole genome") + 
 	labs(colour = "Zygosity") + 
 	scale_colour_brewer(palette = "Set1") +
-	coord_cartesian(xlim = c(-1e-7, 2.5e-6)) + ylim(0.8, 1) + 
-	geom_point(aes(x = 1 - snv.het.perf$spec, y = snv.het.perf$sens, size = 4, colour = "RRvsRA")) + 
-	geom_point(aes(x = 1 - snv.hom.perf$spec, y = snv.hom.perf$sens, size = 4, colour = "RRvsAA")) + 
+	coord_cartesian(xlim = c(-1e-7, 1e-5)) + ylim(0, 1) + 
+	geom_point(aes(colour = Zygosity, shape = Score), size = 4, data = data.frame(
+		FP = c(1 - snv.het.perf$spec, 1 - snv.hom.perf$spec, 1 - snv.het.perf_FILTER$spec, 1 - snv.hom.perf_FILTER$spec),
+		TP = c(snv.het.perf$sens, snv.hom.perf$sens, snv.het.perf_FILTER$sens, snv.hom.perf_FILTER$sens),
+		Zygosity = c("RRvsRA", "RRvsAA", "RRvsRA", "RRvsAA"),
+		Score = c(report$specifications$label, report$specifications$label, "FILTER = PASS", "FILTER = PASS"))) + 
+	scale_shape_manual(name = "Score", breaks = c(report$specifications$label, "FILTER = PASS"), values = c(5, 16)) + 
 	guides(size = FALSE) + 
 	geom_vline(xintercept = 1 - report$specifications$snv.het.min.spec, lty = "dashed") + 
 	geom_hline(yintercept = report$specifications$snv.het.min.sens, lty = "dashed") + 
@@ -214,9 +230,13 @@ plotROC(perf.indelsubst$zyg[[report$specifications$measure]][c("RRvsAA", "RRvsRA
 	ggtitle("Indel: Whole genome") + 
 	labs(colour = "Zygosity") + 
 	scale_colour_brewer(palette = "Set1") +
-	ylim(0.8, 1) + 
-	geom_point(aes(x = indelsubst.het.perf$nfp, y = indelsubst.het.perf$sens, size = 4, colour = "RRvsRA")) + 
-	geom_point(aes(x = indelsubst.hom.perf$nfp, y = indelsubst.hom.perf$sens, size = 4, colour = "RRvsAA")) + 
+	ylim(0, 1) + 
+	geom_point(aes(colour = Zygosity, shape = Score), size = 4, data = data.frame(
+		FP = c(indelsubst.het.perf$nfp, indelsubst.hom.perf$nfp, indelsubst.het.perf_FILTER$nfp, indelsubst.hom.perf_FILTER$nfp),
+		TP = c(indelsubst.het.perf$sens, indelsubst.hom.perf$sens, indelsubst.het.perf_FILTER$sens, indelsubst.hom.perf_FILTER$sens),
+		Zygosity = c("RRvsRA", "RRvsAA", "RRvsRA", "RRvsAA"),
+		Score = c(report$specifications$label, report$specifications$label, "FILTER = PASS", "FILTER = PASS"))) + 
+	scale_shape_manual(name = "Score", breaks = c(report$specifications$label, "FILTER = PASS"), values = c(5, 16)) + 
 	guides(size = FALSE) + 
 	geom_hline(yintercept = report$specifications$indelsubst.het.min.sens, lty = "dashed") + 
 	theme_bw()
@@ -225,9 +245,13 @@ plotROC(perf.snv.coding10$zyg[[report$specifications$measure]][c("RRvsAA", "RRvs
 	ggtitle("SNV: Coding \u00B110 bp") + 
 	labs(colour = "Zygosity") + 
 	scale_colour_brewer(palette = "Set1") +
-	coord_cartesian(xlim = c(-1e-7, 2.5e-6)) + ylim(0.8, 1) + 
-	geom_point(aes(x = 1 - snv.coding10.het.perf$spec, y = snv.coding10.het.perf$sens, size = 4, colour = "RRvsRA")) + 
-	geom_point(aes(x = 1 - snv.coding10.hom.perf$spec, y = snv.coding10.hom.perf$sens, size = 4, colour = "RRvsAA")) + 
+	coord_cartesian(xlim = c(-1e-7, 1e-5)) + ylim(0, 1) + 
+	geom_point(aes(colour = Zygosity, shape = Score), size = 4, data = data.frame(
+		FP = c(1 - snv.coding10.het.perf$spec, 1 - snv.coding10.hom.perf$spec, 1 - snv.coding10.het.perf_FILTER$spec, 1 - snv.coding10.hom.perf_FILTER$spec),
+		TP = c(snv.coding10.het.perf$sens, snv.coding10.hom.perf$sens, snv.coding10.het.perf_FILTER$sens, snv.coding10.hom.perf_FILTER$sens),
+		Zygosity = c("RRvsRA", "RRvsAA", "RRvsRA", "RRvsAA"),
+		Score = c(report$specifications$label, report$specifications$label, "FILTER = PASS", "FILTER = PASS"))) + 
+	scale_shape_manual(name = "Score", breaks = c(report$specifications$label, "FILTER = PASS"), values = c(5, 16)) + 
 	guides(size = FALSE) + 
 	geom_vline(xintercept = 1 - report$specifications$snv.het.min.spec, lty = "dashed") + 
 	geom_hline(yintercept = report$specifications$snv.het.min.sens, lty = "dashed") + 
@@ -237,58 +261,108 @@ plotROC(perf.indelsubst.coding10$zyg[[report$specifications$measure]][c("RRvsAA"
 	ggtitle("Indel: Coding \u00B110 bp") + 
 	labs(colour = "Zygosity") + 
 	scale_colour_brewer(palette = "Set1") +
-	ylim(0.8, 1) + 
-	geom_point(aes(x = indelsubst.coding10.het.perf$nfp, y = indelsubst.coding10.het.perf$sens, size = 4, colour = "RRvsRA")) + 
-	geom_point(aes(x = indelsubst.coding10.hom.perf$nfp, y = indelsubst.coding10.hom.perf$sens, size = 4, colour = "RRvsAA")) + 
+	ylim(0, 1) + 
+	geom_point(aes(colour = Zygosity, shape = Score), size = 4, data = data.frame(
+		FP = c(indelsubst.coding10.het.perf$nfp, indelsubst.coding10.hom.perf$nfp, indelsubst.coding10.het.perf_FILTER$nfp, indelsubst.coding10.hom.perf_FILTER$nfp),
+		TP = c(indelsubst.coding10.het.perf$sens, indelsubst.coding10.hom.perf$sens, indelsubst.coding10.het.perf_FILTER$sens, indelsubst.coding10.hom.perf_FILTER$sens),
+		Zygosity = c("RRvsRA", "RRvsAA", "RRvsRA", "RRvsAA"),
+		Score = c(report$specifications$label, report$specifications$label, "FILTER = PASS", "FILTER = PASS"))) + 
+	scale_shape_manual(name = "Score", breaks = c(report$specifications$label, "FILTER = PASS"), values = c(5, 16)) + 
 	guides(size = FALSE) + 
 	geom_hline(yintercept = report$specifications$indelsubst.het.min.sens, lty = "dashed") + 
 	theme_bw()
 @
 
-\subsection{Raw Counts at Cutoff}
+\subsection{Raw Counts at Cutoff: \Sexpr{report$specifications$label_latex}}
 <<count-table,results='asis'>>=
 count.table = xtable(data.frame(
 	"Region" = c("Whole genome", "", "", "", "Coding $\\pm10$ bp", "", "", ""),
 	"Zygosity" = c("Het", "", "Hom", "", "Het", "", "Hom", ""),
-	"Mutation" = c("SNV", "Indel", "SNV", "Indel", "SNV", "Indel", "SNV", "Indel"),
+	"Mutation" = c("SNV", "Indel/MNV", "SNV", "Indel/MNV", "SNV", "Indel/MNV", "SNV", "Indel/MNV"),
 	"TP" = c(
-		formatC(snv.het.perf$ntp, digits=0, format="f", big.mark=","),
-		formatC(indelsubst.het.perf$ntp, digits=0, format="f", big.mark=","),
-		formatC(snv.hom.perf$ntp, digits=0, format="f", big.mark=","),
-		formatC(indelsubst.hom.perf$ntp, digits=0, format="f", big.mark=","),
-		formatC(snv.coding10.het.perf$ntp, digits=0, format="f", big.mark=","),
-		formatC(indelsubst.coding10.het.perf$ntp, digits=0, format="f", big.mark=","),
-		formatC(snv.coding10.hom.perf$ntp, digits=0, format="f", big.mark=","),
-		formatC(indelsubst.coding10.hom.perf$ntp, digits=0, format="f", big.mark=",")),
+		formatC2(snv.het.perf$ntp, digits=0, format="f", big.mark=","),
+		formatC2(indelsubst.het.perf$ntp, digits=0, format="f", big.mark=","),
+		formatC2(snv.hom.perf$ntp, digits=0, format="f", big.mark=","),
+		formatC2(indelsubst.hom.perf$ntp, digits=0, format="f", big.mark=","),
+		formatC2(snv.coding10.het.perf$ntp, digits=0, format="f", big.mark=","),
+		formatC2(indelsubst.coding10.het.perf$ntp, digits=0, format="f", big.mark=","),
+		formatC2(snv.coding10.hom.perf$ntp, digits=0, format="f", big.mark=","),
+		formatC2(indelsubst.coding10.hom.perf$ntp, digits=0, format="f", big.mark=",")),
 	"FP" = c(
-		formatC(snv.het.perf$nfp, digits=0, format="f", big.mark=","),
-		formatC(indelsubst.het.perf$nfp, digits=0, format="f", big.mark=","),
-		formatC(snv.hom.perf$nfp, digits=0, format="f", big.mark=","),
-		formatC(indelsubst.hom.perf$nfp, digits=0, format="f", big.mark=","),
-		formatC(snv.coding10.het.perf$nfp, digits=0, format="f", big.mark=","),
-		formatC(indelsubst.coding10.het.perf$nfp, digits=0, format="f", big.mark=","),
-		formatC(snv.coding10.hom.perf$nfp, digits=0, format="f", big.mark=","),
-		formatC(indelsubst.coding10.hom.perf$nfp, digits=0, format="f", big.mark=",")),
+		formatC2(snv.het.perf$nfp, digits=0, format="f", big.mark=","),
+		formatC2(indelsubst.het.perf$nfp, digits=0, format="f", big.mark=","),
+		formatC2(snv.hom.perf$nfp, digits=0, format="f", big.mark=","),
+		formatC2(indelsubst.hom.perf$nfp, digits=0, format="f", big.mark=","),
+		formatC2(snv.coding10.het.perf$nfp, digits=0, format="f", big.mark=","),
+		formatC2(indelsubst.coding10.het.perf$nfp, digits=0, format="f", big.mark=","),
+		formatC2(snv.coding10.hom.perf$nfp, digits=0, format="f", big.mark=","),
+		formatC2(indelsubst.coding10.hom.perf$nfp, digits=0, format="f", big.mark=",")),
 	"TN" = c(
-		formatC(snv.het.perf$ntn, digits=0, format="f", big.mark=","),
+		formatC2(snv.het.perf$ntn, digits=0, format="f", big.mark=","),
 		NA,
-		formatC(snv.hom.perf$ntn, digits=0, format="f", big.mark=","),
+		formatC2(snv.hom.perf$ntn, digits=0, format="f", big.mark=","),
 		NA,
-		formatC(snv.coding10.het.perf$ntn, digits=0, format="f", big.mark=","),
+		formatC2(snv.coding10.het.perf$ntn, digits=0, format="f", big.mark=","),
 		NA,
-		formatC(snv.coding10.hom.perf$ntn, digits=0, format="f", big.mark=","),
+		formatC2(snv.coding10.hom.perf$ntn, digits=0, format="f", big.mark=","),
 		NA),
 	"FN" = c(
-		formatC(snv.het.perf$nfn, digits=0, format="f", big.mark=","),
-		formatC(indelsubst.het.perf$nfn, digits=0, format="f", big.mark=","),
-		formatC(snv.hom.perf$nfn, digits=0, format="f", big.mark=","),
-		formatC(indelsubst.hom.perf$nfn, digits=0, format="f", big.mark=","),
-		formatC(snv.coding10.het.perf$nfn, digits=0, format="f", big.mark=","),
-		formatC(indelsubst.coding10.het.perf$nfn, digits=0, format="f", big.mark=","),
-		formatC(snv.coding10.hom.perf$nfn, digits=0, format="f", big.mark=","),
-		formatC(indelsubst.coding10.hom.perf$nfn, digits=0, format="f", big.mark=","))),
-	digits = 0)
-print(count.table, sanitize.text.function = function(x) x, include.rownames = FALSE)
+		formatC2(snv.het.perf$nfn, digits=0, format="f", big.mark=","),
+		formatC2(indelsubst.het.perf$nfn, digits=0, format="f", big.mark=","),
+		formatC2(snv.hom.perf$nfn, digits=0, format="f", big.mark=","),
+		formatC2(indelsubst.hom.perf$nfn, digits=0, format="f", big.mark=","),
+		formatC2(snv.coding10.het.perf$nfn, digits=0, format="f", big.mark=","),
+		formatC2(indelsubst.coding10.het.perf$nfn, digits=0, format="f", big.mark=","),
+		formatC2(snv.coding10.hom.perf$nfn, digits=0, format="f", big.mark=","),
+		formatC2(indelsubst.coding10.hom.perf$nfn, digits=0, format="f", big.mark=","))),
+	digits = 0, align = "llllrrrr")
+print(count.table, sanitize.text.function = function(x) x, include.rownames = FALSE, floating = FALSE)
+@
+
+\subsection{Raw Counts at Cutoff: $\mathrm{FILTER} = \mathrm{PASS}$}
+<<count-table-FILTER,results='asis'>>=
+count.table_FILTER = xtable(data.frame(
+	"Region" = c("Whole genome", "", "", "", "Coding $\\pm10$ bp", "", "", ""),
+	"Zygosity" = c("Het", "", "Hom", "", "Het", "", "Hom", ""),
+	"Mutation" = c("SNV", "Indel/MNV", "SNV", "Indel/MNV", "SNV", "Indel/MNV", "SNV", "Indel/MNV"),
+	"TP" = c(
+		formatC2(snv.het.perf_FILTER$ntp, digits=0, format="f", big.mark=","),
+		formatC2(indelsubst.het.perf_FILTER$ntp, digits=0, format="f", big.mark=","),
+		formatC2(snv.hom.perf_FILTER$ntp, digits=0, format="f", big.mark=","),
+		formatC2(indelsubst.hom.perf_FILTER$ntp, digits=0, format="f", big.mark=","),
+		formatC2(snv.coding10.het.perf_FILTER$ntp, digits=0, format="f", big.mark=","),
+		formatC2(indelsubst.coding10.het.perf_FILTER$ntp, digits=0, format="f", big.mark=","),
+		formatC2(snv.coding10.hom.perf_FILTER$ntp, digits=0, format="f", big.mark=","),
+		formatC2(indelsubst.coding10.hom.perf_FILTER$ntp, digits=0, format="f", big.mark=",")),
+	"FP" = c(
+		formatC2(snv.het.perf_FILTER$nfp, digits=0, format="f", big.mark=","),
+		formatC2(indelsubst.het.perf_FILTER$nfp, digits=0, format="f", big.mark=","),
+		formatC2(snv.hom.perf_FILTER$nfp, digits=0, format="f", big.mark=","),
+		formatC2(indelsubst.hom.perf_FILTER$nfp, digits=0, format="f", big.mark=","),
+		formatC2(snv.coding10.het.perf_FILTER$nfp, digits=0, format="f", big.mark=","),
+		formatC2(indelsubst.coding10.het.perf_FILTER$nfp, digits=0, format="f", big.mark=","),
+		formatC2(snv.coding10.hom.perf_FILTER$nfp, digits=0, format="f", big.mark=","),
+		formatC2(indelsubst.coding10.hom.perf_FILTER$nfp, digits=0, format="f", big.mark=",")),
+	"TN" = c(
+		formatC2(snv.het.perf_FILTER$ntn, digits=0, format="f", big.mark=","),
+		NA,
+		formatC2(snv.hom.perf_FILTER$ntn, digits=0, format="f", big.mark=","),
+		NA,
+		formatC2(snv.coding10.het.perf_FILTER$ntn, digits=0, format="f", big.mark=","),
+		NA,
+		formatC2(snv.coding10.hom.perf_FILTER$ntn, digits=0, format="f", big.mark=","),
+		NA),
+	"FN" = c(
+		formatC2(snv.het.perf_FILTER$nfn, digits=0, format="f", big.mark=","),
+		formatC2(indelsubst.het.perf_FILTER$nfn, digits=0, format="f", big.mark=","),
+		formatC2(snv.hom.perf_FILTER$nfn, digits=0, format="f", big.mark=","),
+		formatC2(indelsubst.hom.perf_FILTER$nfn, digits=0, format="f", big.mark=","),
+		formatC2(snv.coding10.het.perf_FILTER$nfn, digits=0, format="f", big.mark=","),
+		formatC2(indelsubst.coding10.het.perf_FILTER$nfn, digits=0, format="f", big.mark=","),
+		formatC2(snv.coding10.hom.perf_FILTER$nfn, digits=0, format="f", big.mark=","),
+		formatC2(indelsubst.coding10.hom.perf_FILTER$nfn, digits=0, format="f", big.mark=","))),
+	digits = 0, align = "llllrrrr")
+print(count.table_FILTER, sanitize.text.function = function(x) x, include.rownames = FALSE, floating = FALSE)
 @
 
 

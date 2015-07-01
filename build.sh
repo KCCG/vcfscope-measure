@@ -21,10 +21,12 @@ function build_smoketest {
 }
 
 # Run a basic test of a deployed app.
+# The tests themselves are run by the script (-iruntests=true),
+# and are housed in resources/home/dnanexus/test-calcs.R
 function run_smoketest {
-  vcfgz=project-Bf525x80YY8XZbFV8kJ50y2f:file-Bf54Jy80YY8Yp7x971x7zv7Z
-  region=project-Bf525x80YY8XZbFV8kJ50y2f:file-Bf548200YY8k4XzZZ5FyJFJZ
-  jobid=$(dx run app-kccg-validation-reporter/bamboo_smoketest -ivcfgz=$vcfgz -iregion=$region -iextended=true --yes --brief)
+  vcfgz=project-BVJz7k0098GX43GV9ZPFXVY2:file-Bf9b5qj098GppvyPX1P2K8Kf
+  region=project-BVJz7k0098GX43GV9ZPFXVY2:file-Bf9b5zQ098Ggq5zZ3kf846ZP
+  jobid=$(dx run app-kccg-validation-reporter/bamboo_smoketest -ivcfgz=$vcfgz -iregion=$region -iextended=true -iruntests=true --yes --brief)
 
   # returns non-0 if there's a problem.
   dx watch -q --no-job-info  -f '{msg}' ${jobid}
