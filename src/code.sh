@@ -46,6 +46,12 @@ main() {
   R CMD INSTALL BSgenome.HSapiens.1000g.37d5_1.0.0.tar.gz
 
   dx get "${DX_ASSETS_ID}:/assets/testthat_0.10.0.tar.gz"
+  dx get "${DX_ASSETS_ID}:/assets/memoise_0.2.1.tar.gz"
+  dx get "${DX_ASSETS_ID}:/assets/crayon_1.3.0.tar.gz"
+  dx get "${DX_ASSETS_ID}:/assets/digest_0.6.8.tar.gz"
+  R CMD INSTALL digest_0.6.8.tar.gz
+  R CMD INSTALL memoise_0.2.1.tar.gz
+  R CMD INSTALL crayon_1.3.0.tar.gz
   R CMD INSTALL testthat_0.10.0.tar.gz
 
   #
