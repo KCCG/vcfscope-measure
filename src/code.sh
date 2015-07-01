@@ -45,6 +45,9 @@ main() {
   dx get "${DX_ASSETS_ID}:/assets/BSgenome.HSapiens.1000g.37d5_1.0.0.tar.gz"
   R CMD INSTALL BSgenome.HSapiens.1000g.37d5_1.0.0.tar.gz
 
+  dx get "${DX_ASSETS_ID}:/assets/testthat_0.10.0.tar.gz"
+  R CMD INSTALL testthat_0.10.0.tar.gz
+
   #
   # process options
   #
