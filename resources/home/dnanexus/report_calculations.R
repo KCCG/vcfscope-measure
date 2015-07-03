@@ -234,7 +234,7 @@ checkClassExclusive = function(class, exact = TRUE)
 checkClassExclusive(class$somy, exact = FALSE)      # exact=FALSE, as 'chromosomes' such as GL000207.1 have no somy assignation by this code
 checkClassExclusive(class$muttype)
 checkClassExclusive(class$mutsize)
-checkClassExclusive(class$goldcall)
+checkClassExclusive(class$goldcall, exact = FALSE)  # exact=FALSE, as a variant can be neither entirely inside a gold-callable region, or entirely outside of one (ie it may be only partially in a callable region)
 
 
 
