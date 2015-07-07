@@ -225,6 +225,7 @@ checkClassExclusive = function(class, exact = TRUE)
         if (length(class[[1]][[group]]) == 0)
             next
         indicators = sapply(class, function(subclass) as.vector(subclass[[group]]))
+        if (is.vector(indicators))  { indicators = matrix(indicators, nrow = 1, ncol = length(indicators)) }
         if (exact)
             stopifnot(all(rowSums(indicators) == 1))
         else
