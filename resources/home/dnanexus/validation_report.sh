@@ -402,21 +402,19 @@ for (( LOOP_SAMPLE_INDEX = 0; LOOP_SAMPLE_INDEX < ${LOOP_NUM_SAMPLES}; LOOP_SAMP
 
   ${RSCRIPT} --vanilla -e "library(knitr); knit('report.Rnw', output = 'report.tex')"
 
-  # Latex often 'fails' (returns a nonzero exit status), but still 
-  # generates a report.  Keep going when this happens, and test for
-  # failure explicitly later.
-  set +e
-
   # Remove the report.pdf that may be present in the scratch directory,
   # so we can later check whether pdflatex successfully built a report
   # or not.
   rm -f ${LOOP_KNITR_PATH}/report.pdf
 
   # Run pdflatex
-  pdflatex -interaction nonstopmode report.tex
-  pdflatex -interaction nonstopmode report.tex
+  # Latex often 'fails' (returns a nonzero exit status), but still 
+  # generates a report.  Keep going when this happens, and test for
+  # failure explicitly later.
+  pdflatex -interaction nonstopmode report.tex || true
+  pdflatex -interaction nonstopmode report.tex || true
 
-  # Check  whether the report.pdf was generated
+  # Check whether the report.pdf was generated
   if [ ! -e ${LOOP_KNITR_PATH}/report.pdf ]; then
   	echo >&2 "    Error: pdflatex did not successfully generate report.pdf."
   	echo >&2 "    Check ${LOOP_KNITR_PATH}/report.tex and the latex log for errors."

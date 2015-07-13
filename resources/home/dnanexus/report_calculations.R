@@ -252,7 +252,8 @@ filter_1000G = function(vcf)
         return(logical())
 
     # Make sure the vcf has all the metrics used by the filter.
-    stopifnot(length(setdiff(c("QD", "MQ", "FS", "MQRankSum", "ReadPosRankSum"), colnames(info(vcf)))) == 0)
+    if (length(setdiff(c("QD", "MQ", "FS", "MQRankSum", "ReadPosRankSum"), colnames(info(vcf)))) != 0)
+        return(rep(NULL, nrow(vcf)))
 
     snv = isSNV(vcf)
 
