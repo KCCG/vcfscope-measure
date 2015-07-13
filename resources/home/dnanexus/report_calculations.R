@@ -225,6 +225,7 @@ checkClassExclusive = function(class, exact = TRUE)
         if (length(class[[1]][[group]]) == 0)
             next
         indicators = sapply(class, function(subclass) as.vector(subclass[[group]]))
+        if (is.vector(indicators))  { indicators = matrix(indicators, nrow = 1, ncol = length(indicators)) }
         if (exact)
             stopifnot(all(rowSums(indicators) == 1))
         else
@@ -251,7 +252,8 @@ filter_1000G = function(vcf)
         return(logical())
 
     # Make sure the vcf has all the metrics used by the filter.
-    stopifnot(length(setdiff(c("QD", "MQ", "FS", "MQRankSum", "ReadPosRankSum"), colnames(info(vcf)))) == 0)
+    if (length(setdiff(c("QD", "MQ", "FS", "MQRankSum", "ReadPosRankSum"), colnames(info(vcf)))) != 0)
+        return(rep(NULL, nrow(vcf)))
 
     snv = isSNV(vcf)
 

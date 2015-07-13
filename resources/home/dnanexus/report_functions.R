@@ -435,6 +435,8 @@ vcfPerfWorker = function(scores.tp, scores.fp, n.tn.structural, n.fn.structural)
     # in score is captured.
     unique_vals = sort(unique(c(unique(scores.tp), unique(scores.fp))))
     unique_vals = unique_vals[is.finite(unique_vals)]
+    if (length(unique_vals) == 1 && (unique_vals[1] == 1 || unique_vals[1] == 0))
+        unique_vals = sort(unique(c(unique_vals, 0, 1)))
     thresholds = (unique_vals[-1] + unique_vals[-length(unique_vals)]) / 2
 
     # Test for an edge case, in which all scores are the same.
@@ -557,6 +559,19 @@ vcfPerf = function(data, field_access_func)
     # Raw scores
     scores.tp = field_access_func(data$vcf.tp)
     scores.fp = field_access_func(data$vcf.fp)
+
+    if (is.null(scores.tp) || is.null(scores.fp))
+    {
+        # The required field is not present in the VCFs.  Try and fail gracefully
+        # by returning empty results.
+        return(data.frame(
+            cutoff = c(    -Inf,  -Inf,   Inf,   Inf),
+            midpoint = c(  -Inf,  -Inf,   Inf,   Inf),
+            tp = c(          NA,    NA,    NA,    NA),
+            fp = c(          NA,    NA,    NA,    NA),
+            tn = c(          NA,    NA,    NA,    NA),
+            fn = c(          NA,    NA,    NA,    NA)))
+    }
 
     # Despite the aspirational description above, currently does *not* handle non-finite scores.
     if (any(is.na(scores.tp)) || any(is.na(scores.fp)) || any(is.infinite(scores.tp)) || any(is.infinite(scores.fp)) || any(is.nan(scores.fp)) || any(is.nan(scores.fp)))
