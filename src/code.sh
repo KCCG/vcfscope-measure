@@ -54,6 +54,10 @@ main() {
   R CMD INSTALL crayon_1.3.0.tar.gz
   R CMD INSTALL testthat_0.10.0.tar.gz
 
+  # An updated VariantAnnotation package is required to handle HAS2.0 VCFs
+  dx get "${DX_ASSETS_ID}:/assets/VariantAnnotation_1.14.6.tar.gz"
+  R CMD INSTALL VariantAnnotation_1.14.6.tar.gz
+
   #
   # process options
   #
