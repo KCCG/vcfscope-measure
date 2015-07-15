@@ -1,3 +1,5 @@
+options(echo = TRUE)
+
 library(testthat)
 context("Performance calculations")
 
@@ -16,7 +18,7 @@ test_that("JSON serialization is accurate", {
 		skip("Script was not asked to output JSON file")
 
 	library(jsonlite)
-	export.fromjson = fromJSON(params$path.json.output)
+	export.fromjson = fromJSON(readChar(params$path.json.output, file.info(params$path.json.output)$size))
 	expect_equal(export, export.fromjson)
 })
 
