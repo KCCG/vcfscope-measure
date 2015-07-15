@@ -580,7 +580,7 @@ export = list(
     performance = list(
         whole_genome = list(
             combined = perf.all,
-            snv = perf.snv
+            snv = perf.snv,
             indelsubst = perf.indelsubst
         ),
         coding10 = list(
