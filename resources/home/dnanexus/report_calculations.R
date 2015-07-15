@@ -441,9 +441,7 @@ perf.all$muttype = lapply(criteria, function(crit) vcfPerfGrouped(perfdata.all, 
 # Again, set tn = NULL
 class.all.size = subsetClass(class$mutsize, subset.all, tn = NULL)
 perf.all$mutsize = lapply(criteria, function(crit) vcfPerfGrouped(perfdata.all, crit$scoreFunc, class.all.size))
-}
-else
-{
+} else {
     perf.all = NULL
 }
 
@@ -499,9 +497,7 @@ perfdata.all.coding10 = list(vcf.tp = calls.all.coding10$tp, vcf.fp = calls.all.
 
 class.all.coding10.zyg = subsetClass(class$zyg, subset.all.coding10, tn = NULL)
 perf.all.coding10 = list(zyg = lapply(criteria, function(crit) vcfPerfGrouped(perfdata.all.coding10, crit$scoreFunc, class.all.coding10.zyg)))
-}
-else
-{
+} else {
     perf.all.coding10 = NULL
 }
 
