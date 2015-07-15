@@ -10,6 +10,18 @@ library(BSgenome)
 source("report_functions.R")
 
 
+# Test the JSON serialization
+test_that("JSON serialization is accurate", {
+	if (params$path.json.output == "")
+		skip("Script was not asked to output JSON file")
+
+	library(jsonlite)
+	export.fromjson = fromJSON(params$path.json.output)
+	expect_equal(export, export.fromjson)
+})
+
+
+# A convenience report function for debugging
 perfAroundCutoff = function(perf, cutoff) {
 	nearest_cutoff = which.min(abs(perf$cutoff - cutoff))
 	start = max(1, nearest_cutoff - 5)
@@ -17,6 +29,8 @@ perfAroundCutoff = function(perf, cutoff) {
 	cbind(perf[start:end,], perf$cutoff[start:end] >= cutoff)
 }
 
+
+# Run tests on the continuous QUAL metric
 
 TEST_METRIC = "QUAL"
 TEST_CUTOFF = 200

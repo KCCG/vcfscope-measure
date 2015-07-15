@@ -100,6 +100,7 @@ export PARAM_INPUT_VCFGZ_PATH
 export PARAM_REGION_BED_SUPPLIED
 export PARAM_REGION_BED_PATH
 export PARAM_OUTPUT_PDF_PATH
+export PARAM_OUTPUT_JSON_PATH
 export PARAM_EXTENDED
 export PARAM_VERSION_EXEC_HOST
 export PARAM_VERSION_RTG
@@ -136,6 +137,8 @@ Create a WGS validation report.
 
     INFILE       Input NA12878 genotype calls, in vcf.gz format.
     -o OUTFILE   Write the report to OUTFILE (default: report.pdf)
+    -j JSONOUT   Write validation summary data to JSONOUT (default: 
+                 not written)
     -r BEDFILE   Restrict analysis to the regions in BEDFILE only.
                  Default: the full genome is considered.
     -x           Generate an extended report, with threshold and
@@ -158,7 +161,8 @@ OPTIND=1
 PARAM_INPUT_VCFGZ_PATH=""
 PARAM_REGION_BED_SUPPLIED=0
 PARAM_REGION_BED_PATH="NA"
-PARAM_OUTPUT_PDF_PATH="${PARAM_EXEC_PATH}/report.pdf"
+PARAM_OUTPUT_PDF_PATH="${PARAM_EXEC_PATH}/validation_report.pdf"
+PARAM_OUTPUT_JSON_PATH=""
 PARAM_EXTENDED=0
 PARAM_DOTESTS=0
 
@@ -171,6 +175,9 @@ while getopts "r:o:hxt" opt; do
 		o)
 			PARAM_OUTPUT_PDF_PATH=$(readlink -f $OPTARG)
 			;;
+    j)
+      PARAM_OUTPUT_JSON_PATH=$(readlink -f $OPTARG)
+      ;;
 		r)
 			PARAM_REGION_BED_SUPPLIED=1
 			PARAM_REGION_BED_PATH=$(readlink -f $OPTARG)

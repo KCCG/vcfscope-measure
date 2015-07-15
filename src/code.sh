@@ -58,6 +58,10 @@ main() {
   dx get "${DX_ASSETS_ID}:/assets/VariantAnnotation_1.14.6.tar.gz"
   R CMD INSTALL VariantAnnotation_1.14.6.tar.gz
 
+  # jsonlite is used to export performance statistics in JSON format
+  dx get "${DX_ASSETS_ID}:/assets/jsonlite_0.9.16.tar.gz"
+  R CMD INSTALL jsonlite_0.9.16.tar.gz
+
   #
   # process options
   #
@@ -76,7 +80,7 @@ main() {
   #
   mkdir -p ~/out/report/
   sample_basename=$(basename ${vcfgz_path} .vcf.gz)
-  ./validation_report.sh -o ~/out/report/${sample_basename}.valrept.pdf "${opts[@]}" ${vcfgz_path}
+  ./validation_report.sh -o ~/out/report/${sample_basename}.valrept.pdf -j ~/out/report/${sample_basename}.valrept.json "${opts[@]}" ${vcfgz_path}
 
   #
   # upload results
