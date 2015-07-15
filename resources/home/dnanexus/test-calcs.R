@@ -14,11 +14,11 @@ source("report_functions.R")
 
 # Test the JSON serialization
 test_that("JSON serialization is accurate", {
-	if (params$path.json.output == "")
+	if (param$path.json.output == "")
 		skip("Script was not asked to output JSON file")
 
 	library(jsonlite)
-	export.fromjson = fromJSON(readChar(params$path.json.output, file.info(params$path.json.output)$size))
+	export.fromjson = fromJSON(readChar(param$path.json.output, file.info(param$path.json.output)$size))
 	expect_equal(export, export.fromjson)
 })
 
