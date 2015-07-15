@@ -166,7 +166,7 @@ PARAM_OUTPUT_JSON_PATH=""
 PARAM_EXTENDED=0
 PARAM_DOTESTS=0
 
-while getopts "r:o:hxt" opt; do
+while getopts "r:o:j:hxt" opt; do
 	case "$opt" in
 		h)
 			print_usage
