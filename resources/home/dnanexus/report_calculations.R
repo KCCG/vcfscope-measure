@@ -13,7 +13,10 @@
 #  
 ####################################################################
 
-options(stringsAsFactors = FALSE, warn = 2)     # Treat warnings as errors -- this will be production code
+options(
+    stringsAsFactors = FALSE, 
+    warn = 2,                   # Treat warnings as errors -- this will be production code
+    echo = TRUE)                # Emit lines to aid debugging
 
 source("report_functions.R")
 
@@ -288,7 +291,7 @@ criteria = list(
     "VQSLOD:1000G" =    list(scoreFunc = function(x) info(x)$VQSLOD * filter_1000G(x)),
     "QUAL:1000G" =      list(scoreFunc = function(x) rowRanges(x)$QUAL * filter_1000G(x)),
     "FILTER:1000G" =    list(scoreFunc = function(x) (rowRanges(x)$FILTER == "PASS") * filter_1000G(x)),
-    "DEPTH:1000G" =     list(scoreFunc = function(x) info(x)$DP * filter_1000G(x)),
+    "DEPTH:1000G" =     list(scoreFunc = function(x) info(x)$DP * filter_1000G(x))
 )
 
 
