@@ -12,16 +12,6 @@ library(BSgenome)
 source("report_functions.R")
 
 
-# Test the JSON serialization
-test_that("JSON serialization is accurate", {
-	if (param$path.json.output == "")
-		skip("Script was not asked to output JSON file")
-
-	library(jsonlite)
-	export.fromjson = fromJSON(readChar(param$path.json.output, file.info(param$path.json.output)$size))
-	expect_equal(export, export.fromjson)
-})
-
 
 # A convenience report function for debugging
 perfAroundCutoff = function(perf, cutoff) {
