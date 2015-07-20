@@ -14,7 +14,7 @@ param$path.json.output = env$PARAM_OUTPUT_JSON_PATH
 
 merged_data = list()
 
-for (sample.index in 1:param$sample.count)
+for (sample.index in 0:(param$sample.count-1))
 {
     sample.rds_path = paste(param$knitr.scratch, "_", sample.index, "/report_summary.rds", sep = "")
     message(paste("  ", sample.rds_path, "...", sep = ""))
