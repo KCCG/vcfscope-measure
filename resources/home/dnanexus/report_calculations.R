@@ -532,16 +532,6 @@ indelsubst.coding10.het.perf = calcSensSpecAtCutoff(perf.indelsubst.coding10$zyg
 snv.coding10.hom.perf = calcSensSpecAtCutoff(perf.snv.coding10$zyg[[report$specifications$measure]]$RRvsAA, report$specifications$cutoff)
 indelsubst.coding10.hom.perf = calcSensSpecAtCutoff(perf.indelsubst.coding10$zyg[[report$specifications$measure]]$RRvsAA, report$specifications$cutoff)
 
-snv.het.perf_FILTER = calcSensSpecAtCutoff(perf.snv$zyg[["FILTER"]]$RRvsRA, 0.5)
-indelsubst.het.perf_FILTER = calcSensSpecAtCutoff(perf.indelsubst$zyg[["FILTER"]]$RRvsRA, 0.5)
-snv.hom.perf_FILTER = calcSensSpecAtCutoff(perf.snv$zyg[["FILTER"]]$RRvsAA, 0.5)
-indelsubst.hom.perf_FILTER = calcSensSpecAtCutoff(perf.indelsubst$zyg[["FILTER"]]$RRvsAA, 0.5)
-
-snv.coding10.het.perf_FILTER = calcSensSpecAtCutoff(perf.snv.coding10$zyg[["FILTER"]]$RRvsRA, 0.5)
-indelsubst.coding10.het.perf_FILTER = calcSensSpecAtCutoff(perf.indelsubst.coding10$zyg[["FILTER"]]$RRvsRA, 0.5)
-snv.coding10.hom.perf_FILTER = calcSensSpecAtCutoff(perf.snv.coding10$zyg[["FILTER"]]$RRvsAA, 0.5)
-indelsubst.coding10.hom.perf_FILTER = calcSensSpecAtCutoff(perf.indelsubst.coding10$zyg[["FILTER"]]$RRvsAA, 0.5)
-
 report$snv.het.sens.value = snv.het.perf$sens
 report$snv.het.spec.value = snv.het.perf$spec
 report$indelsubst.het.sens.value = indelsubst.het.perf$sens
