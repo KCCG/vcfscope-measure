@@ -36,5 +36,5 @@ if (param$path.json.output != "")
 {
     library(jsonlite)
     merged_data_summary = lapply(merged_data, function(x) x$report_summary)
-    cat(toJSON(export$report_summary), file = param$path.json.output)
+    cat(toJSON(merged_data_summary), file = param$path.json.output)
 }
