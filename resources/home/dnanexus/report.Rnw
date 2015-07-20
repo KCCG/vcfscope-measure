@@ -79,75 +79,6 @@ options(warn = 1)
 @
 
 
-% REPORT COMPUTATIONS
-%--------------------------------------------------------------------
-<<report-calcs, cache=FALSE, echo=FALSE>>=
-report = list()
-
-report$gentime = date()
-
-report$specifications = list(
-	measure = "QUAL",
-	cutoff = 200,
-	snv.het.min.sens = 0.95,
-	snv.het.min.spec = 0.95,
-	snv.hom.min.sens = 0.99,
-	snv.hom.min.spec = 0.99,
-	indelsubst.het.min.sens = 0.80,
-	indelsubst.hom.min.sens = 0.95)
-report$specifications$label = sprintf("%s >= %3g", report$specifications$measure, report$specifications$cutoff)
-report$specifications$label_latex = sprintf("$\\mathrm{%s} \\geq %3g$", report$specifications$measure, report$specifications$cutoff)
-
-snv.het.perf = calcSensSpecAtCutoff(perf.snv$zyg[[report$specifications$measure]]$RRvsRA, report$specifications$cutoff)
-indelsubst.het.perf = calcSensSpecAtCutoff(perf.indelsubst$zyg[[report$specifications$measure]]$RRvsRA, report$specifications$cutoff)
-snv.hom.perf = calcSensSpecAtCutoff(perf.snv$zyg[[report$specifications$measure]]$RRvsAA, report$specifications$cutoff)
-indelsubst.hom.perf = calcSensSpecAtCutoff(perf.indelsubst$zyg[[report$specifications$measure]]$RRvsAA, report$specifications$cutoff)
-
-snv.coding10.het.perf = calcSensSpecAtCutoff(perf.snv.coding10$zyg[[report$specifications$measure]]$RRvsRA, report$specifications$cutoff)
-indelsubst.coding10.het.perf = calcSensSpecAtCutoff(perf.indelsubst.coding10$zyg[[report$specifications$measure]]$RRvsRA, report$specifications$cutoff)
-snv.coding10.hom.perf = calcSensSpecAtCutoff(perf.snv.coding10$zyg[[report$specifications$measure]]$RRvsAA, report$specifications$cutoff)
-indelsubst.coding10.hom.perf = calcSensSpecAtCutoff(perf.indelsubst.coding10$zyg[[report$specifications$measure]]$RRvsAA, report$specifications$cutoff)
-
-snv.het.perf_FILTER = calcSensSpecAtCutoff(perf.snv$zyg[["FILTER"]]$RRvsRA, 0.5)
-indelsubst.het.perf_FILTER = calcSensSpecAtCutoff(perf.indelsubst$zyg[["FILTER"]]$RRvsRA, 0.5)
-snv.hom.perf_FILTER = calcSensSpecAtCutoff(perf.snv$zyg[["FILTER"]]$RRvsAA, 0.5)
-indelsubst.hom.perf_FILTER = calcSensSpecAtCutoff(perf.indelsubst$zyg[["FILTER"]]$RRvsAA, 0.5)
-
-snv.coding10.het.perf_FILTER = calcSensSpecAtCutoff(perf.snv.coding10$zyg[["FILTER"]]$RRvsRA, 0.5)
-indelsubst.coding10.het.perf_FILTER = calcSensSpecAtCutoff(perf.indelsubst.coding10$zyg[["FILTER"]]$RRvsRA, 0.5)
-snv.coding10.hom.perf_FILTER = calcSensSpecAtCutoff(perf.snv.coding10$zyg[["FILTER"]]$RRvsAA, 0.5)
-indelsubst.coding10.hom.perf_FILTER = calcSensSpecAtCutoff(perf.indelsubst.coding10$zyg[["FILTER"]]$RRvsAA, 0.5)
-
-report$snv.het.sens.value = snv.het.perf$sens
-report$snv.het.spec.value = snv.het.perf$spec
-report$indelsubst.het.sens.value = indelsubst.het.perf$sens
-report$snv.hom.sens.value = snv.hom.perf$sens
-report$snv.hom.spec.value = snv.hom.perf$spec
-report$indelsubst.hom.sens.value = indelsubst.hom.perf$sens
-
-report$snv.het.sens.pass = report$snv.het.sens.value >= report$specifications$snv.het.min.sens
-report$snv.het.spec.pass = report$snv.het.spec.value >= report$specifications$snv.het.min.spec
-report$indelsubst.het.sens.pass = report$indelsubst.het.sens.value >= report$specifications$indelsubst.het.min.sens
-report$snv.hom.sens.pass = report$snv.hom.sens.value >= report$specifications$snv.hom.min.sens
-report$snv.hom.spec.pass = report$snv.hom.spec.value >= report$specifications$snv.hom.min.spec
-report$indelsubst.hom.sens.pass = report$indelsubst.hom.sens.value >= report$specifications$indelsubst.hom.min.sens
-
-report$overall.pass = 
-	report$snv.het.sens.pass & report$snv.het.spec.pass & report$indelsubst.het.sens.pass &
-	report$snv.hom.sens.pass & report$snv.hom.spec.pass & report$indelsubst.hom.sens.pass
-
-report$snv.het.sens.call = ifelse(report$snv.het.sens.pass, "Pass", "\\textcolor{red}{\\textbf{FAIL}}")
-report$snv.het.spec.call = ifelse(report$snv.het.spec.pass, "Pass", "\\textcolor{red}{\\textbf{FAIL}}")
-report$indelsubst.het.sens.call = ifelse(report$indelsubst.het.sens.pass, "Pass", "\\textcolor{red}{\\textbf{FAIL}}")
-report$snv.hom.sens.call = ifelse(report$snv.hom.sens.pass, "Pass", "\\textcolor{red}{\\textbf{FAIL}}")
-report$snv.hom.spec.call = ifelse(report$snv.hom.spec.pass, "Pass", "\\textcolor{red}{\\textbf{FAIL}}")
-report$indelsubst.hom.sens.call = ifelse(report$indelsubst.hom.sens.pass, "Pass", "\\textcolor{red}{\\textbf{FAIL}}")
-
-report$overall.call = ifelse(report$overall.pass, "\\textcolor{blue}{PASS}", "\\textcolor{red}{\\textbf{FAIL}}")
-@
-
-
-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % REPORT STARTS HERE
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -216,8 +147,8 @@ plotROC(perf.snv$zyg[[report$specifications$measure]][c("RRvsAA", "RRvsRA")]) +
 	scale_colour_brewer(palette = "Set1") +
 	coord_cartesian(xlim = c(-1e-7, 1e-5)) + ylim(0, 1) + 
 	geom_point(aes(colour = Zygosity, shape = Score), size = 4, data = data.frame(
-		FP = c(1 - snv.het.perf$spec, 1 - snv.hom.perf$spec, 1 - snv.het.perf_FILTER$spec, 1 - snv.hom.perf_FILTER$spec),
-		TP = c(snv.het.perf$sens, snv.hom.perf$sens, snv.het.perf_FILTER$sens, snv.hom.perf_FILTER$sens),
+		FP = c(1 - snv.het.perf$spec, 1 - snv.hom.perf$spec, 1 - snv.het.perf$spec, 1 - snv.hom.perf$spec),
+		TP = c(snv.het.perf$sens, snv.hom.perf$sens, snv.het.perf$sens, snv.hom.perf$sens),
 		Zygosity = c("RRvsRA", "RRvsAA", "RRvsRA", "RRvsAA"),
 		Score = c(report$specifications$label, report$specifications$label, "FILTER = PASS", "FILTER = PASS"))) + 
 	scale_shape_manual(name = "Score", breaks = c(report$specifications$label, "FILTER = PASS"), values = c(5, 16)) + 
@@ -232,8 +163,8 @@ plotROC(perf.indelsubst$zyg[[report$specifications$measure]][c("RRvsAA", "RRvsRA
 	scale_colour_brewer(palette = "Set1") +
 	ylim(0, 1) + 
 	geom_point(aes(colour = Zygosity, shape = Score), size = 4, data = data.frame(
-		FP = c(indelsubst.het.perf$nfp, indelsubst.hom.perf$nfp, indelsubst.het.perf_FILTER$nfp, indelsubst.hom.perf_FILTER$nfp),
-		TP = c(indelsubst.het.perf$sens, indelsubst.hom.perf$sens, indelsubst.het.perf_FILTER$sens, indelsubst.hom.perf_FILTER$sens),
+		FP = c(indelsubst.het.perf$nfp, indelsubst.hom.perf$nfp, indelsubst.het.perf$nfp, indelsubst.hom.perf$nfp),
+		TP = c(indelsubst.het.perf$sens, indelsubst.hom.perf$sens, indelsubst.het.perf$sens, indelsubst.hom.perf$sens),
 		Zygosity = c("RRvsRA", "RRvsAA", "RRvsRA", "RRvsAA"),
 		Score = c(report$specifications$label, report$specifications$label, "FILTER = PASS", "FILTER = PASS"))) + 
 	scale_shape_manual(name = "Score", breaks = c(report$specifications$label, "FILTER = PASS"), values = c(5, 16)) + 
@@ -247,8 +178,8 @@ plotROC(perf.snv.coding10$zyg[[report$specifications$measure]][c("RRvsAA", "RRvs
 	scale_colour_brewer(palette = "Set1") +
 	coord_cartesian(xlim = c(-1e-7, 1e-5)) + ylim(0, 1) + 
 	geom_point(aes(colour = Zygosity, shape = Score), size = 4, data = data.frame(
-		FP = c(1 - snv.coding10.het.perf$spec, 1 - snv.coding10.hom.perf$spec, 1 - snv.coding10.het.perf_FILTER$spec, 1 - snv.coding10.hom.perf_FILTER$spec),
-		TP = c(snv.coding10.het.perf$sens, snv.coding10.hom.perf$sens, snv.coding10.het.perf_FILTER$sens, snv.coding10.hom.perf_FILTER$sens),
+		FP = c(1 - snv.coding10.het.perf$spec, 1 - snv.coding10.hom.perf$spec, 1 - snv.coding10.het.perf$spec, 1 - snv.coding10.hom.perf$spec),
+		TP = c(snv.coding10.het.perf$sens, snv.coding10.hom.perf$sens, snv.coding10.het.perf$sens, snv.coding10.hom.perf$sens),
 		Zygosity = c("RRvsRA", "RRvsAA", "RRvsRA", "RRvsAA"),
 		Score = c(report$specifications$label, report$specifications$label, "FILTER = PASS", "FILTER = PASS"))) + 
 	scale_shape_manual(name = "Score", breaks = c(report$specifications$label, "FILTER = PASS"), values = c(5, 16)) + 
@@ -263,8 +194,8 @@ plotROC(perf.indelsubst.coding10$zyg[[report$specifications$measure]][c("RRvsAA"
 	scale_colour_brewer(palette = "Set1") +
 	ylim(0, 1) + 
 	geom_point(aes(colour = Zygosity, shape = Score), size = 4, data = data.frame(
-		FP = c(indelsubst.coding10.het.perf$nfp, indelsubst.coding10.hom.perf$nfp, indelsubst.coding10.het.perf_FILTER$nfp, indelsubst.coding10.hom.perf_FILTER$nfp),
-		TP = c(indelsubst.coding10.het.perf$sens, indelsubst.coding10.hom.perf$sens, indelsubst.coding10.het.perf_FILTER$sens, indelsubst.coding10.hom.perf_FILTER$sens),
+		FP = c(indelsubst.coding10.het.perf$nfp, indelsubst.coding10.hom.perf$nfp, indelsubst.coding10.het.perf$nfp, indelsubst.coding10.hom.perf$nfp),
+		TP = c(indelsubst.coding10.het.perf$sens, indelsubst.coding10.hom.perf$sens, indelsubst.coding10.het.perf$sens, indelsubst.coding10.hom.perf$sens),
 		Zygosity = c("RRvsRA", "RRvsAA", "RRvsRA", "RRvsAA"),
 		Score = c(report$specifications$label, report$specifications$label, "FILTER = PASS", "FILTER = PASS"))) + 
 	scale_shape_manual(name = "Score", breaks = c(report$specifications$label, "FILTER = PASS"), values = c(5, 16)) + 
@@ -317,52 +248,6 @@ count.table = xtable(data.frame(
 		formatC2(indelsubst.coding10.hom.perf$nfn, digits=0, format="f", big.mark=","))),
 	digits = 0, align = "llllrrrr")
 print(count.table, sanitize.text.function = function(x) x, include.rownames = FALSE, floating = FALSE)
-@
-
-\subsection{Raw Counts at Cutoff: $\mathrm{FILTER} = \mathrm{PASS}$}
-<<count-table-FILTER,results='asis'>>=
-count.table_FILTER = xtable(data.frame(
-	"Region" = c("Whole genome", "", "", "", "Coding $\\pm10$ bp", "", "", ""),
-	"Zygosity" = c("Het", "", "Hom", "", "Het", "", "Hom", ""),
-	"Mutation" = c("SNV", "Indel/MNV", "SNV", "Indel/MNV", "SNV", "Indel/MNV", "SNV", "Indel/MNV"),
-	"TP" = c(
-		formatC2(snv.het.perf_FILTER$ntp, digits=0, format="f", big.mark=","),
-		formatC2(indelsubst.het.perf_FILTER$ntp, digits=0, format="f", big.mark=","),
-		formatC2(snv.hom.perf_FILTER$ntp, digits=0, format="f", big.mark=","),
-		formatC2(indelsubst.hom.perf_FILTER$ntp, digits=0, format="f", big.mark=","),
-		formatC2(snv.coding10.het.perf_FILTER$ntp, digits=0, format="f", big.mark=","),
-		formatC2(indelsubst.coding10.het.perf_FILTER$ntp, digits=0, format="f", big.mark=","),
-		formatC2(snv.coding10.hom.perf_FILTER$ntp, digits=0, format="f", big.mark=","),
-		formatC2(indelsubst.coding10.hom.perf_FILTER$ntp, digits=0, format="f", big.mark=",")),
-	"FP" = c(
-		formatC2(snv.het.perf_FILTER$nfp, digits=0, format="f", big.mark=","),
-		formatC2(indelsubst.het.perf_FILTER$nfp, digits=0, format="f", big.mark=","),
-		formatC2(snv.hom.perf_FILTER$nfp, digits=0, format="f", big.mark=","),
-		formatC2(indelsubst.hom.perf_FILTER$nfp, digits=0, format="f", big.mark=","),
-		formatC2(snv.coding10.het.perf_FILTER$nfp, digits=0, format="f", big.mark=","),
-		formatC2(indelsubst.coding10.het.perf_FILTER$nfp, digits=0, format="f", big.mark=","),
-		formatC2(snv.coding10.hom.perf_FILTER$nfp, digits=0, format="f", big.mark=","),
-		formatC2(indelsubst.coding10.hom.perf_FILTER$nfp, digits=0, format="f", big.mark=",")),
-	"TN" = c(
-		formatC2(snv.het.perf_FILTER$ntn, digits=0, format="f", big.mark=","),
-		NA,
-		formatC2(snv.hom.perf_FILTER$ntn, digits=0, format="f", big.mark=","),
-		NA,
-		formatC2(snv.coding10.het.perf_FILTER$ntn, digits=0, format="f", big.mark=","),
-		NA,
-		formatC2(snv.coding10.hom.perf_FILTER$ntn, digits=0, format="f", big.mark=","),
-		NA),
-	"FN" = c(
-		formatC2(snv.het.perf_FILTER$nfn, digits=0, format="f", big.mark=","),
-		formatC2(indelsubst.het.perf_FILTER$nfn, digits=0, format="f", big.mark=","),
-		formatC2(snv.hom.perf_FILTER$nfn, digits=0, format="f", big.mark=","),
-		formatC2(indelsubst.hom.perf_FILTER$nfn, digits=0, format="f", big.mark=","),
-		formatC2(snv.coding10.het.perf_FILTER$nfn, digits=0, format="f", big.mark=","),
-		formatC2(indelsubst.coding10.het.perf_FILTER$nfn, digits=0, format="f", big.mark=","),
-		formatC2(snv.coding10.hom.perf_FILTER$nfn, digits=0, format="f", big.mark=","),
-		formatC2(indelsubst.coding10.hom.perf_FILTER$nfn, digits=0, format="f", big.mark=","))),
-	digits = 0, align = "llllrrrr")
-print(count.table_FILTER, sanitize.text.function = function(x) x, include.rownames = FALSE, floating = FALSE)
 @
 
 

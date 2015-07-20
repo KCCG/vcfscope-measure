@@ -52,6 +52,24 @@
             "help": "A PDF of the validation report",
             "name": "report",
             "class": "file"
+        },
+        {
+            "patterns": [
+                "*.valrept.rds"
+            ],
+            "label": "Validation report data RDS",
+            "help": "An RDS representation of the data used to generate the validation report",
+            "name": "rds",
+            "class": "file"
+        },
+        {
+            "patterns": [
+                "*.valrept.json"
+            ],
+            "label": "Validation report summary JSON",
+            "help": "A JSON representation of the summary results of the validation report",
+            "name": "json",
+            "class": "file"
         }
     ],
     "runSpec": {

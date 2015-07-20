@@ -13,7 +13,10 @@
 #  
 ####################################################################
 
-options(stringsAsFactors = FALSE, warn = 2)     # Treat warnings as errors -- this will be production code
+options(
+    stringsAsFactors = FALSE, 
+    warn = 2,                   # Treat warnings as errors -- this will be production code
+    echo = TRUE)                # Emit lines to aid debugging
 
 source("report_functions.R")
 
@@ -57,6 +60,7 @@ param$version$bedtools = env$PARAM_VERSION_BEDTOOLS #
 param$path.function.regions.prefix = env$CONST_FUNCTIONAL_REGIONS_BEDGZ_PREFIX  # Path prefixes for functional region BEDs, and
 param$path.mask.regions.prefix = env$CONST_MASK_REGIONS_BEDGZ_PREFIX            # genomic mask BEDs.
 
+param$path.rds.output = env$PARAM_OUTPUT_RDS_PATH
 
 
 #####################################################################
@@ -280,14 +284,14 @@ filter_1000G = function(vcf)
 # will be NULL, and consequently downstream performance estimation functions (vcfPerf
 # and vcfPerfGrouped) will deliberately produce a no-information performance estimate.
 criteria = list(
-    "VQSLOD" =          list(scoreFunc = function(x) info(x)$VQSLOD,                                    callFunc = function(x) info(x)$VQSLOD > 2.7),
-    "QUAL" =            list(scoreFunc = function(x) rowRanges(x)$QUAL,                                 callFunc = function(x) rowRanges(x)$QUAL > 200),
-    "FILTER" =          list(scoreFunc = function(x) (rowRanges(x)$FILTER == "PASS")*1,                 callFunc = function(x) rowRanges(x)$FILTER == "PASS"),
-    "DEPTH" =           list(scoreFunc = function(x) info(x)$DP,                                        callFunc = function(x) info(x)$DP >= 15),
-    "VQSLOD:1000G" =    list(scoreFunc = function(x) info(x)$VQSLOD * filter_1000G(x),                  callFunc = function(x) (info(x)$VQSLOD > 2.7) * filter_1000G(x)),
-    "QUAL:1000G" =      list(scoreFunc = function(x) rowRanges(x)$QUAL * filter_1000G(x),               callFunc = function(x) (rowRanges(x)$QUAL > 200) * filter_1000G(x)),
-    "FILTER:1000G" =    list(scoreFunc = function(x) (rowRanges(x)$FILTER == "PASS") * filter_1000G(x), callFunc = function(x) (rowRanges(x)$FILTER == "PASS") & filter_1000G(x)),
-    "DEPTH:1000G" =     list(scoreFunc = function(x) info(x)$DP * filter_1000G(x),                      callFunc = function(x) (info(x)$DP >= 15) * filter_1000G(x))
+    "VQSLOD" =          list(scoreFunc = function(x) info(x)$VQSLOD),
+    "QUAL" =            list(scoreFunc = function(x) rowRanges(x)$QUAL),
+    "FILTER" =          list(scoreFunc = function(x) (rowRanges(x)$FILTER == "PASS")*1),
+    "DEPTH" =           list(scoreFunc = function(x) info(x)$DP),
+    "VQSLOD:1000G" =    list(scoreFunc = function(x) info(x)$VQSLOD * filter_1000G(x)),
+    "QUAL:1000G" =      list(scoreFunc = function(x) rowRanges(x)$QUAL * filter_1000G(x)),
+    "FILTER:1000G" =    list(scoreFunc = function(x) (rowRanges(x)$FILTER == "PASS") * filter_1000G(x)),
+    "DEPTH:1000G" =     list(scoreFunc = function(x) info(x)$DP * filter_1000G(x))
 )
 
 
@@ -437,6 +441,8 @@ perf.all$muttype = lapply(criteria, function(crit) vcfPerfGrouped(perfdata.all, 
 # Again, set tn = NULL
 class.all.size = subsetClass(class$mutsize, subset.all, tn = NULL)
 perf.all$mutsize = lapply(criteria, function(crit) vcfPerfGrouped(perfdata.all, crit$scoreFunc, class.all.size))
+} else {
+    perf.all = NULL
 }
 
 
@@ -478,6 +484,106 @@ perf.indelsubst.coding10 = list(zyg = lapply(criteria, function(crit) vcfPerfGro
 
 
 #####################################################################
-# SAVE RESULTS
+# ALL VARIANT METRIC PERFORMANCE: GOLD CALLABLE, CODING +/- 10 REGIONS
+#####################################################################
+if (param$extended) {
+subset.all.coding10 = sapply(names(calls), function(name) class$goldcall$callable[[name]] & class$functional$coding_10[[name]], simplify = FALSE, USE.NAMES = TRUE)
+
+calls.all.coding10 = sapply(names(calls), function(name) calls[[name]][subset.all.coding10[[name]]], simplify = FALSE, USE.NAMES = TRUE)
+
+count.all.coding10.fn = nrow(calls.all.coding10$fn)
+
+perfdata.all.coding10 = list(vcf.tp = calls.all.coding10$tp, vcf.fp = calls.all.coding10$fp, n.fn = count.all.coding10.fn, n.tn = 0)
+
+class.all.coding10.zyg = subsetClass(class$zyg, subset.all.coding10, tn = NULL)
+perf.all.coding10 = list(zyg = lapply(criteria, function(crit) vcfPerfGrouped(perfdata.all.coding10, crit$scoreFunc, class.all.coding10.zyg)))
+} else {
+    perf.all.coding10 = NULL
+}
+
+
+
+#####################################################################
+# THRESHOLDED PERFORMANCE SUMMARY CALCULATIONS FOR REPORT
+#####################################################################
+report = list()
+
+report$gentime = date()
+
+report$specifications = list(
+    measure = "FILTER",
+    cutoff = 0.5,
+    snv.het.min.sens = 0.95,
+    snv.het.min.spec = 0.95,
+    snv.hom.min.sens = 0.99,
+    snv.hom.min.spec = 0.99,
+    indelsubst.het.min.sens = 0.80,
+    indelsubst.hom.min.sens = 0.95)
+report$specifications$label = "FILTER = PASS"
+report$specifications$label_latex = "$\\mathrm{FILTER} = \\mathrm{PASS}$"
+
+snv.het.perf = calcSensSpecAtCutoff(perf.snv$zyg[[report$specifications$measure]]$RRvsRA, report$specifications$cutoff)
+indelsubst.het.perf = calcSensSpecAtCutoff(perf.indelsubst$zyg[[report$specifications$measure]]$RRvsRA, report$specifications$cutoff)
+snv.hom.perf = calcSensSpecAtCutoff(perf.snv$zyg[[report$specifications$measure]]$RRvsAA, report$specifications$cutoff)
+indelsubst.hom.perf = calcSensSpecAtCutoff(perf.indelsubst$zyg[[report$specifications$measure]]$RRvsAA, report$specifications$cutoff)
+
+snv.coding10.het.perf = calcSensSpecAtCutoff(perf.snv.coding10$zyg[[report$specifications$measure]]$RRvsRA, report$specifications$cutoff)
+indelsubst.coding10.het.perf = calcSensSpecAtCutoff(perf.indelsubst.coding10$zyg[[report$specifications$measure]]$RRvsRA, report$specifications$cutoff)
+snv.coding10.hom.perf = calcSensSpecAtCutoff(perf.snv.coding10$zyg[[report$specifications$measure]]$RRvsAA, report$specifications$cutoff)
+indelsubst.coding10.hom.perf = calcSensSpecAtCutoff(perf.indelsubst.coding10$zyg[[report$specifications$measure]]$RRvsAA, report$specifications$cutoff)
+
+report$snv.het.sens.value = snv.het.perf$sens
+report$snv.het.spec.value = snv.het.perf$spec
+report$indelsubst.het.sens.value = indelsubst.het.perf$sens
+report$snv.hom.sens.value = snv.hom.perf$sens
+report$snv.hom.spec.value = snv.hom.perf$spec
+report$indelsubst.hom.sens.value = indelsubst.hom.perf$sens
+
+report$snv.het.sens.pass = report$snv.het.sens.value >= report$specifications$snv.het.min.sens
+report$snv.het.spec.pass = report$snv.het.spec.value >= report$specifications$snv.het.min.spec
+report$indelsubst.het.sens.pass = report$indelsubst.het.sens.value >= report$specifications$indelsubst.het.min.sens
+report$snv.hom.sens.pass = report$snv.hom.sens.value >= report$specifications$snv.hom.min.sens
+report$snv.hom.spec.pass = report$snv.hom.spec.value >= report$specifications$snv.hom.min.spec
+report$indelsubst.hom.sens.pass = report$indelsubst.hom.sens.value >= report$specifications$indelsubst.hom.min.sens
+
+report$overall.pass = 
+    report$snv.het.sens.pass & report$snv.het.spec.pass & report$indelsubst.het.sens.pass &
+    report$snv.hom.sens.pass & report$snv.hom.spec.pass & report$indelsubst.hom.sens.pass
+
+report$snv.het.sens.call = ifelse(report$snv.het.sens.pass, "Pass", "\\textcolor{red}{\\textbf{FAIL}}")
+report$snv.het.spec.call = ifelse(report$snv.het.spec.pass, "Pass", "\\textcolor{red}{\\textbf{FAIL}}")
+report$indelsubst.het.sens.call = ifelse(report$indelsubst.het.sens.pass, "Pass", "\\textcolor{red}{\\textbf{FAIL}}")
+report$snv.hom.sens.call = ifelse(report$snv.hom.sens.pass, "Pass", "\\textcolor{red}{\\textbf{FAIL}}")
+report$snv.hom.spec.call = ifelse(report$snv.hom.spec.pass, "Pass", "\\textcolor{red}{\\textbf{FAIL}}")
+report$indelsubst.hom.sens.call = ifelse(report$indelsubst.hom.sens.pass, "Pass", "\\textcolor{red}{\\textbf{FAIL}}")
+
+report$overall.call = ifelse(report$overall.pass, "\\textcolor{blue}{PASS}", "\\textcolor{red}{\\textbf{FAIL}}")
+
+
+#####################################################################
+# EXPORT SUMMARY RESULTS AS RDS
+#####################################################################
+export = list(
+    param = param,
+    performance = list(
+        whole_genome = list(
+            combined = perf.all,
+            snv = perf.snv,
+            indelsubst = perf.indelsubst
+        ),
+        coding10 = list(
+            combined = perf.all.coding10,
+            snv = perf.snv.coding10,
+            indelsubst = perf.indelsubst.coding10
+        )
+    ),
+    report_summary = report
+)
+
+saveRDS(export, file = "report_summary.rds", version = 2, compress = "xz")
+
+
+#####################################################################
+# SAVE FULL RESULTS FOR THE REPORT
 #####################################################################
 save.image("report_data.rda")
