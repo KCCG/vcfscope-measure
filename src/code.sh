@@ -78,9 +78,9 @@ main() {
   #
   # run report
   #
-  mkdir -p ~/out/report/
+  mkdir -p ~/out/report/ ~/out/rds ~/out/json
   sample_basename=$(basename ${vcfgz_path} .vcf.gz)
-  ./validation_report.sh -o ~/out/report/${sample_basename}.valrept.pdf -j ~/out/report/${sample_basename}.valrept.json "${opts[@]}" ${vcfgz_path}
+  ./validation_report.sh -o ~/out/report/${sample_basename}.valrept.pdf -d ~/out/rds/${sample_basename}.valrept.rds -j ~/out/json/${sample_basename}.valrept.json "${opts[@]}" ${vcfgz_path}
 
   #
   # upload results

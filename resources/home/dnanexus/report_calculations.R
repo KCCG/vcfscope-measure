@@ -60,7 +60,7 @@ param$version$bedtools = env$PARAM_VERSION_BEDTOOLS #
 param$path.function.regions.prefix = env$CONST_FUNCTIONAL_REGIONS_BEDGZ_PREFIX  # Path prefixes for functional region BEDs, and
 param$path.mask.regions.prefix = env$CONST_MASK_REGIONS_BEDGZ_PREFIX            # genomic mask BEDs.
 
-param$path.json.output = env$PARAM_OUTPUT_JSON_PATH
+param$path.rds.output = env$PARAM_OUTPUT_RDS_PATH
 
 
 #####################################################################
@@ -571,10 +571,8 @@ report$overall.call = ifelse(report$overall.pass, "\\textcolor{blue}{PASS}", "\\
 
 
 #####################################################################
-# EXPORT RESULTS AS JSON
+# EXPORT SUMMARY RESULTS AS RDS
 #####################################################################
-if (param$path.json.output != "")
-{
 export = list(
     param = param,
     performance = list(
@@ -592,12 +590,10 @@ export = list(
     report_summary = report
 )
 
-library(jsonlite)
-cat(toJSON(export, pretty = TRUE), file = param$path.json.output)
-}
+saveRDS(export, "report_summary.rds", version = 2, compress = "xz")
 
 
 #####################################################################
-# SAVE RESULTS FOR THE REPORT
+# SAVE FULL RESULTS FOR THE REPORT
 #####################################################################
 save.image("report_data.rda")

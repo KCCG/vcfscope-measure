@@ -1,11 +1,12 @@
 #!/bin/bash
 set -e -u -o pipefail
+set +x
 IFS=$'\n\t'
 
 #####################################################################
 # VERSION
 #####################################################################
-export CONST_VERSION_SCRIPT="1.1.3"
+export CONST_VERSION_SCRIPT="1.2.0"
 
 
 #####################################################################
@@ -100,7 +101,7 @@ export PARAM_INPUT_VCFGZ_PATH
 export PARAM_REGION_BED_SUPPLIED
 export PARAM_REGION_BED_PATH
 export PARAM_OUTPUT_PDF_PATH
-export PARAM_OUTPUT_JSON_PATH
+export PARAM_OUTPUT_RDS_PATH
 export PARAM_EXTENDED
 export PARAM_VERSION_EXEC_HOST
 export PARAM_VERSION_RTG
@@ -131,13 +132,15 @@ export LOOP_PATH_SAMPLE_OVERLAP_FN
 #####################################################################
 print_usage() {
 cat << EOF
-Usage: ${0##*/} [-o OUTFILE] [-r BEDFILE] [-x] [-t] <INFILE>
+Usage: ${0##*/} [-o OUTFILE] [-d RDSOUT] [-j JSONOUT] [-r BEDFILE] [-x] [-t] <INFILE>
 
 Create a WGS validation report.
 
     INFILE       Input NA12878 genotype calls, in vcf.gz format.
     -o OUTFILE   Write the report to OUTFILE (default: report.pdf)
-    -j JSONOUT   Write validation summary data to JSONOUT (default: 
+    -d RDSOUT    Write validation report data to RDSOUT (default: 
+                 not written)
+    -d JSONOUT   Write validation report summary to JSONOUT (default: 
                  not written)
     -r BEDFILE   Restrict analysis to the regions in BEDFILE only.
                  Default: the full genome is considered.
@@ -162,11 +165,12 @@ PARAM_INPUT_VCFGZ_PATH=""
 PARAM_REGION_BED_SUPPLIED=0
 PARAM_REGION_BED_PATH="NA"
 PARAM_OUTPUT_PDF_PATH="${PARAM_EXEC_PATH}/validation_report.pdf"
+PARAM_OUTPUT_RDS_PATH=""
 PARAM_OUTPUT_JSON_PATH=""
 PARAM_EXTENDED=0
 PARAM_DOTESTS=0
 
-while getopts "r:o:j:hxt" opt; do
+while getopts "r:o:d:j:hxt" opt; do
 	case "$opt" in
 		h)
 			print_usage
@@ -175,6 +179,9 @@ while getopts "r:o:j:hxt" opt; do
 		o)
 			PARAM_OUTPUT_PDF_PATH=$(readlink -f $OPTARG)
 			;;
+    d)
+      PARAM_OUTPUT_RDS_PATH=$(readlink -f $OPTARG)
+      ;;
     j)
       PARAM_OUTPUT_JSON_PATH=$(readlink -f $OPTARG)
       ;;
@@ -391,8 +398,12 @@ done
 
 
 #####################################################################
-# REGRESSION TESTS
+# MERGE SUMMARY RDS FILES
 #####################################################################
+echo "Merging report summary RDS files..."
+
+${RSCRIPT} --vanilla merge_report_summaries.R
+
 
 #####################################################################
 # REPORT GENERATION
