@@ -54,6 +54,14 @@ main() {
   R CMD INSTALL crayon_1.3.0.tar.gz
   R CMD INSTALL testthat_0.10.0.tar.gz
 
+  # An updated VariantAnnotation package is required to handle HAS2.0 VCFs
+  dx get "${DX_ASSETS_ID}:/assets/VariantAnnotation_1.14.6.tar.gz"
+  R CMD INSTALL VariantAnnotation_1.14.6.tar.gz
+
+  # jsonlite is used to export performance statistics in JSON format
+  dx get "${DX_ASSETS_ID}:/assets/jsonlite_0.9.16.tar.gz"
+  R CMD INSTALL jsonlite_0.9.16.tar.gz
+
   #
   # process options
   #
@@ -70,9 +78,9 @@ main() {
   #
   # run report
   #
-  mkdir -p ~/out/report/
+  mkdir -p ~/out/report/ ~/out/rds ~/out/json
   sample_basename=$(basename ${vcfgz_path} .vcf.gz)
-  ./validation_report.sh -o ~/out/report/${sample_basename}.valrept.pdf "${opts[@]}" ${vcfgz_path}
+  ./validation_report.sh -o ~/out/report/${sample_basename}.valrept.pdf -d ~/out/rds/${sample_basename}.valrept.rds -j ~/out/json/${sample_basename}.valrept.json "${opts[@]}" ${vcfgz_path}
 
   #
   # upload results

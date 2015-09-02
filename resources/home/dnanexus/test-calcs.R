@@ -1,3 +1,5 @@
+options(echo = TRUE)
+
 library(testthat)
 context("Performance calculations")
 
@@ -10,6 +12,8 @@ library(BSgenome)
 source("report_functions.R")
 
 
+
+# A convenience report function for debugging
 perfAroundCutoff = function(perf, cutoff) {
 	nearest_cutoff = which.min(abs(perf$cutoff - cutoff))
 	start = max(1, nearest_cutoff - 5)
@@ -17,6 +21,8 @@ perfAroundCutoff = function(perf, cutoff) {
 	cbind(perf[start:end,], perf$cutoff[start:end] >= cutoff)
 }
 
+
+# Run tests on the continuous QUAL metric
 
 TEST_METRIC = "QUAL"
 TEST_CUTOFF = 200

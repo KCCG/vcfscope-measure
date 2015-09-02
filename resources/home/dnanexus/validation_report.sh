@@ -1,11 +1,12 @@
 #!/bin/bash
 set -e -u -o pipefail
+set +x
 IFS=$'\n\t'
 
 #####################################################################
 # VERSION
 #####################################################################
-export CONST_VERSION_SCRIPT="1.1.2"
+export CONST_VERSION_SCRIPT="1.2.0"
 
 
 #####################################################################
@@ -100,6 +101,8 @@ export PARAM_INPUT_VCFGZ_PATH
 export PARAM_REGION_BED_SUPPLIED
 export PARAM_REGION_BED_PATH
 export PARAM_OUTPUT_PDF_PATH
+export PARAM_OUTPUT_RDS_PATH
+export PARAM_OUTPUT_JSON_PATH
 export PARAM_EXTENDED
 export PARAM_VERSION_EXEC_HOST
 export PARAM_VERSION_RTG
@@ -130,12 +133,16 @@ export LOOP_PATH_SAMPLE_OVERLAP_FN
 #####################################################################
 print_usage() {
 cat << EOF
-Usage: ${0##*/} [-o OUTFILE] [-r BEDFILE] [-x] [-t] <INFILE>
+Usage: ${0##*/} [-o OUTFILE] [-d RDSOUT] [-j JSONOUT] [-r BEDFILE] [-x] [-t] <INFILE>
 
 Create a WGS validation report.
 
     INFILE       Input NA12878 genotype calls, in vcf.gz format.
     -o OUTFILE   Write the report to OUTFILE (default: report.pdf)
+    -d RDSOUT    Write validation report data to RDSOUT (default: 
+                 not written)
+    -d JSONOUT   Write validation report summary to JSONOUT (default: 
+                 not written)
     -r BEDFILE   Restrict analysis to the regions in BEDFILE only.
                  Default: the full genome is considered.
     -x           Generate an extended report, with threshold and
@@ -158,11 +165,13 @@ OPTIND=1
 PARAM_INPUT_VCFGZ_PATH=""
 PARAM_REGION_BED_SUPPLIED=0
 PARAM_REGION_BED_PATH="NA"
-PARAM_OUTPUT_PDF_PATH="${PARAM_EXEC_PATH}/report.pdf"
+PARAM_OUTPUT_PDF_PATH="${PARAM_EXEC_PATH}/validation_report.pdf"
+PARAM_OUTPUT_RDS_PATH=""
+PARAM_OUTPUT_JSON_PATH=""
 PARAM_EXTENDED=0
 PARAM_DOTESTS=0
 
-while getopts "r:o:hxt" opt; do
+while getopts "r:o:d:j:hxt" opt; do
 	case "$opt" in
 		h)
 			print_usage
@@ -171,6 +180,12 @@ while getopts "r:o:hxt" opt; do
 		o)
 			PARAM_OUTPUT_PDF_PATH=$(readlink -f $OPTARG)
 			;;
+    d)
+      PARAM_OUTPUT_RDS_PATH=$(readlink -f $OPTARG)
+      ;;
+    j)
+      PARAM_OUTPUT_JSON_PATH=$(readlink -f $OPTARG)
+      ;;
 		r)
 			PARAM_REGION_BED_SUPPLIED=1
 			PARAM_REGION_BED_PATH=$(readlink -f $OPTARG)
@@ -368,7 +383,8 @@ for (( LOOP_SAMPLE_INDEX = 0; LOOP_SAMPLE_INDEX < ${LOOP_NUM_SAMPLES}; LOOP_SAMP
   cp -f report_functions.R ${LOOP_KNITR_PATH}
   cp -f report_extended.Rnw ${LOOP_KNITR_PATH}
   cp -f report_calculations.R ${LOOP_KNITR_PATH}
-  cp -f "test-calcs.R" ${LOOP_KNITR_PATH}
+  cp -f test-calcs.R ${LOOP_KNITR_PATH}
+  cp -f merge_report_summaries.R ${LOOP_KNITR_PATH}
   cd ${LOOP_KNITR_PATH}
 
   # Run the script.  All options are passed via exported environment 
@@ -384,8 +400,12 @@ done
 
 
 #####################################################################
-# REGRESSION TESTS
+# MERGE SUMMARY RDS FILES
 #####################################################################
+echo "Merging report summary RDS files..."
+
+${RSCRIPT} --vanilla merge_report_summaries.R
+
 
 #####################################################################
 # REPORT GENERATION
@@ -402,21 +422,19 @@ for (( LOOP_SAMPLE_INDEX = 0; LOOP_SAMPLE_INDEX < ${LOOP_NUM_SAMPLES}; LOOP_SAMP
 
   ${RSCRIPT} --vanilla -e "library(knitr); knit('report.Rnw', output = 'report.tex')"
 
-  # Latex often 'fails' (returns a nonzero exit status), but still 
-  # generates a report.  Keep going when this happens, and test for
-  # failure explicitly later.
-  set +e
-
   # Remove the report.pdf that may be present in the scratch directory,
   # so we can later check whether pdflatex successfully built a report
   # or not.
   rm -f ${LOOP_KNITR_PATH}/report.pdf
 
   # Run pdflatex
-  pdflatex -interaction nonstopmode report.tex
-  pdflatex -interaction nonstopmode report.tex
+  # Latex often 'fails' (returns a nonzero exit status), but still 
+  # generates a report.  Keep going when this happens, and test for
+  # failure explicitly later.
+  pdflatex -interaction nonstopmode report.tex || true
+  pdflatex -interaction nonstopmode report.tex || true
 
-  # Check  whether the report.pdf was generated
+  # Check whether the report.pdf was generated
   if [ ! -e ${LOOP_KNITR_PATH}/report.pdf ]; then
   	echo >&2 "    Error: pdflatex did not successfully generate report.pdf."
   	echo >&2 "    Check ${LOOP_KNITR_PATH}/report.tex and the latex log for errors."
