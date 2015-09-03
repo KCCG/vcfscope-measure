@@ -1,5 +1,6 @@
 #!/bin/bash
-set -e -x -u -o pipefail
+set -e -u -o pipefail
+set +x
 IFS=$'\n\t'
 
 #####################################################################
@@ -393,7 +394,7 @@ VCF_SAMPLE_IDS=($(gzip -dc ${PATH_TEST_VARIANTS} | grep -E '^#[^#]' -m 1 | cut -
 LOOP_SAMPLE_IDS=(${VCF_SAMPLE_IDS[@]})
 if [ "${PARAM_INPUT_VCF_SAMPLES}" != "*" ]; then
   REQUESTED_SAMPLE_IDS=($(echo "${PARAM_INPUT_VCF_SAMPLES}" | tr ',' '\n' | sort ))
-  if comm -23 <(echo "${REQUESTED_SAMPLE_IDS[@]}" | tr ' ' '\n') <(echo "${VCF_SAMPLE_IDS[@]}" | tr ' ' '\n'); then
+  if [[ $(comm -23 <(echo "${REQUESTED_SAMPLE_IDS[@]}" | tr ' ' '\n') <(echo "${VCF_SAMPLE_IDS[@]}" | tr ' ' '\n')) != "" ]]; then
     echo >&2 "Error: Not all requested sample IDs found in VCF (requested: \"${PARAM_INPUT_VCF_SAMPLES}\"; in VCF: \"$(echo "${VCF_SAMPLE_IDS[@]}" | tr ' ' ',')\")"
     exit 10
   fi
