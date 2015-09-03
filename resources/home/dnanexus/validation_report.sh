@@ -429,6 +429,9 @@ done
 # right now.)
 if [ ${IS_DNANEXUS} -eq 1 ]; then
   chown -R dnanexus:dnanexus ${PARAM_SCRATCH}
+  chown -R dnanexus:dnanexus ${PARAM_OUTPUT_PDF_PATH}
+  chown -R dnanexus:dnanexus ${PARAM_OUTPUT_RDS_PATH}
+  chown -R dnanexus:dnanexus ${PARAM_OUTPUT_JSON_PATH}
 fi
 # DIRTY DIRTY DIRTY
 #####################################################################

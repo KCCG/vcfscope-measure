@@ -81,7 +81,7 @@ main() {
   #
   mkdir -p ~/out/report/ ~/out/rds ~/out/json
   sample_basename=$(basename ${vcfgz_path} .vcf.gz)
-  ./validation_report.sh -o "~/out/report/${sample_basename}.valrept.pdf" -d "~/out/rds/${sample_basename}.valrept.rds" -j "~/out/json/${sample_basename}.valrept.json" -s "${sampleIDs}" "${opts[@]}" "${vcfgz_path}"
+  ./validation_report.sh -o "/home/dnanexus/out/report/${sample_basename}.valrept.pdf" -d "/home/dnanexus/out/rds/${sample_basename}.valrept.rds" -j "/home/dnanexus/out/json/${sample_basename}.valrept.json" -s "${sampleIDs}" "${opts[@]}" "${vcfgz_path}"
 
   #
   # upload results
