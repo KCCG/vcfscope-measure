@@ -32,7 +32,7 @@
             "label": "VCF sample IDs",
             "help": "Generate reports for these samples in the VCF only.  Comma-separated list; * indicates all samples.",
             "class": "string",
-            "optional": "true",
+            "optional": true,
             "default": "*"
         },
         {
