@@ -88,4 +88,6 @@ main() {
   #
   dx-upload-all-outputs
   propagate-user-meta vcfgz report
+  propagate-user-meta vcfgz rds
+  propagate-user-meta vcfgz json
 }
