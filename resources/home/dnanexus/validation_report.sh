@@ -515,7 +515,7 @@ for (( LOOP_SAMPLE_INDEX = 0; LOOP_SAMPLE_INDEX < ${LOOP_NUM_SAMPLES}; LOOP_SAMP
 done
 
 echo "Concatenating sub-reports..."
-
+mkdir -p $(dirname ${PARAM_OUTPUT_PDF_PATH})
 ${GHOSTSCRIPT} -q -dNOPAUSE -dBATCH -sDEVICE=pdfwrite -sOutputFile=${PARAM_OUTPUT_PDF_PATH} ${SUBREPORT_ARRAY[*]}
 
 echo "Done."
