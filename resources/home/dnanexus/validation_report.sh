@@ -53,6 +53,7 @@ else
 
   RTG_CORE="${PATH_RESOURCES_HEAD}/rtg-core/rtg-core.jar"
   RTG_THREADS=4
+  mem_in_mb=`head -n1 /proc/meminfo | awk '{print int($2*0.8/1024)}'`                 # Calculate 80% of memory size, for java
   RTG_VCFEVAL="${JAVA} -Xmx8G -jar ${RTG_CORE} vcfeval -T ${RTG_THREADS}"
 
   # Local settings (mark's laptop)
@@ -380,15 +381,15 @@ ${TABIX} -p vcf ${PATH_TEST_VARIANTS}
 echo "Computing VCF overlaps..."
 
 # Handle a multi-sample VCF by getting sample IDs and splitting by them
-VCF_SAMPLE_IDS=($(gzip -dc ${PATH_TEST_VARIANTS} | grep -E '^#[^#]' -m 1 | cut -f 1-9 --complement | tr '\t' '\n' | sort | tr '\n' ' ' | sed 's/ $//' || true))
-LOOP_SAMPLE_IDS=${VCF_SAMPLE_IDS[@]}
+VCF_SAMPLE_IDS=($(gzip -dc ${PATH_TEST_VARIANTS} | grep -E '^#[^#]' -m 1 | cut -f 1-9 --complement | tr '\t' '\n' | sort || true))
+LOOP_SAMPLE_IDS=(${VCF_SAMPLE_IDS[@]})
 if [ "${PARAM_INPUT_VCF_SAMPLES}" != "*" ]; then
-  REQUESTED_SAMPLE_IDS=($(echo "${PARAM_INPUT_VCF_SAMPLES}" | tr ',' '\n' | sort | tr '\n' ' ' | sed 's/ $//'))
+  REQUESTED_SAMPLE_IDS=($(echo "${PARAM_INPUT_VCF_SAMPLES}" | tr ',' '\n' | sort ))
   if comm -23 <(echo "${REQUESTED_SAMPLE_IDS[@]}" | tr ' ' '\n') <(echo "${VCF_SAMPLE_IDS[@]}" | tr ' ' '\n'); then
     echo >&2 "Error: Not all requested sample IDs found in VCF (requested: \"${PARAM_INPUT_VCF_SAMPLES}\"; in VCF: \"$(echo "${VCF_SAMPLE_IDS[@]}" | tr ' ' ',')\")"
     exit 10
   fi
-  LOOP_SAMPLE_IDS=${REQUESTED_SAMPLE_IDS[@]}
+  LOOP_SAMPLE_IDS=(${REQUESTED_SAMPLE_IDS[@]})
 fi
 
 LOOP_NUM_SAMPLES=${#LOOP_SAMPLE_IDS[@]}
