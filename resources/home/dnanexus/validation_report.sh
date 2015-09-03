@@ -184,20 +184,20 @@ while getopts "r:o:d:j:s:hxt" opt; do
 			exit 0
 			;;
 		o)
-			PARAM_OUTPUT_PDF_PATH=$(readlink -f $OPTARG)
+			PARAM_OUTPUT_PDF_PATH=$(readlink -f "${OPTARG}")
 			;;
     d)
-      PARAM_OUTPUT_RDS_PATH=$(readlink -f $OPTARG)
+      PARAM_OUTPUT_RDS_PATH=$(readlink -f "${OPTARG}")
       ;;
     j)
-      PARAM_OUTPUT_JSON_PATH=$(readlink -f $OPTARG)
+      PARAM_OUTPUT_JSON_PATH=$(readlink -f "${OPTARG}")
       ;;
 		r)
 			PARAM_REGION_BED_SUPPLIED=1
-			PARAM_REGION_BED_PATH=$(readlink -f $OPTARG)
+			PARAM_REGION_BED_PATH=$(readlink -f "${OPTARG}")
 			;;
     s)
-      PARAM_INPUT_VCF_SAMPLES=${OPTARG}
+      PARAM_INPUT_VCF_SAMPLES="${OPTARG}"
       ;;
 		x)
 			PARAM_EXTENDED=1
