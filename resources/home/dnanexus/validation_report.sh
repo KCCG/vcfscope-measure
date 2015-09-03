@@ -528,7 +528,4 @@ done
 echo "Concatenating sub-reports..."
 ${GHOSTSCRIPT} -q -dNOPAUSE -dBATCH -sDEVICE=pdfwrite -sOutputFile="${PARAM_OUTPUT_PDF_PATH}" ${SUBREPORT_ARRAY[*]}
 
-echo "Home tree:"
-tree
-
 echo "Done."
