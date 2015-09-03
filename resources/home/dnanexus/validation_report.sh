@@ -1,12 +1,11 @@
 #!/bin/bash
-set -e -u -o pipefail
-set +x
+set -e -x -u -o pipefail
 IFS=$'\n\t'
 
 #####################################################################
 # VERSION
 #####################################################################
-export CONST_VERSION_SCRIPT="1.2.0"
+export CONST_VERSION_SCRIPT="1.3.0"
 
 
 #####################################################################
@@ -98,6 +97,7 @@ export PARAM_KNITR_SCRATCH="${PARAM_SCRATCH}/knitr"
 
 # Program parameters
 export PARAM_INPUT_VCFGZ_PATH
+export PARAM_INPUT_VCF_SAMPLES
 export PARAM_REGION_BED_SUPPLIED
 export PARAM_REGION_BED_PATH
 export PARAM_OUTPUT_PDF_PATH
@@ -221,6 +221,55 @@ if [ $# -ne 1 ]; then
 fi
 
 PARAM_INPUT_VCFGZ_PATH=$1
+
+
+#####################################################################
+# PARAMETER LOGGING
+#####################################################################
+echo >&2 "validation_report.sh parameters:"
+echo >&2 "  PATH_RESOURCES_HEAD=${PATH_RESOURCES_HEAD}"
+echo >&2 "  PATH_SCRATCH_DEFAULT=${PATH_SCRATCH_DEFAULT}"
+echo >&2 "  RSCRIPT=${RSCRIPT}"
+echo >&2 "  R=${R}"
+echo >&2 "  JAVA=${JAVA}"
+echo >&2 "  BEDTOOLS=${BEDTOOLS}"
+echo >&2 "  TABIX=${TABIX}"
+echo >&2 "  BGZIP=${BGZIP}"
+echo >&2 "  BCFTOOLS=${BCFTOOLS}"
+echo >&2 "  GHOSTSCRIPT=${GHOSTSCRIPT}"
+echo >&2 "  RTG_CORE=${RTG_CORE}"
+echo >&2 "  RTG_THREADS=${RTG_THREADS}"
+echo >&2 "  mem_in_mb=${mem_in_mb}"
+echo >&2 "  RTG_VCFEVAL=${RTG_VCFEVAL}"
+echo >&2 "  CONST_GOLD_CALLS_VCFGZ=${CONST_GOLD_CALLS_VCFGZ}"
+echo >&2 "  CONST_GOLD_CALLS_VCFGZTBI=${CONST_GOLD_CALLS_VCFGZTBI}"
+echo >&2 "  CONST_GOLD_HARDMASK_VALID_REGIONS_BEDGZ=${CONST_GOLD_HARDMASK_VALID_REGIONS_BEDGZ}"
+echo >&2 "  CONST_REFERENCE_SDF=${CONST_REFERENCE_SDF}"
+echo >&2 "  CONST_FUNCTIONAL_REGIONS_BEDGZ_PREFIX=${CONST_FUNCTIONAL_REGIONS_BEDGZ_PREFIX}"
+echo >&2 "  CONST_MASK_REGIONS_BEDGZ_PREFIX=${CONST_MASK_REGIONS_BEDGZ_PREFIX}"
+echo >&2 "  CONST_REFERENCE_BSGENOME=${CONST_REFERENCE_BSGENOME}"
+echo >&2 "  PARAM_EXEC_PATH=${PARAM_EXEC_PATH}"
+echo >&2 "  PARAM_SCRATCH=${PARAM_SCRATCH}"
+echo >&2 "  PARAM_INPUT_SCRATCH=${PARAM_INPUT_SCRATCH}"
+echo >&2 "  PARAM_RTG_OVERLAP_SCRATCH=${PARAM_RTG_OVERLAP_SCRATCH}"
+echo >&2 "  PARAM_KNITR_SCRATCH=${PARAM_KNITR_SCRATCH}"
+echo >&2 "  PARAM_INPUT_VCFGZ_PATH=${PARAM_INPUT_VCFGZ_PATH}"
+echo >&2 "  PARAM_INPUT_VCF_SAMPLES=${PARAM_INPUT_VCF_SAMPLES}"
+echo >&2 "  PARAM_REGION_BED_SUPPLIED=${PARAM_REGION_BED_SUPPLIED}"
+echo >&2 "  PARAM_REGION_BED_PATH=${PARAM_REGION_BED_PATH}"
+echo >&2 "  PARAM_OUTPUT_PDF_PATH=${PARAM_OUTPUT_PDF_PATH}"
+echo >&2 "  PARAM_OUTPUT_RDS_PATH=${PARAM_OUTPUT_RDS_PATH}"
+echo >&2 "  PARAM_OUTPUT_JSON_PATH=${PARAM_OUTPUT_JSON_PATH}"
+echo >&2 "  PARAM_EXTENDED=${PARAM_EXTENDED}"
+echo >&2 "  PARAM_VERSION_EXEC_HOST=${PARAM_VERSION_EXEC_HOST}"
+echo >&2 "  PARAM_VERSION_RTG=${PARAM_VERSION_RTG}"
+echo >&2 "  PARAM_VERSION_JAVA=${PARAM_VERSION_JAVA}"
+echo >&2 "  PARAM_VERSION_BEDTOOLS=${PARAM_VERSION_BEDTOOLS}"
+echo >&2 "  PATH_TEST_VARIANTS=${PATH_TEST_VARIANTS}"
+echo >&2 "  PATH_TEST_VARIANTS_INDEX=${PATH_TEST_VARIANTS_INDEX}"
+echo >&2 "  PATH_GOLD_VARIANTS=${PATH_GOLD_VARIANTS}"
+echo >&2 "  PATH_GOLD_VARIANTS_INDEX=${PATH_GOLD_VARIANTS_INDEX}"
+echo >&2 "  PATH_GOLD_REGIONS=${PATH_GOLD_REGIONS}"
 
 
 #####################################################################
