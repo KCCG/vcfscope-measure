@@ -380,16 +380,15 @@ ${TABIX} -p vcf ${PATH_TEST_VARIANTS}
 echo "Computing VCF overlaps..."
 
 # Handle a multi-sample VCF by getting sample IDs and splitting by them
-VCF_SAMPLE_IDS=($(gzip -dc ${PATH_TEST_VARIANTS} | grep -E '^#[^#]' -m 1 | cut -f 1-9 --complement | tr '\t' '\n' | sort | tr '\n' ' ' || true))
-if [ "${PARAM_INPUT_VCF_SAMPLES}" == "*" ]; then
-  LOOP_SAMPLE_IDS=${VCF_SAMPLE_IDS}
-else
-  REQUESTED_SAMPLE_IDS=($(echo "${PARAM_INPUT_VCF_SAMPLES}" | tr ',' '\n' | sort | tr '\n' ' '))
+VCF_SAMPLE_IDS=($(gzip -dc ${PATH_TEST_VARIANTS} | grep -E '^#[^#]' -m 1 | cut -f 1-9 --complement | tr '\t' '\n' | sort | tr '\n' ' ' | sed 's/ $//' || true))
+LOOP_SAMPLE_IDS=${VCF_SAMPLE_IDS[@]}
+if [ "${PARAM_INPUT_VCF_SAMPLES}" != "*" ]; then
+  REQUESTED_SAMPLE_IDS=($(echo "${PARAM_INPUT_VCF_SAMPLES}" | tr ',' '\n' | sort | tr '\n' ' ' | sed 's/ $//'))
   if comm -23 <(echo "${REQUESTED_SAMPLE_IDS[@]}" | tr ' ' '\n') <(echo "${VCF_SAMPLE_IDS[@]}" | tr ' ' '\n'); then
-    echo >&2 "Error: Not all requested sample IDs found in VCF (requested: '"'${PARAM_INPUT_VCF_SAMPLES}'"'; in VCF: '"'$(echo "${VCF_SAMPLE_IDS[@]}" | tr ' ' ',')'"')"
+    echo >&2 "Error: Not all requested sample IDs found in VCF (requested: \"${PARAM_INPUT_VCF_SAMPLES}\"; in VCF: \"$(echo "${VCF_SAMPLE_IDS[@]}" | tr ' ' ',')\")"
     exit 10
   fi
-  LOOP_SAMPLE_IDS=${REQUESTED_SAMPLE_IDS}
+  LOOP_SAMPLE_IDS=${REQUESTED_SAMPLE_IDS[@]}
 fi
 
 LOOP_NUM_SAMPLES=${#LOOP_SAMPLE_IDS[@]}
