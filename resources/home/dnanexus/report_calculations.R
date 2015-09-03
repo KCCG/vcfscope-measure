@@ -40,6 +40,7 @@ param$path.gold.regions.orig = env$CONST_GOLD_HARDMASK_VALID_REGIONS_BEDGZ      
 param$path.gold.variants.subset = env$PATH_GOLD_VARIANTS                        # Gold standard variant vcf, subset to the bed in param$region.subset.path
 param$path.gold.regions.subset = env$PATH_GOLD_REGIONS                          # Gold standard valid regions, subset to the bed in param$region.subset.path
 
+param$sample.ids = env$PARAM_INPUT_VCF_SAMPLES
 param$sample.index = as.integer(env$LOOP_SAMPLE_INDEX)
 param$sample.count = as.integer(env$LOOP_NUM_SAMPLES)
 param$sample.id = env$LOOP_THIS_SAMPLE_ID

@@ -145,6 +145,11 @@ Create a WGS validation report.
                  not written)
     -r BEDFILE   Restrict analysis to the regions in BEDFILE only.
                  Default: the full genome is considered.
+    -s SAMPLES   Generate reports for the given samples in the VCF
+                 only.  SAMPLES is either a comma-delimited list of
+                 sample IDs, exactly as they occur in the VCF, or
+                 *.  Default: * (a report is generated for each
+                 sample in the VCF).
     -x           Generate an extended report, with threshold and
                  score diagnostics appended to the standard report.
                  Default: generate the standard report only.
@@ -163,6 +168,7 @@ EOF
 # Head location for resources bundle
 OPTIND=1
 PARAM_INPUT_VCFGZ_PATH=""
+PARAM_INPUT_VCF_SAMPLES="*"
 PARAM_REGION_BED_SUPPLIED=0
 PARAM_REGION_BED_PATH="NA"
 PARAM_OUTPUT_PDF_PATH="${PARAM_EXEC_PATH}/validation_report.pdf"
@@ -171,7 +177,7 @@ PARAM_OUTPUT_JSON_PATH=""
 PARAM_EXTENDED=0
 PARAM_DOTESTS=0
 
-while getopts "r:o:d:j:hxt" opt; do
+while getopts "r:o:d:j:s:hxt" opt; do
 	case "$opt" in
 		h)
 			print_usage
@@ -190,6 +196,9 @@ while getopts "r:o:d:j:hxt" opt; do
 			PARAM_REGION_BED_SUPPLIED=1
 			PARAM_REGION_BED_PATH=$(readlink -f $OPTARG)
 			;;
+    s)
+      PARAM_INPUT_VCF_SAMPLES=${OPTARG}
+      ;;
 		x)
 			PARAM_EXTENDED=1
 			;;
@@ -322,7 +331,18 @@ ${TABIX} -p vcf ${PATH_TEST_VARIANTS}
 echo "Computing VCF overlaps..."
 
 # Handle a multi-sample VCF by getting sample IDs and splitting by them
-LOOP_SAMPLE_IDS=($(gzip -dc ${PATH_TEST_VARIANTS} | grep -E '^#[^#]' -m 1 | cut -f 1-9 --complement || true))
+VCF_SAMPLE_IDS=($(gzip -dc ${PATH_TEST_VARIANTS} | grep -E '^#[^#]' -m 1 | cut -f 1-9 --complement | tr '\t' '\n' | sort | tr '\n' ' ' || true))
+if [ ${PARAM_INPUT_VCF_SAMPLES} == "*" ]; then
+  LOOP_SAMPLE_IDS=${VCF_SAMPLE_IDS}
+else
+  REQUESTED_SAMPLE_IDS=($(echo ${PARAM_INPUT_VCF_SAMPLES} | tr ',' '\n' | sort | tr '\n' ' '))
+  if comm -23 <(echo ${REQUESTED_SAMPLE_IDS[@]} | tr ' ' '\n') <(echo ${VCF_SAMPLE_IDS[@]} | tr ' ' '\n'); then
+    echo >&2 "Error: Not all requested sample IDs found in VCF (requested: ${PARAM_INPUT_VCF_SAMPLES}; in VCF: $(echo ${VCF_SAMPLE_IDS[@]} | tr ' ' ','))"
+    exit 10
+  fi
+  LOOP_SAMPLE_IDS=${REQUESTED_SAMPLE_IDS}
+fi
+
 LOOP_NUM_SAMPLES=${#LOOP_SAMPLE_IDS[@]}
 for (( LOOP_SAMPLE_INDEX=0; LOOP_SAMPLE_INDEX<${LOOP_NUM_SAMPLES}; LOOP_SAMPLE_INDEX++ )); do
   echo "  Sample ${LOOP_SAMPLE_IDS[LOOP_SAMPLE_INDEX]}..."
