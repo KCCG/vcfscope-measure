@@ -28,6 +28,15 @@
         },
         {
             "group": "advanced",
+            "name": "sampleIDs",
+            "label": "VCF sample IDs",
+            "help": "Generate reports for these samples in the VCF only.  Comma-separated list; * indicates all samples.",
+            "class": "string",
+            "optional": true,
+            "default": "*"
+        },
+        {
+            "group": "advanced",
             "name": "extended",
             "label": "Extended report?",
             "help": "Generate an extended report, with threshold and score diagnostics.",
