@@ -200,7 +200,7 @@ while getopts "r:o:d:j:s:hxt" opt; do
 			PARAM_REGION_BED_PATH=$(readlink -f "${OPTARG}")
 			;;
     s)
-      PARAM_INPUT_VCF_SAMPLES=$(readlink -f "${OPTARG}")
+      PARAM_INPUT_VCF_SAMPLES="${OPTARG}"
       ;;
 		x)
 			PARAM_EXTENDED=1
