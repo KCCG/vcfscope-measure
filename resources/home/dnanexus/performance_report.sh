@@ -6,7 +6,7 @@ IFS=$'\n\t'
 #####################################################################
 # VERSION
 #####################################################################
-export CONST_VERSION_SCRIPT="1.3.1"
+export CONST_VERSION_SCRIPT="2.0.0"
 
 
 #####################################################################
@@ -40,7 +40,7 @@ if [ ${IS_DNANEXUS} -eq 1 ]; then
   RTG_VCFEVAL="${JAVA} -Xmx${mem_in_mb}m -jar ${RTG_CORE} vcfeval -T ${RTG_THREADS}"
 else
   # Wolfpack settings (marpin only for now)
-  PATH_RESOURCES_HEAD="/directflow/ClinicalGenomicsPipeline/projects/validation-reporter/resources"
+  PATH_RESOURCES_HEAD="/directflow/ClinicalGenomicsPipeline/projects/performance-reporter/resources"
   PATH_SCRATCH_DEFAULT="/directflow/ClinicalGenomicsPipeline/tmp"
 
   RSCRIPT="/home/marpin/bin/Rscript"
@@ -138,13 +138,13 @@ print_usage() {
 cat << EOF
 Usage: ${0##*/} [-o OUTFILE] [-d RDSOUT] [-j JSONOUT] [-r BEDFILE] [-x] [-t] <INFILE>
 
-Create a WGS validation report.
+Create a WGS performance report.
 
     INFILE       Input NA12878 genotype calls, in vcf.gz format.
     -o OUTFILE   Write the report to OUTFILE (default: report.pdf)
-    -d RDSOUT    Write validation report data to RDSOUT (default: 
+    -d RDSOUT    Write performance report data to RDSOUT (default: 
                  not written)
-    -j JSONOUT   Write validation report summary to JSONOUT (default: 
+    -j JSONOUT   Write performance report summary to JSONOUT (default: 
                  not written)
     -r BEDFILE   Restrict analysis to the regions in BEDFILE only.
                  Default: the full genome is considered.
@@ -174,7 +174,7 @@ PARAM_INPUT_VCFGZ_PATH=""
 PARAM_INPUT_VCF_SAMPLES="*"
 PARAM_REGION_BED_SUPPLIED=0
 PARAM_REGION_BED_PATH="NA"
-PARAM_OUTPUT_PDF_PATH="${PARAM_SCRIPT_PATH}/validation_report.pdf"
+PARAM_OUTPUT_PDF_PATH="${PARAM_SCRIPT_PATH}/performance_report.pdf"
 PARAM_OUTPUT_RDS_PATH=""
 PARAM_OUTPUT_JSON_PATH=""
 PARAM_EXTENDED=0
@@ -291,7 +291,7 @@ PARAM_VERSION_BEDTOOLS=$(${BEDTOOLS} --version | cut -d' ' -f 2)
 #####################################################################
 # PARAMETER LOGGING
 #####################################################################
-echo >&2 "validation_report.sh parameters:"
+echo >&2 "performance_report.sh parameters:"
 echo >&2 "  PATH_RESOURCES_HEAD=${PATH_RESOURCES_HEAD}"
 echo >&2 "  PATH_SCRATCH_DEFAULT=${PATH_SCRATCH_DEFAULT}"
 echo >&2 "  RSCRIPT=${RSCRIPT}"

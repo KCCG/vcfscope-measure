@@ -1,6 +1,6 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %  
-%  KCCG WGS Validation Reporter -- Report generator
+%  KCCG WGS Performance Reporter -- Report generator
 %  
 %  Usage: 
 %    Rscript --vanilla -e "library(knitr); knit('report.Rnw', output = 'report.tex')"
@@ -86,13 +86,13 @@ options(warn = 1)
 \newcommand{\HRule}{\rule{\linewidth}{0.5mm}}
 
 \fancyhf{}
-\lhead{WGS Validation Report (v\texttt{\Sexpr{param$version$script}}): \texttt{\Sexpr{texquote(calls.sampleid)}}}
+\lhead{WGS Performance Report (v\texttt{\Sexpr{param$version$script}}): \texttt{\Sexpr{texquote(calls.sampleid)}}}
 \rhead{Page \thepage\ of \pageref{LastPage}}
 
 \let\endtitlepage\relax
 \begin{titlepage}
 \begin{flushleft}
-\LARGE{WGS Validation Report: \texttt{\Sexpr{texquote(calls.sampleid)}}}
+\LARGE{WGS Performance Report: \texttt{\Sexpr{texquote(calls.sampleid)}}}
 \HRule
 \end{flushleft}
 \end{titlepage}
@@ -266,7 +266,7 @@ if (param$region.subset)
 \section{Versions}
 \begin{itemize}
 \item Software: \begin{itemize}
-	\item Validation script: \texttt{\Sexpr{texquote(param$version$script)}}
+	\item Performance script: \texttt{\Sexpr{texquote(param$version$script)}}
 	\item R: \texttt{\Sexpr{texquote(R.version$version.string)}} (\texttt{\Sexpr{texquote(R.version$platform)}})
 	\item Genome: \texttt{\Sexpr{texquote(param$genome)}} (\texttt{\Sexpr{packageVersion(param$genome)}})
 	\item Java: \texttt{\Sexpr{texquote(param$version$java)}}
