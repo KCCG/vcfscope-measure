@@ -34,10 +34,10 @@ if [ ${IS_DNANEXUS} -eq 1 ]; then
   BCFTOOLS=`which bcftools`
   GHOSTSCRIPT=`which gs`
 
-  RTG_CORE="${PATH_RESOURCES_HEAD}/rtg-core/rtg-core.jar"
+  RTG_TOOLS="${PATH_RESOURCES_HEAD}/rtg-tools/RTG.jar"
   RTG_THREADS=`nproc`
   mem_in_mb=`head -n1 /proc/meminfo | awk '{print int($2*0.8/1024)}'`                 # Calculate 80% of memory size, for java
-  RTG_VCFEVAL="${JAVA} -Xmx${mem_in_mb}m -jar ${RTG_CORE} vcfeval -T ${RTG_THREADS}"
+  RTG_VCFEVAL="${JAVA} -Xmx${mem_in_mb}m -jar ${RTG_TOOLS} vcfeval -T ${RTG_THREADS}"
 else
   # Wolfpack settings (marpin only for now)
   PATH_RESOURCES_HEAD="/directflow/ClinicalGenomicsPipeline/projects/performance-reporter/resources"
@@ -52,27 +52,10 @@ else
   BCFTOOLS="/home/marpin/software/bcftools/bcftools"
   GHOSTSCRIPT=`which gs`
 
-  RTG_CORE="${PATH_RESOURCES_HEAD}/rtg-core/rtg-core.jar"
+  RTG_TOOLS="${PATH_RESOURCES_HEAD}/rtg-tools/RTG.jar"
   RTG_THREADS=4
   mem_in_mb=8192
-  RTG_VCFEVAL="${JAVA} -Xmx${mem_in_mb}m -jar ${RTG_CORE} vcfeval -T ${RTG_THREADS}"
-
-  # Local settings (mark's laptop)
-  # PATH_RESOURCES_HEAD="/home/mark/Desktop/valrept_test/resources"
-  # PATH_SCRATCH_DEFAULT="/home/mark/Desktop/valrept_test/tmp"
-
-  # RSCRIPT=`which Rscript`
-  # R=`which R`
-  # JAVA=`which java`
-  # BEDTOOLS=`which bedtools`
-  # TABIX=`which tabix`
-  # BGZIP=`which bgzip`
-  # BCFTOOLS="/home/mark/Desktop/valrept_test/resources/bcftools-1.2/bcftools"
-  # GHOSTSCRIPT=`which gs`
-
-  # RTG_CORE="${PATH_RESOURCES_HEAD}/rtg-core/rtg-core.jar"
-  # RTG_THREADS=4
-  # RTG_VCFEVAL="${JAVA} -Xmx4G -jar ${RTG_CORE} vcfeval -T ${RTG_THREADS}"
+  RTG_VCFEVAL="${JAVA} -Xmx${mem_in_mb}m -jar ${RTG_TOOLS} vcfeval -T ${RTG_THREADS}"
 fi
 
 
@@ -264,8 +247,8 @@ if [ ! -e ${JAVA} ]; then
   exit 7
 fi
 
-if [ ! -e ${RTG_CORE} ]; then
-  echo >&2 "Error: RTG-core.jar not found."
+if [ ! -e ${RTG_TOOLS} ]; then
+  echo >&2 "Error: RTG.jar not found."
   exit 8
 fi
 
@@ -283,7 +266,8 @@ ${R} --vanilla -e "if (!(\"${CONST_REFERENCE_BSGENOME}\" %in% installed.packages
 # VERSIONING
 #####################################################################
 PARAM_VERSION_EXEC_HOST=$(uname -a)
-PARAM_VERSION_RTG=$(${JAVA} -Xmx${mem_in_mb}m -jar ${RTG_CORE} version | grep 'Core Version: ' | sed 's/.*: //g')
+PARAM_VERSION_RTG=$(${JAVA} -Xmx${mem_in_mb}m -jar ${RTG_TOOLS} version | grep -m1 'Product: ' | sed 's/.* //g')
+PARAM_VERSION_RTG="${PARAM_VERSION_RTG} $(${JAVA} -Xmx${mem_in_mb}m -jar ${RTG_TOOLS} version | grep -m1 'Core Version: ' | sed 's/.*: //g')"
 PARAM_VERSION_JAVA=$(${JAVA} -Xmx${mem_in_mb}m -version 2>&1 | head -n 1 | sed -E 's/[^"]+"//;s/"$//')
 PARAM_VERSION_BEDTOOLS=$(${BEDTOOLS} --version | cut -d' ' -f 2)
 
@@ -302,7 +286,7 @@ echo >&2 "  TABIX=${TABIX}"
 echo >&2 "  BGZIP=${BGZIP}"
 echo >&2 "  BCFTOOLS=${BCFTOOLS}"
 echo >&2 "  GHOSTSCRIPT=${GHOSTSCRIPT}"
-echo >&2 "  RTG_CORE=${RTG_CORE}"
+echo >&2 "  RTG_TOOLS=${RTG_TOOLS}"
 echo >&2 "  RTG_THREADS=${RTG_THREADS}"
 echo >&2 "  mem_in_mb=${mem_in_mb}"
 echo >&2 "  RTG_VCFEVAL=${RTG_VCFEVAL}"
