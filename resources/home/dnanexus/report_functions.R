@@ -174,7 +174,9 @@ classifyZygosityVcf = function(vcf)
         }
         else if (length(gt) == 2)
         {
-            if (gt[1] == gt[2])
+            if (is.na(gt[1]) || is.na(gt[2]))
+                return(NA)
+            else if (gt[1] == gt[2])
             {
                 if (gt[1] == 0)
                     return("R/R")
@@ -560,10 +562,10 @@ vcfPerf = function(data, field_access_func)
     scores.tp = field_access_func(data$vcf.tp)
     scores.fp = field_access_func(data$vcf.fp)
 
-    if (is.null(scores.tp) || is.null(scores.fp))
+    if (is.null(scores.tp) || is.null(scores.fp) || (all(is.na(scores.tp)) && all(is.na(scores.fp))))
     {
-        # The required field is not present in the VCFs.  Try and fail gracefully
-        # by returning empty results.
+        # The required field is not present in the VCFs, or is all NA.  
+        # Try and fail gracefully by returning empty results.
         return(data.frame(
             cutoff = c(    -Inf,  -Inf,   Inf,   Inf),
             midpoint = c(  -Inf,  -Inf,   Inf,   Inf),

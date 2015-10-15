@@ -6,7 +6,7 @@ IFS=$'\n\t'
 #####################################################################
 # VERSION
 #####################################################################
-export CONST_VERSION_SCRIPT="1.3.0"
+export CONST_VERSION_SCRIPT="1.3.1"
 
 
 #####################################################################
@@ -54,8 +54,8 @@ else
 
   RTG_CORE="${PATH_RESOURCES_HEAD}/rtg-core/rtg-core.jar"
   RTG_THREADS=4
-  mem_in_mb=`head -n1 /proc/meminfo | awk '{print int($2*0.8/1024)}'`                 # Calculate 80% of memory size, for java
-  RTG_VCFEVAL="${JAVA} -Xmx8G -jar ${RTG_CORE} vcfeval -T ${RTG_THREADS}"
+  mem_in_mb=8192
+  RTG_VCFEVAL="${JAVA} -Xmx${mem_in_mb}m -jar ${RTG_CORE} vcfeval -T ${RTG_THREADS}"
 
   # Local settings (mark's laptop)
   # PATH_RESOURCES_HEAD="/home/mark/Desktop/valrept_test/resources"
@@ -88,6 +88,7 @@ export CONST_MASK_REGIONS_BEDGZ_PREFIX="${PATH_RESOURCES_HEAD}/mask_regions/"
 export CONST_REFERENCE_BSGENOME="BSgenome.HSapiens.1000g.37d5"		# This is a custom package, available at /share/ClusterShare/biodata/contrib/marpin/reference/hs37d5/build/BSgenome.HSapiens.1000g.37d5_1.0.0.tar.gz
 
 # Script location
+export PARAM_SCRIPT_PATH=$(dirname $0)
 export PARAM_EXEC_PATH=$(pwd)
 
 # Scratch space
@@ -143,7 +144,7 @@ Create a WGS validation report.
     -o OUTFILE   Write the report to OUTFILE (default: report.pdf)
     -d RDSOUT    Write validation report data to RDSOUT (default: 
                  not written)
-    -d JSONOUT   Write validation report summary to JSONOUT (default: 
+    -j JSONOUT   Write validation report summary to JSONOUT (default: 
                  not written)
     -r BEDFILE   Restrict analysis to the regions in BEDFILE only.
                  Default: the full genome is considered.
@@ -173,7 +174,7 @@ PARAM_INPUT_VCFGZ_PATH=""
 PARAM_INPUT_VCF_SAMPLES="*"
 PARAM_REGION_BED_SUPPLIED=0
 PARAM_REGION_BED_PATH="NA"
-PARAM_OUTPUT_PDF_PATH="${PARAM_EXEC_PATH}/validation_report.pdf"
+PARAM_OUTPUT_PDF_PATH="${PARAM_SCRIPT_PATH}/validation_report.pdf"
 PARAM_OUTPUT_RDS_PATH=""
 PARAM_OUTPUT_JSON_PATH=""
 PARAM_EXTENDED=0
@@ -186,17 +187,17 @@ while getopts "r:o:d:j:s:hxt" opt; do
 			exit 0
 			;;
 		o)
-			PARAM_OUTPUT_PDF_PATH="${OPTARG}"
+			PARAM_OUTPUT_PDF_PATH=$(readlink -f "${OPTARG}")
 			;;
     d)
-      PARAM_OUTPUT_RDS_PATH="${OPTARG}"
+      PARAM_OUTPUT_RDS_PATH=$(readlink -f "${OPTARG}")
       ;;
     j)
-      PARAM_OUTPUT_JSON_PATH="${OPTARG}"
+      PARAM_OUTPUT_JSON_PATH=$(readlink -f "${OPTARG}")
       ;;
 		r)
 			PARAM_REGION_BED_SUPPLIED=1
-			PARAM_REGION_BED_PATH="${OPTARG}"
+			PARAM_REGION_BED_PATH=$(readlink -f "${OPTARG}")
 			;;
     s)
       PARAM_INPUT_VCF_SAMPLES="${OPTARG}"
@@ -222,7 +223,7 @@ if [ $# -ne 1 ]; then
 	exit 1
 fi
 
-PARAM_INPUT_VCFGZ_PATH=$1
+PARAM_INPUT_VCFGZ_PATH=$(readlink -f $1)
 
 
 #####################################################################
@@ -282,8 +283,8 @@ ${R} --vanilla -e "if (!(\"${CONST_REFERENCE_BSGENOME}\" %in% installed.packages
 # VERSIONING
 #####################################################################
 PARAM_VERSION_EXEC_HOST=$(uname -a)
-PARAM_VERSION_RTG=$(${JAVA} -jar ${RTG_CORE} version | grep 'Core Version: ' | sed 's/.*: //g')
-PARAM_VERSION_JAVA=$(${JAVA} -version 2>&1 | head -n 1 | sed -E 's/[^"]+"//;s/"$//')
+PARAM_VERSION_RTG=$(${JAVA} -Xmx${mem_in_mb}m -jar ${RTG_CORE} version | grep 'Core Version: ' | sed 's/.*: //g')
+PARAM_VERSION_JAVA=$(${JAVA} -Xmx${mem_in_mb}m -version 2>&1 | head -n 1 | sed -E 's/[^"]+"//;s/"$//')
 PARAM_VERSION_BEDTOOLS=$(${BEDTOOLS} --version | cut -d' ' -f 2)
 
 
@@ -312,7 +313,7 @@ echo >&2 "  CONST_REFERENCE_SDF=${CONST_REFERENCE_SDF}"
 echo >&2 "  CONST_FUNCTIONAL_REGIONS_BEDGZ_PREFIX=${CONST_FUNCTIONAL_REGIONS_BEDGZ_PREFIX}"
 echo >&2 "  CONST_MASK_REGIONS_BEDGZ_PREFIX=${CONST_MASK_REGIONS_BEDGZ_PREFIX}"
 echo >&2 "  CONST_REFERENCE_BSGENOME=${CONST_REFERENCE_BSGENOME}"
-echo >&2 "  PARAM_EXEC_PATH=${PARAM_EXEC_PATH}"
+echo >&2 "  PARAM_SCRIPT_PATH=${PARAM_SCRIPT_PATH}"
 echo >&2 "  PARAM_SCRATCH=${PARAM_SCRATCH}"
 echo >&2 "  PARAM_INPUT_SCRATCH=${PARAM_INPUT_SCRATCH}"
 echo >&2 "  PARAM_RTG_OVERLAP_SCRATCH=${PARAM_RTG_OVERLAP_SCRATCH}"
@@ -347,8 +348,8 @@ mkdir -p ${PARAM_INPUT_SCRATCH}
 # CREATE OUTPUT DIRECTORIES
 #####################################################################
 mkdir -p $(dirname ${PARAM_OUTPUT_PDF_PATH})
-mkdir -p $(dirname ${PARAM_OUTPUT_RDS_PATH})
-mkdir -p $(dirname ${PARAM_OUTPUT_JSON_PATH})
+[ -e ${PARAM_OUTPUT_RDS_PATH} ] || mkdir -p $(dirname ${PARAM_OUTPUT_RDS_PATH})
+[ -e ${PARAM_OUTPUT_JSON_PATH} ] || mkdir -p $(dirname ${PARAM_OUTPUT_JSON_PATH})
 
 
 #####################################################################
@@ -431,8 +432,8 @@ done
 if [ ${IS_DNANEXUS} -eq 1 ]; then
   chown -R dnanexus:dnanexus ${PARAM_SCRATCH}
   chown -R dnanexus:dnanexus $(dirname ${PARAM_OUTPUT_PDF_PATH})
-  chown -R dnanexus:dnanexus $(dirname ${PARAM_OUTPUT_RDS_PATH})
-  chown -R dnanexus:dnanexus $(dirname ${PARAM_OUTPUT_JSON_PATH})
+  [ -e ${PARAM_OUTPUT_RDS_PATH} ] || chown -R dnanexus:dnanexus $(dirname ${PARAM_OUTPUT_RDS_PATH})
+  [ -e ${PARAM_OUTPUT_JSON_PATH} ] || chown -R dnanexus:dnanexus $(dirname ${PARAM_OUTPUT_JSON_PATH})
 fi
 # DIRTY DIRTY DIRTY
 #####################################################################
@@ -460,12 +461,12 @@ for (( LOOP_SAMPLE_INDEX = 0; LOOP_SAMPLE_INDEX < ${LOOP_NUM_SAMPLES}; LOOP_SAMP
 
   echo "  Sample ${LOOP_THIS_SAMPLE_ID}..."
   mkdir -p ${LOOP_KNITR_PATH}
-  cp -f report.Rnw ${LOOP_KNITR_PATH}
-  cp -f report_functions.R ${LOOP_KNITR_PATH}
-  cp -f report_extended.Rnw ${LOOP_KNITR_PATH}
-  cp -f report_calculations.R ${LOOP_KNITR_PATH}
-  cp -f test-calcs.R ${LOOP_KNITR_PATH}
-  cp -f merge_report_summaries.R ${LOOP_KNITR_PATH}
+  cp -f ${PARAM_SCRIPT_PATH}/report.Rnw ${LOOP_KNITR_PATH}
+  cp -f ${PARAM_SCRIPT_PATH}/report_functions.R ${LOOP_KNITR_PATH}
+  cp -f ${PARAM_SCRIPT_PATH}/report_extended.Rnw ${LOOP_KNITR_PATH}
+  cp -f ${PARAM_SCRIPT_PATH}/report_calculations.R ${LOOP_KNITR_PATH}
+  cp -f ${PARAM_SCRIPT_PATH}/test-calcs.R ${LOOP_KNITR_PATH}
+  cp -f ${PARAM_SCRIPT_PATH}/merge_report_summaries.R ${LOOP_KNITR_PATH}
   cd ${LOOP_KNITR_PATH}
 
   # Run the script.  All options are passed via exported environment 

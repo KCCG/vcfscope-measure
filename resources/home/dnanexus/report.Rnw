@@ -71,7 +71,7 @@ options(
 	tikzMetricsDictionary="tikzMetrics"
 )
 opts_chunk$set(
-	echo = FALSE, results = 'markup', message = FALSE, warning = FALSE, error = FALSE, 
+	echo = FALSE, results = 'markup', message = FALSE, warning = FALSE, error = TRUE, 
 	fig.keep = 'high', fig.align = 'center', fig.width = 5, fig.height = 3.5,
 	cache = FALSE, cache.lazy = FALSE)
 opts_knit$set(progress = TRUE, verbose = TRUE)
