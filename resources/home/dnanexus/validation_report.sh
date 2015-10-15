@@ -6,7 +6,7 @@ IFS=$'\n\t'
 #####################################################################
 # VERSION
 #####################################################################
-export CONST_VERSION_SCRIPT="1.2.0"
+export CONST_VERSION_SCRIPT="1.3.0"
 
 
 #####################################################################
@@ -54,6 +54,7 @@ else
 
   RTG_CORE="${PATH_RESOURCES_HEAD}/rtg-core/rtg-core.jar"
   RTG_THREADS=4
+  mem_in_mb=`head -n1 /proc/meminfo | awk '{print int($2*0.8/1024)}'`                 # Calculate 80% of memory size, for java
   RTG_VCFEVAL="${JAVA} -Xmx8G -jar ${RTG_CORE} vcfeval -T ${RTG_THREADS}"
 
   # Local settings (mark's laptop)
@@ -98,6 +99,7 @@ export PARAM_KNITR_SCRATCH="${PARAM_SCRATCH}/knitr"
 
 # Program parameters
 export PARAM_INPUT_VCFGZ_PATH
+export PARAM_INPUT_VCF_SAMPLES
 export PARAM_REGION_BED_SUPPLIED
 export PARAM_REGION_BED_PATH
 export PARAM_OUTPUT_PDF_PATH
@@ -145,6 +147,11 @@ Create a WGS validation report.
                  not written)
     -r BEDFILE   Restrict analysis to the regions in BEDFILE only.
                  Default: the full genome is considered.
+    -s SAMPLES   Generate reports for the given samples in the VCF
+                 only.  SAMPLES is either a comma-delimited list of
+                 sample IDs, exactly as they occur in the VCF, or
+                 *.  Default: * (a report is generated for each
+                 sample in the VCF).
     -x           Generate an extended report, with threshold and
                  score diagnostics appended to the standard report.
                  Default: generate the standard report only.
@@ -163,6 +170,7 @@ EOF
 # Head location for resources bundle
 OPTIND=1
 PARAM_INPUT_VCFGZ_PATH=""
+PARAM_INPUT_VCF_SAMPLES="*"
 PARAM_REGION_BED_SUPPLIED=0
 PARAM_REGION_BED_PATH="NA"
 PARAM_OUTPUT_PDF_PATH="${PARAM_EXEC_PATH}/validation_report.pdf"
@@ -171,25 +179,28 @@ PARAM_OUTPUT_JSON_PATH=""
 PARAM_EXTENDED=0
 PARAM_DOTESTS=0
 
-while getopts "r:o:d:j:hxt" opt; do
+while getopts "r:o:d:j:s:hxt" opt; do
 	case "$opt" in
 		h)
 			print_usage
 			exit 0
 			;;
 		o)
-			PARAM_OUTPUT_PDF_PATH=$(readlink -f $OPTARG)
+			PARAM_OUTPUT_PDF_PATH="${OPTARG}"
 			;;
     d)
-      PARAM_OUTPUT_RDS_PATH=$(readlink -f $OPTARG)
+      PARAM_OUTPUT_RDS_PATH="${OPTARG}"
       ;;
     j)
-      PARAM_OUTPUT_JSON_PATH=$(readlink -f $OPTARG)
+      PARAM_OUTPUT_JSON_PATH="${OPTARG}"
       ;;
 		r)
 			PARAM_REGION_BED_SUPPLIED=1
-			PARAM_REGION_BED_PATH=$(readlink -f $OPTARG)
+			PARAM_REGION_BED_PATH="${OPTARG}"
 			;;
+    s)
+      PARAM_INPUT_VCF_SAMPLES="${OPTARG}"
+      ;;
 		x)
 			PARAM_EXTENDED=1
 			;;
@@ -277,10 +288,67 @@ PARAM_VERSION_BEDTOOLS=$(${BEDTOOLS} --version | cut -d' ' -f 2)
 
 
 #####################################################################
+# PARAMETER LOGGING
+#####################################################################
+echo >&2 "validation_report.sh parameters:"
+echo >&2 "  PATH_RESOURCES_HEAD=${PATH_RESOURCES_HEAD}"
+echo >&2 "  PATH_SCRATCH_DEFAULT=${PATH_SCRATCH_DEFAULT}"
+echo >&2 "  RSCRIPT=${RSCRIPT}"
+echo >&2 "  R=${R}"
+echo >&2 "  JAVA=${JAVA}"
+echo >&2 "  BEDTOOLS=${BEDTOOLS}"
+echo >&2 "  TABIX=${TABIX}"
+echo >&2 "  BGZIP=${BGZIP}"
+echo >&2 "  BCFTOOLS=${BCFTOOLS}"
+echo >&2 "  GHOSTSCRIPT=${GHOSTSCRIPT}"
+echo >&2 "  RTG_CORE=${RTG_CORE}"
+echo >&2 "  RTG_THREADS=${RTG_THREADS}"
+echo >&2 "  mem_in_mb=${mem_in_mb}"
+echo >&2 "  RTG_VCFEVAL=${RTG_VCFEVAL}"
+echo >&2 "  CONST_GOLD_CALLS_VCFGZ=${CONST_GOLD_CALLS_VCFGZ}"
+echo >&2 "  CONST_GOLD_CALLS_VCFGZTBI=${CONST_GOLD_CALLS_VCFGZTBI}"
+echo >&2 "  CONST_GOLD_HARDMASK_VALID_REGIONS_BEDGZ=${CONST_GOLD_HARDMASK_VALID_REGIONS_BEDGZ}"
+echo >&2 "  CONST_REFERENCE_SDF=${CONST_REFERENCE_SDF}"
+echo >&2 "  CONST_FUNCTIONAL_REGIONS_BEDGZ_PREFIX=${CONST_FUNCTIONAL_REGIONS_BEDGZ_PREFIX}"
+echo >&2 "  CONST_MASK_REGIONS_BEDGZ_PREFIX=${CONST_MASK_REGIONS_BEDGZ_PREFIX}"
+echo >&2 "  CONST_REFERENCE_BSGENOME=${CONST_REFERENCE_BSGENOME}"
+echo >&2 "  PARAM_EXEC_PATH=${PARAM_EXEC_PATH}"
+echo >&2 "  PARAM_SCRATCH=${PARAM_SCRATCH}"
+echo >&2 "  PARAM_INPUT_SCRATCH=${PARAM_INPUT_SCRATCH}"
+echo >&2 "  PARAM_RTG_OVERLAP_SCRATCH=${PARAM_RTG_OVERLAP_SCRATCH}"
+echo >&2 "  PARAM_KNITR_SCRATCH=${PARAM_KNITR_SCRATCH}"
+echo >&2 "  PARAM_INPUT_VCFGZ_PATH=${PARAM_INPUT_VCFGZ_PATH}"
+echo >&2 "  PARAM_INPUT_VCF_SAMPLES=${PARAM_INPUT_VCF_SAMPLES}"
+echo >&2 "  PARAM_REGION_BED_SUPPLIED=${PARAM_REGION_BED_SUPPLIED}"
+echo >&2 "  PARAM_REGION_BED_PATH=${PARAM_REGION_BED_PATH}"
+echo >&2 "  PARAM_OUTPUT_PDF_PATH=${PARAM_OUTPUT_PDF_PATH}"
+echo >&2 "  PARAM_OUTPUT_RDS_PATH=${PARAM_OUTPUT_RDS_PATH}"
+echo >&2 "  PARAM_OUTPUT_JSON_PATH=${PARAM_OUTPUT_JSON_PATH}"
+echo >&2 "  PARAM_EXTENDED=${PARAM_EXTENDED}"
+echo >&2 "  PARAM_VERSION_EXEC_HOST=${PARAM_VERSION_EXEC_HOST}"
+echo >&2 "  PARAM_VERSION_RTG=${PARAM_VERSION_RTG}"
+echo >&2 "  PARAM_VERSION_JAVA=${PARAM_VERSION_JAVA}"
+echo >&2 "  PARAM_VERSION_BEDTOOLS=${PARAM_VERSION_BEDTOOLS}"
+echo >&2 "  PATH_TEST_VARIANTS=${PATH_TEST_VARIANTS}"
+echo >&2 "  PATH_TEST_VARIANTS_INDEX=${PATH_TEST_VARIANTS_INDEX}"
+echo >&2 "  PATH_GOLD_VARIANTS=${PATH_GOLD_VARIANTS}"
+echo >&2 "  PATH_GOLD_VARIANTS_INDEX=${PATH_GOLD_VARIANTS_INDEX}"
+echo >&2 "  PATH_GOLD_REGIONS=${PATH_GOLD_REGIONS}"
+
+
+#####################################################################
 # CREATE TEMPORARY DIRECTORIES
 #####################################################################
 mkdir -p ${PARAM_SCRATCH}
 mkdir -p ${PARAM_INPUT_SCRATCH}
+
+
+#####################################################################
+# CREATE OUTPUT DIRECTORIES
+#####################################################################
+mkdir -p $(dirname ${PARAM_OUTPUT_PDF_PATH})
+mkdir -p $(dirname ${PARAM_OUTPUT_RDS_PATH})
+mkdir -p $(dirname ${PARAM_OUTPUT_JSON_PATH})
 
 
 #####################################################################
@@ -322,7 +390,17 @@ ${TABIX} -p vcf ${PATH_TEST_VARIANTS}
 echo "Computing VCF overlaps..."
 
 # Handle a multi-sample VCF by getting sample IDs and splitting by them
-LOOP_SAMPLE_IDS=($(gzip -dc ${PATH_TEST_VARIANTS} | grep -E '^#[^#]' -m 1 | cut -f 1-9 --complement || true))
+VCF_SAMPLE_IDS=($(gzip -dc ${PATH_TEST_VARIANTS} | grep -E '^#[^#]' -m 1 | cut -f 1-9 --complement | tr '\t' '\n' | sort || true))
+LOOP_SAMPLE_IDS=(${VCF_SAMPLE_IDS[@]})
+if [ "${PARAM_INPUT_VCF_SAMPLES}" != "*" ]; then
+  REQUESTED_SAMPLE_IDS=($(echo "${PARAM_INPUT_VCF_SAMPLES}" | tr ',' '\n' | sort ))
+  if [[ $(comm -23 <(echo "${REQUESTED_SAMPLE_IDS[@]}" | tr ' ' '\n') <(echo "${VCF_SAMPLE_IDS[@]}" | tr ' ' '\n')) != "" ]]; then
+    echo >&2 "Error: Not all requested sample IDs found in VCF (requested: \"${PARAM_INPUT_VCF_SAMPLES}\"; in VCF: \"$(echo "${VCF_SAMPLE_IDS[@]}" | tr ' ' ',')\")"
+    exit 10
+  fi
+  LOOP_SAMPLE_IDS=(${REQUESTED_SAMPLE_IDS[@]})
+fi
+
 LOOP_NUM_SAMPLES=${#LOOP_SAMPLE_IDS[@]}
 for (( LOOP_SAMPLE_INDEX=0; LOOP_SAMPLE_INDEX<${LOOP_NUM_SAMPLES}; LOOP_SAMPLE_INDEX++ )); do
   echo "  Sample ${LOOP_SAMPLE_IDS[LOOP_SAMPLE_INDEX]}..."
@@ -336,7 +414,7 @@ for (( LOOP_SAMPLE_INDEX=0; LOOP_SAMPLE_INDEX<${LOOP_NUM_SAMPLES}; LOOP_SAMPLE_I
     rm -rf ${LOOP_RTG_OVERLAP_PATH}
   fi
 
-  ${BCFTOOLS} view -s ${LOOP_SAMPLE_IDS[LOOP_SAMPLE_INDEX]} -O v ${PATH_TEST_VARIANTS} | ${BGZIP} > ${LOOP_TEST_VARIANTS_PATH}
+  ${BCFTOOLS} view -s ${LOOP_SAMPLE_IDS[LOOP_SAMPLE_INDEX]} -O v -a -c 1 ${PATH_TEST_VARIANTS} | awk 'BEGIN { FS = "\t"; OFS = "\t"} { if ($5 != "." || substr($0, 1, 1) == "#") { print $0 } }' | ${BGZIP} > ${LOOP_TEST_VARIANTS_PATH}
   ${TABIX} -p vcf ${LOOP_TEST_VARIANTS_PATH}
   eval ${RTG_VCFEVAL} --all-records -b ${PATH_GOLD_VARIANTS} -c ${LOOP_TEST_VARIANTS_PATH} -t ${CONST_REFERENCE_SDF} -o ${LOOP_RTG_OVERLAP_PATH}
 done
@@ -352,6 +430,9 @@ done
 # right now.)
 if [ ${IS_DNANEXUS} -eq 1 ]; then
   chown -R dnanexus:dnanexus ${PARAM_SCRATCH}
+  chown -R dnanexus:dnanexus $(dirname ${PARAM_OUTPUT_PDF_PATH})
+  chown -R dnanexus:dnanexus $(dirname ${PARAM_OUTPUT_RDS_PATH})
+  chown -R dnanexus:dnanexus $(dirname ${PARAM_OUTPUT_JSON_PATH})
 fi
 # DIRTY DIRTY DIRTY
 #####################################################################
@@ -446,7 +527,6 @@ for (( LOOP_SAMPLE_INDEX = 0; LOOP_SAMPLE_INDEX < ${LOOP_NUM_SAMPLES}; LOOP_SAMP
 done
 
 echo "Concatenating sub-reports..."
-
-${GHOSTSCRIPT} -q -dNOPAUSE -dBATCH -sDEVICE=pdfwrite -sOutputFile=${PARAM_OUTPUT_PDF_PATH} ${SUBREPORT_ARRAY[*]}
+${GHOSTSCRIPT} -q -dNOPAUSE -dBATCH -sDEVICE=pdfwrite -sOutputFile="${PARAM_OUTPUT_PDF_PATH}" ${SUBREPORT_ARRAY[*]}
 
 echo "Done."
