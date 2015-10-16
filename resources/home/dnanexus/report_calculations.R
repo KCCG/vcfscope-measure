@@ -121,20 +121,13 @@ calls.sampleid = header(calls$tp)@samples
 
 # Various genomic regions, for later subsetting of performance measures
 regions = list(
-    gold = list(callable = bed2GRanges(param$path.gold.regions.subset, genome.seqinfo)),             # Gold standard valid call regions
+    gold = list(callable = bed2GRanges(param$path.gold.regions.subset, genome.seqinfo)),      # Gold standard valid call regions
     mask = readMaskRegions(param$path.mask.regions.prefix, genome.seqinfo),                   # Masking beds
     functional = readFunctionalRegions(param$path.function.regions.prefix, genome.seqinfo),   # 'Function classes' of the genome
-    universe = list(genome = GRanges(                                                   # The whole genome
+    universe = list(genome = GRanges(                                                         # The whole genome
         seqnames = seqnames(genome.seqinfo), 
         ranges = IRanges(1, seqlengths(genome.seqinfo)), 
         strand = "*", seqinfo = genome.seqinfo)))
-
-# Create a new function class, of coding +/- 10 bp
-regions$functional$coding_10 = suppressWarnings(trim(reduce(
-    union(union(
-        regions$functional$coding, 
-        trim(flank(regions$functional$coding, 10, start = TRUE)), ignore.strand = TRUE), 
-        trim(flank(regions$functional$coding, 10, start = FALSE)), ignore.strand = TRUE))))
 
 # The universe for set operations.  If a regions subset BED was supplied, 
 # the universe is this set of regions, and so load it.  Otherwise, the
@@ -176,7 +169,7 @@ class = list(
     # By sequence function (coding exonic, splice, intronic, UTR, intergenic).
     # Use region BEDs that have been independently derived using the 
     # utils/makeGenomeRegions scripts.
-    functional = classifyRegionOverlap(calls, regions$functional, c("coding" = "Any", "coding_10" = "Any", "genic" = "Any", "splice" = "Any", "intronic" = "All", "utr" = "All", "intergenic" = "All")),
+    functional = classifyRegionOverlap(calls, regions$functional, c("coding" = "Any", "genic" = "Any", "splice" = "Any", "intronic" = "All", "utr" = "All", "intergenic" = "All")),
 
     # By masking status
     mask = classifyRegionOverlap(calls, regions$mask, c("ambiguous" = "Any", "low_complexity" = "Any", "repetitive" = "Any", "unmasked" = "All"))
@@ -248,51 +241,16 @@ checkClassExclusive(class$goldcall, exact = FALSE)  # exact=FALSE, as a variant 
 # SCORE VARIABLES AND CALL CUTOFF DEFINITIONS
 #####################################################################
 
-# 1000 genomes SNV / Indel filter, as described by Brad Chapman.
-# SNV:      Fail if (QD < 2.0 || MQ < 40.0 || FS > 60.0 || MQRankSum < -12.5 || ReadPosRankSum < -8.0)
-# Indel:    Fail if (QD < 2.0 ||              FS > 200.0 ||                     ReadPosRankSum < -20.0)
-filter_1000G = function(vcf)
-{
-    if (nrow(vcf) == 0)
-        return(logical())
-
-    # Make sure the vcf has all the metrics used by the filter.
-    if (length(setdiff(c("QD", "MQ", "FS", "MQRankSum", "ReadPosRankSum"), colnames(info(vcf)))) != 0)
-        return(rep(NULL, nrow(vcf)))
-
-    snv = isSNV(vcf)
-
-    # Calculate PASS logicals for each metric, splitting by snv / indel as appropriate.
-    QD.pass = info(vcf)$QD >= 2.0
-    MQ.pass = info(vcf)$MQ >= ifelse(snv, 40.0, -Inf)
-    FS.pass = info(vcf)$FS <= ifelse(snv, 60.0, 200.0)
-    MQRankSum.pass = info(vcf)$MQRankSum >= ifelse(snv, -12.5, -Inf)
-    ReadPosRankSum.pass = info(vcf)$ReadPosRankSum >= ifelse(snv, -8.0, -20.0)
-
-    # If the desired values are missing, assume they pass
-    QD.pass[is.na(info(vcf)$QD)] = TRUE
-    MQ.pass[is.na(info(vcf)$MQ)] = TRUE
-    FS.pass[is.na(info(vcf)$FS)] = TRUE
-    MQRankSum.pass[is.na(info(vcf)$MQRankSum)] = TRUE
-    ReadPosRankSum.pass[is.na(info(vcf)$ReadPosRankSum)] = TRUE
-
-    # Final pass is the AND of all individual filters.
-    QD.pass & MQ.pass & FS.pass & MQRankSum.pass & ReadPosRankSum.pass
-}
-
-
 # If some of the fields required by a given criterion are missing, the return value
 # will be NULL, and consequently downstream performance estimation functions (vcfPerf
 # and vcfPerfGrouped) will deliberately produce a no-information performance estimate.
 criteria = list(
     "VQSLOD" =          list(scoreFunc = function(x) info(x)$VQSLOD),
     "QUAL" =            list(scoreFunc = function(x) rowRanges(x)$QUAL),
+    "GQ" =              list(scoreFunc = function(x) info(x)$GQ),
+    "GL" =              list(scoreFunc = function(x) info(x)$GL),
     "FILTER" =          list(scoreFunc = function(x) (rowRanges(x)$FILTER == "PASS")*1),
-    "DEPTH" =           list(scoreFunc = function(x) info(x)$DP),
-    "VQSLOD:1000G" =    list(scoreFunc = function(x) info(x)$VQSLOD * filter_1000G(x)),
-    "QUAL:1000G" =      list(scoreFunc = function(x) rowRanges(x)$QUAL * filter_1000G(x)),
-    "FILTER:1000G" =    list(scoreFunc = function(x) (rowRanges(x)$FILTER == "PASS") * filter_1000G(x)),
-    "DEPTH:1000G" =     list(scoreFunc = function(x) info(x)$DP * filter_1000G(x))
+    "DEPTH" =           list(scoreFunc = function(x) info(x)$DP)
 )
 
 
@@ -448,63 +406,6 @@ perf.all$mutsize = lapply(criteria, function(crit) vcfPerfGrouped(perfdata.all, 
 
 
 #####################################################################
-# SNV METRIC PERFORMANCE: GOLD CALLABLE, CODING +/- 10 REGIONS
-#####################################################################
-# Subset to SNVs in gold-callable regions within 10 bp of CDSs
-# NOTE: subset.snv.coding10.regions, and subset.snv.coding10, MUST MATCH
-subset.snv.coding10.regions = intersect(regions$gold$callable, regions$functional$coding_10)
-subset.snv.coding10 = sapply(names(calls), function(name) class$muttype$SNV[[name]] & class$goldcall$callable[[name]] & class$functional$coding_10[[name]], simplify = FALSE, USE.NAMES = TRUE)
-
-calls.snv.coding10 = sapply(names(calls), function(name) calls[[name]][subset.snv.coding10[[name]]], simplify = FALSE, USE.NAMES = TRUE)
-calls.snv.coding10$tn = setdiff(subset.snv.coding10.regions, union(rowRanges(calls.snv.coding10$tp), rowRanges(calls.snv.coding10$fp), rowRanges(calls.snv.coding10$fn), ignore.strand = TRUE))
-
-count.snv.coding10.fn = nrow(calls.snv.coding10$fn)
-count.snv.coding10.tn = sum(as.numeric(width(calls.snv.coding10$tn)))
-
-perfdata.snv.coding10 = list(vcf.tp = calls.snv.coding10$tp, vcf.fp = calls.snv.coding10$fp, n.fn = count.snv.coding10.fn, n.tn = count.snv.coding10.tn)
-
-class.snv.coding10.zyg = subsetClass(class$zyg, subset.snv.coding10, tn = list(RRvsAA = count.snv.coding10.tn, RRvsRA = count.snv.coding10.tn, RRvsAB = count.snv.coding10.tn))
-perf.snv.coding10 = list(zyg = lapply(criteria, function(crit) vcfPerfGrouped(perfdata.snv.coding10, crit$scoreFunc, class.snv.coding10.zyg)))
-
-
-#####################################################################
-# INDEL AND SUBSTITUTION METRIC PERFORMANCE: GOLD CALLABLE, CODING +/- 10 REGIONS
-#####################################################################
-# Subset to SNVs in gold-callable regions within 10 bp of CDSs
-# NOTE: subset.indelsubst.coding10.regions, and subset.indelsubst.coding10, MUST MATCH
-subset.indelsubst.coding10 = sapply(names(calls), function(name) class$muttype$InsDelSubst[[name]] & class$goldcall$callable[[name]] & class$functional$coding_10[[name]], simplify = FALSE, USE.NAMES = TRUE)
-
-calls.indelsubst.coding10 = sapply(names(calls), function(name) calls[[name]][subset.indelsubst.coding10[[name]]], simplify = FALSE, USE.NAMES = TRUE)
-
-count.indelsubst.coding10.fn = nrow(calls.indelsubst.coding10$fn)
-
-perfdata.indelsubst.coding10 = list(vcf.tp = calls.indelsubst.coding10$tp, vcf.fp = calls.indelsubst.coding10$fp, n.fn = count.indelsubst.coding10.fn, n.tn = 0)
-
-class.indelsubst.coding10.zyg = subsetClass(class$zyg, subset.indelsubst.coding10, tn = NULL)
-perf.indelsubst.coding10 = list(zyg = lapply(criteria, function(crit) vcfPerfGrouped(perfdata.indelsubst.coding10, crit$scoreFunc, class.indelsubst.coding10.zyg)))
-
-
-#####################################################################
-# ALL VARIANT METRIC PERFORMANCE: GOLD CALLABLE, CODING +/- 10 REGIONS
-#####################################################################
-if (param$extended) {
-subset.all.coding10 = sapply(names(calls), function(name) class$goldcall$callable[[name]] & class$functional$coding_10[[name]], simplify = FALSE, USE.NAMES = TRUE)
-
-calls.all.coding10 = sapply(names(calls), function(name) calls[[name]][subset.all.coding10[[name]]], simplify = FALSE, USE.NAMES = TRUE)
-
-count.all.coding10.fn = nrow(calls.all.coding10$fn)
-
-perfdata.all.coding10 = list(vcf.tp = calls.all.coding10$tp, vcf.fp = calls.all.coding10$fp, n.fn = count.all.coding10.fn, n.tn = 0)
-
-class.all.coding10.zyg = subsetClass(class$zyg, subset.all.coding10, tn = NULL)
-perf.all.coding10 = list(zyg = lapply(criteria, function(crit) vcfPerfGrouped(perfdata.all.coding10, crit$scoreFunc, class.all.coding10.zyg)))
-} else {
-    perf.all.coding10 = NULL
-}
-
-
-
-#####################################################################
 # THRESHOLDED PERFORMANCE SUMMARY CALCULATIONS FOR REPORT
 #####################################################################
 report = list()
@@ -527,11 +428,6 @@ snv.het.perf = calcSensSpecAtCutoff(perf.snv$zyg[[report$specifications$measure]
 indelsubst.het.perf = calcSensSpecAtCutoff(perf.indelsubst$zyg[[report$specifications$measure]]$RRvsRA, report$specifications$cutoff)
 snv.hom.perf = calcSensSpecAtCutoff(perf.snv$zyg[[report$specifications$measure]]$RRvsAA, report$specifications$cutoff)
 indelsubst.hom.perf = calcSensSpecAtCutoff(perf.indelsubst$zyg[[report$specifications$measure]]$RRvsAA, report$specifications$cutoff)
-
-snv.coding10.het.perf = calcSensSpecAtCutoff(perf.snv.coding10$zyg[[report$specifications$measure]]$RRvsRA, report$specifications$cutoff)
-indelsubst.coding10.het.perf = calcSensSpecAtCutoff(perf.indelsubst.coding10$zyg[[report$specifications$measure]]$RRvsRA, report$specifications$cutoff)
-snv.coding10.hom.perf = calcSensSpecAtCutoff(perf.snv.coding10$zyg[[report$specifications$measure]]$RRvsAA, report$specifications$cutoff)
-indelsubst.coding10.hom.perf = calcSensSpecAtCutoff(perf.indelsubst.coding10$zyg[[report$specifications$measure]]$RRvsAA, report$specifications$cutoff)
 
 report$snv.het.sens.value = snv.het.perf$sens
 report$snv.het.spec.value = snv.het.perf$spec
@@ -571,11 +467,6 @@ export = list(
             combined = perf.all,
             snv = perf.snv,
             indelsubst = perf.indelsubst
-        ),
-        coding10 = list(
-            combined = perf.all.coding10,
-            snv = perf.snv.coding10,
-            indelsubst = perf.indelsubst.coding10
         )
     ),
     report_summary = report

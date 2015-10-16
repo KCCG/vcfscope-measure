@@ -166,7 +166,7 @@ classifyZygosityVcf = function(vcf)
         if (length(gt) == 1)
         {
             if (is.na(gt))      # as.numeric(".") = NA, so this condition catches the GT = "." case
-                return(NA)
+                return("Unknown")
             
             if (gt == 0)
                 return("R")
@@ -175,7 +175,7 @@ classifyZygosityVcf = function(vcf)
         else if (length(gt) == 2)
         {
             if (is.na(gt[1]) || is.na(gt[2]))
-                return(NA)
+                return("Unknown")
             else if (gt[1] == gt[2])
             {
                 if (gt[1] == 0)
@@ -200,7 +200,8 @@ classifyZygosityVcf = function(vcf)
     list(
         RRvsAA = Rle(result == "R" | result == "R/R" | result == "A" | result == "A/A"),
         RRvsRA = Rle(result == "R" | result == "R/R" | result == "R/A"),
-        RRvsAB = Rle(result == "R" | result == "R/R" | result == "A/B"))
+        RRvsAB = Rle(result == "R" | result == "R/R" | result == "A/B"),
+        Unknown = Rle(result == "Unknown"))
 }
 
 
@@ -230,12 +231,13 @@ classifyMutationTypeVcf = function(vcf)
 {
     if (nrow(vcf) == 0)
     {
-        return(list(SNV = Rle(), InsDelSubst = Rle(), Other = Rle()))
+        return(list(Subst = Rle(), Ins = Rle(), Del = Rle(), Other = Rle()))
     }
     result = list(
-        SNV = Rle(isSNV(vcf)),
-        InsDelSubst = Rle(isInsertion(vcf) | isDeletion(vcf) | (isSubstitution(vcf) & !isSNV(vcf))))
-    result$Other = !(result$SNV | result$InsDelSubst)
+        Subst = Rle(isSNV(vcf) | isSubstitution(vcf)),
+        Ins = Rle(isInsertion(vcf)),
+        Del = Rle(isDeletion(vcf)))
+    result$Other = !(result$Subst | result$Ins | result$Del)
     result
 }
 
@@ -290,16 +292,9 @@ classifyMutationSizeVcf = function(vcf)
 {
     if (nrow(vcf) == 0) 
     {
-        return(list("[01,02)" = Rle(), "[02,06)" = Rle(), "[06,11)" = Rle(), "[11,21)" = Rle(), "[21,inf)" = Rle(), "NA" = Rle()))
+        return(Rle())
     }
-    size = getMutationSizeVcf(vcf)
-    list(
-        "[01,02)" = Rle(size == 1 & !is.na(size)),
-        "[02,06)" = Rle(size >= 2 & size < 6 & !is.na(size)),
-        "[06,11)" = Rle(size >= 6 & size < 11 & !is.na(size)),
-        "[11,21)" = Rle(size >= 11 & size < 21 & !is.na(size)),
-        "[21,inf)" = Rle(size >= 21 & !is.na(size)),
-        "NA" = Rle(is.na(size)))
+    return(Rle(getMutationSizeVcf(vcf)))
 }
 
 
@@ -307,12 +302,14 @@ getMutationSizeVcf = function(vcf)
 {
     # Return the 'size' of the mutation.
     # For SNVs, this is always 1
+    # For MNVs, this is the size of the feature
     # For insertions, the number of inserted bases (in the most likely
     # genotype, if multiple)
     # For deletions, the number of deleted bases
     # For other, NA.
     size = rep(NA, length(vcf))
     size[isSNV(vcf)] = 1
+    size[isSubstitution(vcf)] = width(vcf[isSubstitution(vcf)])
     size[isDeletion(vcf)] = width(vcf[isDeletion(vcf)])
     temp = alt(vcf[isInsertion(vcf)])
     size[isInsertion(vcf)] = nchar(unlist(temp)[start(PartitioningByEnd(temp))])
