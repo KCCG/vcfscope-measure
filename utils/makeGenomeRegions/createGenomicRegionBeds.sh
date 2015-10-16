@@ -1,43 +1,48 @@
 #!/bin/sh
-set -e
+set -e -x -o pipefail
 
 RSCRIPT="/usr/bin/env Rscript"
-BGZIP="/home/marpin/software/htslib/bgzip"
-TABIX="/home/marpin/software/htslib/tabix"
-BEDTOOLS="/home/marpin/software/bedtools2/bin/bedtools"
+BGZIP="bgzip"
+TABIX="tabix"
+BEDTOOLS="bedtools"
 SORT="sort -k1,1 -k2,2n"
 RESULT_DIR="./ensembl_75_regions"
+UCSC_TEMP_DIR="./ucsc_temp"
 
+# Access Biomart to get the core regions, and save them as BEDs
 ${RSCRIPT} getRegionsFromBiomart.R
 
-${SORT} grch37_ensembl.exonic_coding.bed | ${BGZIP} -c > grch37_ensembl.exonic_coding.bed.gz
-${SORT} grch37_ensembl.exonic_utr.bed | ${BGZIP} -c > grch37_ensembl.exonic_utr.bed.gz
-${SORT} grch37_ensembl.splice.bed | ${BGZIP} -c > grch37_ensembl.splice.bed.gz
-${SORT} grch37_ensembl.intronic.bed | ${BGZIP} -c > grch37_ensembl.intronic.bed.gz
-${SORT} grch37_ensembl.genes.bed | ${BGZIP} -c > grch37_ensembl.genes.bed.gz
-
-${TABIX} grch37_ensembl.exonic_coding.bed.gz
-${TABIX} grch37_ensembl.exonic_utr.bed.gz
-${TABIX} grch37_ensembl.splice.bed.gz
-${TABIX} grch37_ensembl.intronic.bed.gz
-${TABIX} grch37_ensembl.genes.bed.gz
-
 mkdir -p ${RESULT_DIR}
+mkdir -p ${UCSC_TEMP_DIR}
 
-if [ ! -e hs37d5.fa.gz.fai ]; then
-	wget ftp://ftp.1000genomes.ebi.ac.uk/vol1/ftp/technical/reference/phase2_reference_assembly_sequence/hs37d5.fa.gz.fai
-fi
-# if [ ! -e hs37d5.fa.gz ]; then
-# 	wget ftp://ftp.1000genomes.ebi.ac.uk/vol1/ftp/technical/reference/phase2_reference_assembly_sequence/hs37d5.fa.gz
-# fi
-# gzip -dc hs37d5.fa.gz | awk -f getChromLengths.awk
+# Sort and compress all BEDs
+for file in *.unsorted.bed; do
+	${SORT} ${file} | ${BGZIP} > ${RESULT_DIR}/${file%.unsorted.bed}.bed.gz
+	${TABIX} ${RESULT_DIR}/${file%.unsorted.bed}.bed.gz
+	grep -P '^[0-9]+\t' ${file} | sed 's/^/chr/' | ${SORT} | ${BGZIP} > ${UCSC_TEMP_DIR}/hg19_${file%.unsorted.bed}.bed.gz
+	rm ${file}
+done
 
-awk 'BEGIN { FS="\t"; OFS="\t" } { print $1, 0, $2-1 }' < hs37d5.fa.gz.fai | ${SORT} | ${BGZIP} -c > hs37d5_genome.bed.gz
-${TABIX} hs37d5_genome.bed.gz
-
-mv *.bed.gz ${RESULT_DIR}
-mv *.bed.gz.tbi ${RESULT_DIR}
-rm *.bed
-
-${BEDTOOLS} subtract -a ${RESULT_DIR}/hs37d5_genome.bed.gz -b ${RESULT_DIR}/grch37_ensembl.genes.bed.gz | ${BGZIP} -c > ${RESULT_DIR}/grch37_ensembl.intergenic.bed.gz
-${TABIX} ${RESULT_DIR}/grch37_ensembl.intergenic.bed.gz
+# Generate a hg19 track bed for display on UCSC
+rm -f ${RESULT_DIR}/hg19_tracks.bed ${RESULT_DIR}/hg19_tracks.bed.gz
+echo 'track name=Genome description=Genome visibility=1' >> ${UCSC_TEMP_DIR}/hg19_tracks.bed
+gzip -dc ${UCSC_TEMP_DIR}/hg19_grch37_ensembl.targetgenome.bed.gz >> ${UCSC_TEMP_DIR}/hg19_tracks.bed
+echo 'track name=Intergenic description=Intergenic visibility=1' >> ${UCSC_TEMP_DIR}/hg19_tracks.bed
+gzip -dc ${UCSC_TEMP_DIR}/hg19_grch37_ensembl.intergenic.bed.gz >> ${UCSC_TEMP_DIR}/hg19_tracks.bed
+echo 'track name=Genic description="Coding genes" visibility=1' >> ${UCSC_TEMP_DIR}/hg19_tracks.bed
+gzip -dc ${UCSC_TEMP_DIR}/hg19_grch37_ensembl.genes.bed.gz >> ${UCSC_TEMP_DIR}/hg19_tracks.bed
+echo 'track name=CDS description="Coding sequence" visibility=1' >> ${UCSC_TEMP_DIR}/hg19_tracks.bed
+gzip -dc ${UCSC_TEMP_DIR}/hg19_grch37_ensembl.exonic_coding.bed.gz >> ${UCSC_TEMP_DIR}/hg19_tracks.bed
+echo 'track name=3-UTR description="3-UTR" visibility=1' >> ${UCSC_TEMP_DIR}/hg19_tracks.bed
+gzip -dc ${UCSC_TEMP_DIR}/hg19_grch37_ensembl.exonic_3utr.bed.gz >> ${UCSC_TEMP_DIR}/hg19_tracks.bed
+echo 'track name=5-UTR description="5-UTR" visibility=1' >> ${UCSC_TEMP_DIR}/hg19_tracks.bed
+gzip -dc ${UCSC_TEMP_DIR}/hg19_grch37_ensembl.exonic_5utr.bed.gz >> ${UCSC_TEMP_DIR}/hg19_tracks.bed
+echo 'track name=Splice description="Essential splice bases" visibility=1' >> ${UCSC_TEMP_DIR}/hg19_tracks.bed
+gzip -dc ${UCSC_TEMP_DIR}/hg19_grch37_ensembl.splice.bed.gz >> ${UCSC_TEMP_DIR}/hg19_tracks.bed
+echo 'track name=Introns description=Introns visibility=1' >> ${UCSC_TEMP_DIR}/hg19_tracks.bed
+gzip -dc ${UCSC_TEMP_DIR}/hg19_grch37_ensembl.intronic.bed.gz >> ${UCSC_TEMP_DIR}/hg19_tracks.bed
+echo 'track name=CodingSlop10 description="Coding exons + UTRs with slop 10 into introns" visibility=1' >> ${UCSC_TEMP_DIR}/hg19_tracks.bed
+gzip -dc ${UCSC_TEMP_DIR}/hg19_grch37_ensembl.cds_slop10.bed.gz >> ${UCSC_TEMP_DIR}/hg19_tracks.bed
+gzip ${UCSC_TEMP_DIR}/hg19_tracks.bed
+mv ${UCSC_TEMP_DIR}/hg19_tracks.bed.gz ${RESULT_DIR}
+rm -rf ${UCSC_TEMP_DIR}
