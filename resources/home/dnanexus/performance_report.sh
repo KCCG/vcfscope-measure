@@ -40,7 +40,7 @@ if [ ${IS_DNANEXUS} -eq 1 ]; then
   RTG_VCFEVAL="${JAVA} -Xmx${mem_in_mb}m -jar ${RTG_TOOLS} vcfeval -T ${RTG_THREADS}"
 else
   # Wolfpack settings (marpin only for now)
-  PATH_RESOURCES_HEAD="/directflow/ClinicalGenomicsPipeline/projects/performance-reporter/resources"
+  PATH_RESOURCES_HEAD="/directflow/ClinicalGenomicsPipeline/projects/performance-reporter/resources-${CONST_VERSION_SCRIPT}"
   PATH_SCRATCH_DEFAULT="/directflow/ClinicalGenomicsPipeline/tmp"
 
   RSCRIPT="/home/marpin/bin/Rscript"
@@ -238,22 +238,24 @@ fi
 # SOFTWARE CHECKING
 #####################################################################
 if [ ! -e ${RSCRIPT} ]; then
-  echo >&2 "Error: Rscript executable not found."
+  echo >&2 "Error: Rscript executable not found at ${RSCRIPT}."
   exit 6
 fi
 
 if [ ! -e ${JAVA} ]; then
-  echo >&2 "Error: java executable not found."
+  echo >&2 "Error: Java executable not found at ${JAVA}."
   exit 7
 fi
 
 if [ ! -e ${RTG_TOOLS} ]; then
-  echo >&2 "Error: RTG.jar not found."
+  echo >&2 "Error: RTG.jar not found at ${RTG_TOOLS}."
   exit 8
 fi
 
-#set -e should catch this.
-[[ -f report.Rnw ]] && [[ -f report_functions.R ]] && [[ -f report_debug.Rnw ]] && [[ -f report_calculations.R ]]
+if [ ! -f ${PARAM_SCRIPT_PATH}/report.Rnw -o ! -f ${PARAM_SCRIPT_PATH}/report_functions.R -o ! -f ${PARAM_SCRIPT_PATH}/report_debug.Rnw -o ! -f ${PARAM_SCRIPT_PATH}/report_calculations.R -o ! -f ${PARAM_SCRIPT_PATH}/merge_report_summaries.R ]; then
+  echo >&2 "Error: Missing at least one required R source file."
+  exit 11
+fi
 
 
 #####################################################################

@@ -294,25 +294,31 @@ classifyMutationSizeVcf = function(vcf)
     {
         return(Rle())
     }
-    return(Rle(getMutationSizeVcf(vcf)))
+    return(Rle(cut(getMutationSizeVcf(vcf), 
+        breaks = c(1.5, 2.5, 3.5, 4.5, 5.5, 6.5, 7.5, 8.5, 9.5), 
+        labels = c("1", "2", "3", "4", "5", "6", "7", "8", "9", "10+"),
+        ordered_result = TRUE)))
 }
 
 
 getMutationSizeVcf = function(vcf)
 {
     # Return the 'size' of the mutation.
-    # For SNVs, this is always 1
-    # For MNVs, this is the size of the feature
-    # For insertions, the number of inserted bases (in the most likely
-    # genotype, if multiple)
+    # For substitutions, this is the size of the feature
+    # For insertions, the number of inserted bases
     # For deletions, the number of deleted bases
-    # For other, NA.
-    size = rep(NA, length(vcf))
-    size[isSNV(vcf)] = 1
-    size[isSubstitution(vcf)] = width(vcf[isSubstitution(vcf)])
-    size[isDeletion(vcf)] = width(vcf[isDeletion(vcf)])
-    temp = alt(vcf[isInsertion(vcf)])
-    size[isInsertion(vcf)] = nchar(unlist(temp)[start(PartitioningByEnd(temp))])
+    # For delins, the largest of the number of inserted and deleted bases
+    # In the case of multiple alt alleles, some variants will likely fall under multiple classes,
+    # and therefore multiple size definitions.  In this situation, the largest passing size is
+    # used (therefore all the pmaxes).
+    size = rep(0, nrow(vcf))
+    subst_or_del = isSubstitution(vcf, singleAltOnly = FALSE) | isDeletion(vcf, singleAltOnly = FALSE)
+    ins = isInsertion(vcf, singleAltOnly = FALSE)
+    delins = isDelins(vcf, singleAltOnly = FALSE)
+    size[subst_or_del] = pmax(size[subst_or_del], width(vcf[subst_or_del]))
+    size[ins] = pmax(size[ins], sapply(alt(vcf[ins]), function(x) max(width(x))))
+    size[delins] = pmax(size[delins], width(vcf[delins]), sapply(alt(vcf[delins]), function(x) max(width(x))))
+    size[size == 0] = NA
     size
 }
 
@@ -769,3 +775,40 @@ calcSensSpecAtCutoff = function(perf, cutoff)
         ntn = perf$tn[sel], 
         nfn = perf$fn[sel])
 }
+
+
+plotSensAtCutoff = function(perf, cutoff)
+{
+    if (class(perf) == "data.frame")
+    {
+        # Case A
+        sensspec = calcSensSpecAtCutoff(perf, cutoff)
+        plotdata = data.frame(sens = sensspec$sens)
+        theplot = ggplot(plotdata, aes(x = 1, y = sens)) + geom_bar(stat = "identity")
+    }
+    else if (class(perf) == "list" && length(perf) > 0 && all(sapply(perf, class) == "data.frame"))
+    {
+        # Case B
+        sensspec = lapply(perf, calcSensSpecAtCutoff, cutoff = cutoff)
+        plotdata = data.frame(group1 = names(sensspec), sens = sapply(sensspec, function(x) x$sens))
+        theplot = ggplot(plotdata, aes(x = group1, fill = group1, y = sens)) + geom_bar(stat = "identity")
+    }
+    else if (class(perf) == "list" && length(perf) > 0 && all(sapply(perf, class) == "list") && min(sapply(perf, length)) > 0 && all(sapply(perf, function(p1) all(sapply(p1, class) == "data.frame"))))
+    {
+        # Case C
+        sensspec = lapply(perf, function(p1) lapply(p1, calcSensSpecAtCutoff, cutoff = cutoff))
+        plotdata = data.frame(group1 = names(sensspec), group2 = names(sensspec[[1]]), sens = unlist(lapply(sensspec, function(ss1) lapply(ss1, function(x) x$sens))))
+        theplot = ggplot(plotdata, aes(x = group2, fill = group1, y = sens)) + geom_bar(stat = "identity", position = "dodge")
+    }
+    else
+    {
+        stop("Error: perf is not of a supported type.  Must be either data.frame, list(data.frame), or list(list(data.frame))")
+    }
+
+    theplot
+}
+
+# calcSensSpecAtCutoff(perf.snv$zyg[[report$specifications$measure]]$RRvsRA, report$specifications$cutoff)
+# plotSensAtCutoff(perf.snv$zyg[[report$specifications$measure]]$RRvsRA, report$specifications$cutoff)
+# plotSensAtCutoff(perf.snv$zyg[[report$specifications$measure]], report$specifications$cutoff)
+# plotSensAtCutoff(perf.snv$zyg, report$specifications$cutoff)

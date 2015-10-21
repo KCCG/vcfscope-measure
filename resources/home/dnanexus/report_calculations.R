@@ -160,7 +160,7 @@ regions$gold$notcallable = setdiff(regions$universe$universe, regions$gold$calla
 class = list(
     zyg = classifyZygosity(calls),          # By zygosity
     somy = classifySomy(calls),             # By somy
-    muttype = classifyMutationType(calls),  # By mutation type: SNV, InsDelSubst, other
+    muttype = classifyMutationType(calls),  # By mutation type: SNV, MNV, Ins, Del, Other
     mutsize = classifyMutationSize(calls),  # By mutation 'size' (see getMutationSizeVcf for the definition of size in this context)
 
     # By presence / absence in the gold standard callable regions
@@ -256,101 +256,150 @@ criteria = list(
 
 
 #####################################################################
-# SNV METRIC COMPARISON AND CUTOFF DETERMINATION: GOLD CALLABLE REGIONS
+# SUBSTITUTION METRIC COMPARISON AND CUTOFF DETERMINATION: GOLD CALLABLE REGIONS
 #####################################################################
 
-# Subset to SNVs in gold-callable regions
-# NOTE: subset.snv.regions, and subset.snv, MUST MATCH
-subset.snv.regions = regions$gold$callable
-subset.snv = sapply(names(calls), function(name) class$muttype$SNV[[name]] & class$goldcall$callable[[name]], simplify = FALSE, USE.NAMES = TRUE)
+# Subset to substitutions in gold-callable regions
+# NOTE: subset.subst.regions, and subset.subst, MUST MATCH
+subset.subst.regions = regions$gold$callable
+subset.subst = sapply(names(calls), function(name) class$muttype$Subst[[name]] & class$goldcall$callable[[name]], simplify = FALSE, USE.NAMES = TRUE)
 
-calls.snv = sapply(names(calls), function(name) calls[[name]][subset.snv[[name]]], simplify = FALSE, USE.NAMES = TRUE)
+calls.subst = sapply(names(calls), function(name) calls[[name]][subset.subst[[name]]], simplify = FALSE, USE.NAMES = TRUE)
 
-# Sanity check -- are these in fact SNVs?
-stopifnot(sum(width(calls.snv$tp)) == nrow(calls.snv$tp))
-stopifnot(sum(width(calls.snv$fp)) == nrow(calls.snv$fp))
-stopifnot(sum(width(calls.snv$fn)) == nrow(calls.snv$fn))
+# Sanity check -- are these in fact substitutions?
+stopifnot(sum(width(calls.subst$tp)) == nrow(calls.subst$tp))
+stopifnot(sum(width(calls.subst$fp)) == nrow(calls.subst$fp))
+stopifnot(sum(width(calls.subst$fn)) == nrow(calls.subst$fn))
 
-# We can define TNs for SNVs
-calls.snv$tn = setdiff(subset.snv.regions, union(rowRanges(calls.snv$tp), rowRanges(calls.snv$fp), rowRanges(calls.snv$fn), ignore.strand = TRUE))
+# We can define TNs for substitutions
+calls.subst$tn = setdiff(subset.subst.regions, union(rowRanges(calls.subst$tp), rowRanges(calls.subst$fp), rowRanges(calls.subst$fn), ignore.strand = TRUE))
 
-count.snv.fn = nrow(calls.snv$fn)
-count.snv.tn = sum(as.numeric(width(calls.snv$tn)))
+count.subst.fn = nrow(calls.subst$fn)
+count.subst.tn = sum(as.numeric(width(calls.subst$tn)))
 
 # Calculate performance for various scores, across all
-# SNVs.  Later we will also subset by zygosity, and 
+# substitutions.  Later we will also subset by zygosity, and 
 # sequence context, to see if certain scores perform
 # better in certain contexts.  Later, we will also
 # perform this analysis on indels, and complex variants, 
 # again examining the performance of different scores 
 # on different variant types.
-perf.snv = list()
-perfdata.snv = list(vcf.tp = calls.snv$tp, vcf.fp = calls.snv$fp, n.fn = count.snv.fn, n.tn = count.snv.tn)
+perf.subst = list()
+perfdata.subst = list(vcf.tp = calls.subst$tp, vcf.fp = calls.subst$fp, n.fn = count.subst.fn, n.tn = count.subst.tn)
 
 # Subset by zygosity
 # TNs belong in all three zygosity classes, as they are always of genotype RR.
-class.snv.zyg = subsetClass(class$zyg, subset.snv, tn = list(RRvsAA = count.snv.tn, RRvsRA = count.snv.tn, RRvsAB = count.snv.tn))
-# Basic checks for subsetClass
-stopifnot(all(class$zyg$RRvsRA$tp[subset.snv$tp] == class.snv.zyg$RRvsRA$tp))
-stopifnot(all(class$zyg$RRvsRA$fp[subset.snv$fp] == class.snv.zyg$RRvsRA$fp))
-stopifnot(all(class$zyg$RRvsAA$tp[subset.snv$tp] == class.snv.zyg$RRvsAA$tp))
+class.subst.zyg = subsetClass(class$zyg, subset.subst, tn = list(RRvsAA = count.subst.tn, RRvsRA = count.subst.tn, RRvsAB = count.subst.tn))
+ # Basic checks for subsetClass
+stopifnot(all(class$zyg$RRvsRA$tp[subset.subst$tp] == class.subst.zyg$RRvsRA$tp))
+stopifnot(all(class$zyg$RRvsRA$fp[subset.subst$fp] == class.subst.zyg$RRvsRA$fp))
+stopifnot(all(class$zyg$RRvsAA$tp[subset.subst$tp] == class.subst.zyg$RRvsAA$tp))
 
-perf.snv$zyg = lapply(criteria, function(crit) vcfPerfGrouped(perfdata.snv, crit$scoreFunc, class.snv.zyg))
+perf.subst$zyg = lapply(criteria, function(crit) vcfPerfGrouped(perfdata.subst, crit$scoreFunc, class.subst.zyg))
+
+# Subset by zygosity *and* size
+class.subst.size = subsetClass(class$size, subset.subst, tn = lapply(regions$size, function(size) sum(as.numeric(width(intersect(size, calls.subst$tn))))))
+perf.subst$size = lapply(criteria, function(crit) vcfPerfGrouped(perfdata.subst, crit$scoreFunc, class.subst.size))
 
 if (param$extended) {
-perf.snv$all = lapply(criteria, function(crit) vcfPerf(perfdata.snv, crit$scoreFunc))
+perf.subst$all = lapply(criteria, function(crit) vcfPerf(perfdata.subst, crit$scoreFunc))
 
 # And sequence context
 # The nasty code for counting TNs just counts, for each class in 
-# regions$mask, the number of TN bases (from calls.snv$tn) that
+# regions$mask, the number of TN bases (from calls.subst$tn) that
 # overlap this mask class.
-class.snv.mask = subsetClass(class$mask, subset.snv, tn = lapply(regions$mask, function(mask) sum(as.numeric(width(intersect(mask, calls.snv$tn))))))
-perf.snv$mask = lapply(criteria, function(crit) vcfPerfGrouped(perfdata.snv, crit$scoreFunc, class.snv.mask))
+class.subst.mask = subsetClass(class$mask, subset.subst, tn = lapply(regions$mask, function(mask) sum(as.numeric(width(intersect(mask, calls.subst$tn))))))
+perf.subst$mask = lapply(criteria, function(crit) vcfPerfGrouped(perfdata.subst, crit$scoreFunc, class.subst.mask))
 }
 
 
 
 #####################################################################
-# INDEL AND SUBSTITUTION METRIC COMPARISON AND CUTOFF DETERMINATION: GOLD CALLABLE REGIONS
+# INSERTION METRIC COMPARISON AND CUTOFF DETERMINATION: GOLD CALLABLE REGIONS
 #####################################################################
 
-# Repeat the analysis performed in the SNV case, except this time subset to indels.
+# Repeat the analysis performed in the SNV case, except this time subset to insertions.
 # This time, there is no known TN background (and no practical universe of possible
 # mutations).
-subset.indelsubst = sapply(names(calls), function(name) class$muttype$InsDelSubst[[name]] & class$goldcall$callable[[name]], simplify = FALSE, USE.NAMES = TRUE)
+subset.ins = sapply(names(calls), function(name) class$muttype$Ins[[name]] & class$goldcall$callable[[name]], simplify = FALSE, USE.NAMES = TRUE)
 
-calls.indelsubst = sapply(names(calls), function(name) calls[[name]][subset.indelsubst[[name]]], simplify = FALSE, USE.NAMES = TRUE)
+calls.ins = sapply(names(calls), function(name) calls[[name]][subset.ins[[name]]], simplify = FALSE, USE.NAMES = TRUE)
 
-count.indelsubst.fn = nrow(calls.indelsubst$fn)
+count.ins.fn = nrow(calls.ins$fn)
 
-# Score performance across all indels.  Note that n.tn = 0, as there
+# Score performance across all insertions.  Note that n.tn = 0, as there
 # is an infinite number of potential TN cases; setting n.tn to zero 
 # here effectively removes these events from consideration entirely,
 # and we will still have valid counts for TP, FP, and FN cases.
-perf.indelsubst = list()
-perfdata.indelsubst = list(vcf.tp = calls.indelsubst$tp, vcf.fp = calls.indelsubst$fp, n.fn = count.indelsubst.fn, n.tn = 0)
+perf.ins = list()
+perfdata.ins = list(vcf.tp = calls.ins$tp, vcf.fp = calls.ins$fp, n.fn = count.ins.fn, n.tn = 0)
 
 # Subset by zygosity
-# We can't count TNs in an indel context; just set to a null value
-class.indelsubst.zyg = subsetClass(class$zyg, subset.indelsubst, tn = NULL)
+# We can't count TNs in an insertion context; just set to a null value
+class.ins.zyg = subsetClass(class$zyg, subset.ins, tn = NULL)
 # Basic checks for subsetClass
-stopifnot(all(class$zyg$RRvsRA$tp[subset.indelsubst$tp] == class.indelsubst.zyg$RRvsRA$tp))
-stopifnot(all(class$zyg$RRvsRA$fp[subset.indelsubst$fp] == class.indelsubst.zyg$RRvsRA$fp))
+stopifnot(all(class$zyg$RRvsRA$tp[subset.ins$tp] == class.ins.zyg$RRvsRA$tp))
+stopifnot(all(class$zyg$RRvsRA$fp[subset.ins$fp] == class.ins.zyg$RRvsRA$fp))
 
-perf.indelsubst$zyg = lapply(criteria, function(crit) vcfPerfGrouped(perfdata.indelsubst, crit$scoreFunc, class.indelsubst.zyg))
-
-if (param$extended) {
-perf.indelsubst$all = lapply(criteria, function(crit) vcfPerf(perfdata.indelsubst, crit$scoreFunc))
-
-# And sequence context
-# Again, set tn = NULL
-class.indelsubst.mask = subsetClass(class$mask, subset.indelsubst, tn = NULL)
-perf.indelsubst$mask = lapply(criteria, function(crit) vcfPerfGrouped(perfdata.indelsubst, crit$scoreFunc, class.indelsubst.mask))
+perf.ins$zyg = lapply(criteria, function(crit) vcfPerfGrouped(perfdata.ins, crit$scoreFunc, class.ins.zyg))
 
 # And mutation size
 # Again, set tn = NULL
-class.indelsubst.size = subsetClass(class$mutsize, subset.indelsubst, tn = NULL)
-perf.indelsubst$mutsize = lapply(criteria, function(crit) vcfPerfGrouped(perfdata.indelsubst, crit$scoreFunc, class.indelsubst.size))
+class.ins.size = subsetClass(class$mutsize, subset.ins, tn = NULL)
+perf.ins$mutsize = lapply(criteria, function(crit) vcfPerfGrouped(perfdata.ins, crit$scoreFunc, class.ins.size))
+
+if (param$extended) {
+perf.ins$all = lapply(criteria, function(crit) vcfPerf(perfdata.ins, crit$scoreFunc))
+
+# And sequence context
+# Again, set tn = NULL
+class.ins.mask = subsetClass(class$mask, subset.ins, tn = NULL)
+perf.ins$mask = lapply(criteria, function(crit) vcfPerfGrouped(perfdata.ins, crit$scoreFunc, class.ins.mask))
+}
+
+
+
+#####################################################################
+# DELETION METRIC COMPARISON AND CUTOFF DETERMINATION: GOLD CALLABLE REGIONS
+#####################################################################
+
+# Repeat the analysis performed in the SNV case, except this time subset to deletions
+# This time, there is no known TN background (and no practical universe of possible
+# mutations).
+subset.del = sapply(names(calls), function(name) class$muttype$Del[[name]] & class$goldcall$callable[[name]], simplify = FALSE, USE.NAMES = TRUE)
+
+calls.del = sapply(names(calls), function(name) calls[[name]][subset.del[[name]]], simplify = FALSE, USE.NAMES = TRUE)
+
+count.del.fn = nrow(calls.del$fn)
+
+# Score performance across all deletions.  Note that n.tn = 0, as there
+# is an infinite number of potential TN cases; setting n.tn to zero 
+# here effectively removes these events from consideration entirely,
+# and we will still have valid counts for TP, FP, and FN cases.
+perf.del = list()
+perfdata.del = list(vcf.tp = calls.del$tp, vcf.fp = calls.del$fp, n.fn = count.del.fn, n.tn = 0)
+
+# Subset by zygosity
+# We can't count TNs in an deletion context; just set to a null value
+class.del.zyg = subsetClass(class$zyg, subset.del, tn = NULL)
+# Basic checks for subsetClass
+stopifnot(all(class$zyg$RRvsRA$tp[subset.del$tp] == class.del.zyg$RRvsRA$tp))
+stopifnot(all(class$zyg$RRvsRA$fp[subset.del$fp] == class.del.zyg$RRvsRA$fp))
+
+perf.del$zyg = lapply(criteria, function(crit) vcfPerfGrouped(perfdata.del, crit$scoreFunc, class.del.zyg))
+
+# And mutation size
+# Again, set tn = NULL
+class.del.size = subsetClass(class$mutsize, subset.del, tn = NULL)
+perf.del$mutsize = lapply(criteria, function(crit) vcfPerfGrouped(perfdata.del, crit$scoreFunc, class.del.size))
+
+if (param$extended) {
+perf.del$all = lapply(criteria, function(crit) vcfPerf(perfdata.del, crit$scoreFunc))
+
+# And sequence context
+# Again, set tn = NULL
+class.del.mask = subsetClass(class$mask, subset.del, tn = NULL)
+perf.del$mask = lapply(criteria, function(crit) vcfPerfGrouped(perfdata.del, crit$scoreFunc, class.del.mask))
 }
 
 
