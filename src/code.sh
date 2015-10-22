@@ -62,6 +62,12 @@ main() {
   dx get "${DX_ASSETS_ID}:/assets/jsonlite_0.9.16.tar.gz"
   R CMD INSTALL jsonlite_0.9.16.tar.gz
 
+  # ROCR is used in the test harness
+  if [ "${runtests}" == "true" ]; then
+    dx get "${DX_ASSETS_ID}:/assets/ROCR_1.0-7.tar.gz"
+    R CMD INSTALL ROCR_1.0-7.tar.gz
+  fi
+
   #
   # process options
   #

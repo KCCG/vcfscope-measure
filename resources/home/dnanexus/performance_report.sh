@@ -252,7 +252,7 @@ if [ ! -e ${RTG_TOOLS} ]; then
   exit 8
 fi
 
-if [ ! -f ${PARAM_SCRIPT_PATH}/report.Rnw -o ! -f ${PARAM_SCRIPT_PATH}/report_functions.R -o ! -f ${PARAM_SCRIPT_PATH}/report_debug.Rnw -o ! -f ${PARAM_SCRIPT_PATH}/report_calculations.R -o ! -f ${PARAM_SCRIPT_PATH}/merge_report_summaries.R ]; then
+if [ ! -f ${PARAM_SCRIPT_PATH}/report.Rnw -o ! -f ${PARAM_SCRIPT_PATH}/report_functions.R -o ! -f ${PARAM_SCRIPT_PATH}/report_calculations.R -o ! -f ${PARAM_SCRIPT_PATH}/merge_report_summaries.R ]; then
   echo >&2 "Error: Missing at least one required R source file."
   exit 11
 fi

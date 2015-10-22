@@ -288,16 +288,23 @@ classifyMutationSize = function(vcfs)
 }
 
 
-classifyMutationSizeVcf = function(vcf)
+classifyMutationSizeVcf = function(vcf, max_size = 10)
 {
+    levels = c(as.character(1:(max_size-1)), paste(max_size, "+", sep = ""))
     if (nrow(vcf) == 0) 
     {
-        return(Rle())
+        result_list = lapply(1:max_size, function(x) Rle())
     }
-    return(Rle(cut(getMutationSizeVcf(vcf), 
-        breaks = c(1.5, 2.5, 3.5, 4.5, 5.5, 6.5, 7.5, 8.5, 9.5), 
-        labels = c("1", "2", "3", "4", "5", "6", "7", "8", "9", "10+"),
-        ordered_result = TRUE)))
+    else
+    {
+        cut_lengths = cut(getMutationSizeVcf(vcf), 
+            breaks = c(0:(max_size-1) + 0.5, 1e6), 
+            labels = levels)
+        result_list = lapply(levels, function(l) Rle(cut_lengths == l))
+    }
+
+    names(result_list) = levels
+    result_list
 }
 
 
