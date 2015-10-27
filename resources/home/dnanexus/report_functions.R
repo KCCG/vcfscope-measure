@@ -81,24 +81,12 @@ bed2GRanges = function(path, seqinfo)
 
 readMaskRegions = function(prefix, seqinfo)
 {
-    ambiguous =         bed2GRanges(paste(prefix, "ambiguous.bed.gz", sep = ""), seqinfo)
-    low_complexity =    bed2GRanges(paste(prefix, "mdust.bed.gz", sep = ""), seqinfo)
-    repetitive =        bed2GRanges(paste(prefix, "repetitive.bed.gz", sep = ""), seqinfo)
+    rmsk0_mdust0 = bed2GRanges(paste(prefix, "rmsk0_mdust0.bed.gz", sep = ""), seqinfo)
+    rmsk0_mdust1 = bed2GRanges(paste(prefix, "rmsk0_mdust1.bed.gz", sep = ""), seqinfo)
+    rmsk1_mdust0 = bed2GRanges(paste(prefix, "rmsk1_mdust0.bed.gz", sep = ""), seqinfo)
+    rmsk1_mdust1 = bed2GRanges(paste(prefix, "rmsk1_mdust1.bed.gz", sep = ""), seqinfo)
 
-    list(ambiguous = ambiguous, low_complexity = low_complexity, repetitive = repetitive)
-}
-
-
-readFunctionalRegions = function(prefix, seqinfo)
-{
-    coding =        bed2GRanges(paste(prefix, "exonic_coding.bed.gz", sep = ""), seqinfo)
-    intronic =      bed2GRanges(paste(prefix, "intronic.bed.gz", sep = ""), seqinfo)
-    utr =           bed2GRanges(paste(prefix, "exonic_utr.bed.gz", sep = ""), seqinfo)
-    intergenic =    bed2GRanges(paste(prefix, "intergenic.bed.gz", sep = ""), seqinfo)
-    genic =         bed2GRanges(paste(prefix, "genes.bed.gz", sep = ""), seqinfo)
-    splice =        bed2GRanges(paste(prefix, "splice.bed.gz", sep = ""), seqinfo)
-
-    list(coding = coding, intronic = intronic, utr = utr, intergenic = intergenic, genic = genic, splice = splice)
+    list(rmsk0_mdust0 = rmsk0_mdust0, rmsk0_mdust1 = rmsk0_mdust1, rmsk1_mdust0 = rmsk1_mdust0, rmsk1_mdust1 = rmsk1_mdust1)
 }
 
 
@@ -198,26 +186,11 @@ classifyZygosityVcf = function(vcf)
 
     # For now, place haploid regions together with diploid.
     list(
-        RRvsAA = Rle(result == "R" | result == "R/R" | result == "A" | result == "A/A"),
-        RRvsRA = Rle(result == "R" | result == "R/R" | result == "R/A"),
-        RRvsAB = Rle(result == "R" | result == "R/R" | result == "A/B"),
+        RR = Rle(result == "R" | result == "R/R"),
+        AA = Rle(result == "A" | result == "A/A"),
+        RA = Rle(result == "R/A"),
+        AB = Rle(result == "A/B"),
         Unknown = Rle(result == "Unknown"))
-}
-
-
-classifySomy = function(vcfs)
-{
-    swapListOrder(lapply(vcfs, classifySomyVcf))
-}
-
-
-classifySomyVcf = function(vcf)
-{
-    list(
-        autosomal = seqnames(vcf) %in% as.character(1:22),
-        X = seqnames(vcf) == "X",
-        Y = seqnames(vcf) == "Y",
-        MT = seqnames(vcf) %in% c("MT", "M"))
 }
 
 
@@ -231,13 +204,14 @@ classifyMutationTypeVcf = function(vcf)
 {
     if (nrow(vcf) == 0)
     {
-        return(list(Subst = Rle(), Ins = Rle(), Del = Rle(), Other = Rle()))
+        return(list(Subst = Rle(), Ins = Rle(), Del = Rle(), Other = Rle(), None = Rle()))
     }
     result = list(
-        Subst = Rle(isSNV(vcf) | isSubstitution(vcf)),
+        Subst = Rle(isSubstitution(vcf)),
         Ins = Rle(isInsertion(vcf)),
         Del = Rle(isDeletion(vcf)))
     result$Other = !(result$Subst | result$Ins | result$Del)
+    result$None = result$Subst & FALSE      # Always false at first; this is set by other logic (it should be manually set for FPs, and left alone otherwise)
     result
 }
 
@@ -288,17 +262,17 @@ classifyMutationSize = function(vcfs)
 }
 
 
-classifyMutationSizeVcf = function(vcf, max_size = 10)
+classifyMutationSizeVcf = function(vcf, max_size = 30)
 {
-    levels = c(as.character(1:(max_size-1)), paste(max_size, "+", sep = ""))
+    levels = c(as.character(0:(max_size-1)), paste(max_size, "+", sep = ""))
     if (nrow(vcf) == 0) 
     {
-        result_list = lapply(1:max_size, function(x) Rle())
+        result_list = lapply(0:max_size, function(x) Rle())
     }
     else
     {
         cut_lengths = cut(getMutationSizeVcf(vcf), 
-            breaks = c(0:(max_size-1) + 0.5, 1e6), 
+            breaks = c(-1:(max_size-1) + 0.5, 1e6), 
             labels = levels)
         result_list = lapply(levels, function(l) Rle(cut_lengths == l))
     }
@@ -327,48 +301,6 @@ getMutationSizeVcf = function(vcf)
     size[delins] = pmax(size[delins], width(vcf[delins]), sapply(alt(vcf[delins]), function(x) max(width(x))))
     size[size == 0] = NA
     size
-}
-
-
-
-# TODO: Update this doc to match the new class storage format.
-# Subset the variant classes in class to just those variants for which
-# subset is TRUE, and return as a list.  class must be a list 
-# containing members "tp", "fp", and "fn"; each of these in turn is a 
-# list of Rle objects, encoding whether or not each variant (in one of
-# the classes TP, FP, or FN) is in that given list item's class.  
-# subset is a list that also contains named members "tp", "fp", and
-# "fn", each of which is also an Rle object encoding whether or not 
-# the variant is in the single subset of interest.  The result is a 
-# list of lists of logical Rle objects.  The outer list contains 
-# elements named "tp", "fp", "tn", and "fn", and each in turn contains 
-# corresponding elements from class, subset as per the elements in 
-# subset.  The "tn" element of the result is constructed from the tn
-# argument: if it is supplied, then result$tn is set to this value; if
-# it is missing, then result$tn is set to zero for all classes.
-subsetClass = function(class, subset, tn = NULL)
-{
-    class_group_names = names(class)
-
-    result = sapply(class_group_names, function(class_group_name) {
-        sapply(names(class[[class_group_name]]), function(call_type_name) {
-            stopifnot(length(class[[class_group_name]][[call_type_name]]) == length(subset[[call_type_name]]))
-            class[[class_group_name]][[call_type_name]][subset[[call_type_name]]]
-        }, simplify = FALSE, USE.NAMES = TRUE)
-    }, simplify = FALSE, USE.NAMES = TRUE)
-
-    for (i in names(result))
-    {
-        if (!("tn" %in% names(result[[i]])))
-        {
-            if (is.null(tn))
-                result[[i]]$tn = Rle()
-            else
-                result[[i]]$tn = tn[[i]]
-        }
-    }
-
-    result
 }
 
 
@@ -461,10 +393,10 @@ vcfPerfWorker = function(scores.tp, scores.fp, n.tn.structural, n.fn.structural)
             #                                           the VCF is a variant."        
             cutoff = c(    -Inf,                        -Inf,                     Inf,                     Inf),
             midpoint = c(  -Inf,                        -Inf,                     Inf,                     Inf),
-            tp = c(        n.tp + n.fn.structural,      n.tp,                     0,                       0),
-            fp = c(        n.fp + n.tn.structural,      n.fp,                     0,                       0),
-            tn = c(        0,                           n.tn.structural,          n.fp + n.tn.structural,  n.fp + n.tn.structural),
-            fn = c(        0,                           n.fn.structural,          n.tp + n.fn.structural,  n.tp + n.fn.structural))
+            ntp = c(       n.tp + n.fn.structural,      n.tp,                     0,                       0),
+            nfp = c(       n.fp + n.tn.structural,      n.fp,                     0,                       0),
+            ntn = c(       0,                           n.tn.structural,          n.fp + n.tn.structural,  n.fp + n.tn.structural),
+            nfn = c(       0,                           n.fn.structural,          n.tp + n.fn.structural,  n.tp + n.fn.structural))
         return(result)
     }
 
@@ -522,7 +454,7 @@ vcfPerfWorker = function(scores.tp, scores.fp, n.tn.structural, n.fn.structural)
     path.n.fp = total.neg.truth - path.n.tn
     path.n.tp = total.pos.truth - path.n.fn
 
-    result = data.frame(cutoff = cutoffs, midpoint = thresholds, tp = path.n.tp, fp = path.n.fp, tn = path.n.tn, fn = path.n.fn)
+    result = data.frame(cutoff = cutoffs, midpoint = thresholds, ntp = path.n.tp, nfp = path.n.fp, ntn = path.n.tn, nfn = path.n.fn)
 
     result
 }
@@ -566,23 +498,26 @@ vcfPerf = function(data, field_access_func)
     #
     # Currently, the full ordering above is not implemented.  Particularly,
     # infinite, NaN, and NA scores are not supported at all.
+    if (is.null(data))
+    {
+        return(data.frame(
+            cutoff = c(    -Inf,  -Inf,   Inf,   Inf),
+            midpoint = c(  -Inf,  -Inf,   Inf,   Inf),
+            ntp = c(          0,     0,     0,     0),
+            nfp = c(          0,     0,     0,     0),
+            ntn = c(          0,     0,     0,     0),
+            nfn = c(          0,     0,     0,     0)))
+    }
 
     # First, extract variables
     # Raw scores
     scores.tp = field_access_func(data$vcf.tp)
     scores.fp = field_access_func(data$vcf.fp)
 
-    if (is.null(scores.tp) || is.null(scores.fp) || (all(is.na(scores.tp)) && all(is.na(scores.fp))))
+    if (is.null(scores.tp) || is.null(scores.fp))
     {
-        # The required field is not present in the VCFs, or is all NA.  
-        # Try and fail gracefully by returning empty results.
-        return(data.frame(
-            cutoff = c(    -Inf,  -Inf,   Inf,   Inf),
-            midpoint = c(  -Inf,  -Inf,   Inf,   Inf),
-            tp = c(          NA,    NA,    NA,    NA),
-            fp = c(          NA,    NA,    NA,    NA),
-            tn = c(          NA,    NA,    NA,    NA),
-            fn = c(          NA,    NA,    NA,    NA)))
+        # The required field is not present in the VCFs, or is all NA.
+        stop("VCF does not support supplied field access function -- required field is probably missing")
     }
 
     # Despite the aspirational description above, currently does *not* handle non-finite scores.
@@ -592,230 +527,14 @@ vcfPerf = function(data, field_access_func)
     n.fn.structural = data$n.fn     # 'Structural' counts -- these are counts of variants that were
     n.tn.structural = data$n.tn     # not present in the VCF at all, and have the lowest rank.
 
-    vcfPerfWorker(scores.tp, scores.fp, n.tn.structural, n.fn.structural)
+    result = vcfPerfWorker(scores.tp, scores.fp, n.tn.structural, n.fn.structural)
+    result
 }
 
 
-# Run vcfPerf on calls, after subsetting it into groups defined
-# by subgroups.  subgroups is a list of lists, with each member
-# either being an Rle-logical vector of subgroup membership 
-# indicators, or a single numeric value containing the total count
-# of sites in the respective category.
-vcfPerfGrouped = function(calls, field_access_func, subgroups)
-{
-    sapply(names(subgroups), function(subgroup_name) {
-        this_group_data = list(
-            vcf.tp = calls$vcf.tp[subgroups[[subgroup_name]]$tp],
-            vcf.fp = calls$vcf.fp[subgroups[[subgroup_name]]$fp],
-            n.fn = sum(subgroups[[subgroup_name]]$fn),
-            n.tn = sum(subgroups[[subgroup_name]]$tn))
-        vcfPerf(this_group_data, field_access_func)
-    }, simplify = FALSE, USE.NAMES = TRUE)
-}
-
-
-# Helper function to calculate the ROC axes (either TPR, TPN, FPR, or 
-# FPN), for plotROC.
-calcROCaxes = function(perf, type.fp = c("rate", "count"), type.tp = c("rate", "count"))
-{
-    type.tp = match.arg(type.tp)
-    type.fp = match.arg(type.fp)
-
-    if (type.tp == "rate")
-    {
-        if (type.fp == "rate")
-            perf2 = data.frame(TP = perf$tp / (perf$tp + perf$fn), FP = perf$fp / (perf$fp + perf$tn), cutoff = perf$cutoff)
-        else
-            perf2 = data.frame(TP = perf$tp / (perf$tp + perf$fn), FP = perf$fp, cutoff = perf$cutoff)
-    }
-    else
-    {
-        if (type.fp == "rate")
-            perf2 = data.frame(TP = perf$tp, FP = perf$fp / (perf$fp + perf$tn), cutoff = perf$cutoff)
-        else
-            perf2 = data.frame(TP = perf$tp, FP = perf$fp, cutoff = perf$cutoff)
-    }
-
-    perf2
-}
-
-
-# Convert the performance data in perf to a data frame, for use with 
-# ggplot2.  Parameters are as per plotROC.  Returns a list, with two 
-# items:
-#   data: the data frame for plotting
-#   case: a character denoting the type of the data.  Either "A", "B", 
-#         or "C"; definitions of these values are in the plotROC 
-#         comments.
-createROCData = function(perf, type.fp = c("rate", "count"), type.tp = c("rate", "count"))
-{
-    type.tp = match.arg(type.tp)
-    type.fp = match.arg(type.fp)
-
-    if (class(perf) == "data.frame")
-    {
-        # Case A
-        case = "A"
-        plotData = calcROCaxes(perf, type.fp, type.tp)
-        plotData$group1 = NA
-        plotData$group2 = NA
-    }
-    else if (class(perf) == "list" && length(perf) > 0 && all(sapply(perf, class) == "data.frame"))
-    {
-        # Case B
-        case = "B"
-        temp = lapply(perf, calcROCaxes, type.fp = type.fp, type.tp = type.tp)
-        plotData = do.call(rbind, temp)
-        plotData$group1 = factor(rep(names(temp), sapply(temp, nrow)))
-        plotData$group2 = NA
-    }
-    else if (class(perf) == "list" && length(perf) > 0 && all(sapply(perf, class) == "list") && min(sapply(perf, length)) > 0 && all(sapply(perf, function(p1) all(sapply(p1, class) == "data.frame"))))
-    {
-        # Case C
-        case = "C"
-        temp = lapply(perf, function(perf_sub) { 
-            temp = lapply(perf_sub, calcROCaxes, type.fp = type.fp, type.tp = type.tp)
-            plotData_sub = do.call(rbind, temp)
-            plotData_sub$group2 = rep(names(temp), sapply(temp, nrow))
-            plotData_sub 
-        })
-        plotData = do.call(rbind, temp)
-        plotData$group1 = factor(rep(names(temp), sapply(temp, nrow)))
-        plotData$group2 = factor(plotData$group2)
-    }
-    else
-    {
-        stop("Error: perf is not of a supported type.  Must be either data.frame, list(data.frame), or list(list(data.frame))")
-    }
-
-    list(data = plotData, case = case)
-}
-
-# Create a ggplot2 ROC plot of the performance data in perf.
-# perf may be one of three types:
-#   A) a data frame
-#   B) a list of data frames
-#   C) a list of lists of data frames
-# where each data frame contains the columns "cutoff", "tp", "fp", 
-# "tn", and "fn".
-#
-# In case A, a plot is generated with just one curve; that described 
-# by the single data frame.  In case B, one ROC curve is drawn per 
-# list item, with each curve in a different colour.  In case C, each
-# combination of upper-level and lower-level list is used to create
-# a ROC curve, with the upper level determining curve colour, and the
-# lower level curve line type.
-#
-# ROCs may use either total number, or rate, of false positives; this 
-# is controlled independently type.fp parameter.
-plotROC = function(perf, type.fp = c("rate", "count"), facet = c())
-{
-    type.fp = match.arg(type.fp)
-
-    ROCData = createROCData(perf, type.fp)
-
-    case = ROCData$case
-    plotData = ROCData$data
-
-    if (case == "A")
-        plot = ggplot(plotData, aes(x = FP, y = TP))
-    else if (case == "B")
-    {
-        if (1 %in% facet)
-            plot = ggplot(plotData, aes(x = FP, y = TP)) + facet_wrap(~ group1, scales = ifelse(type.fp == "rate", "fixed", "free_x"))
-        else
-            plot = ggplot(plotData, aes(x = FP, y = TP, colour = group1))
-    }
-    else if (case == "C")
-    {
-        if (1 %in% facet)
-        {
-            if (2 %in% facet)
-                plot = ggplot(plotData, aes(x = FP, y = TP)) + facet_grid(group1 ~ group2, scales = ifelse(type.fp == "rate", "fixed", "free_x"))
-            else
-                plot = ggplot(plotData, aes(x = FP, y = TP, linetype = group2)) + facet_wrap(~ group1, scales = ifelse(type.fp == "rate", "fixed", "free_x"))
-        }
-        else
-        {
-            if (2 %in% facet)
-                plot = ggplot(plotData, aes(x = FP, y = TP, colour = group1)) + facet_wrap(~ group2, scales = ifelse(type.fp == "rate", "fixed", "free_x"))
-            else
-                plot = ggplot(plotData, aes(x = FP, y = TP, colour = group1, linetype = group2))
-        }
-    }
-    else
-        stop("Assertion Error: execution should not have reached this point.  Check plotROC case logic.")
-
-    plot = plot + geom_path()
-
-    plot = plot + ylim(0, 1) + ylab("True positive rate")
-
-    if (type.fp == "rate")
-        plot = plot + xlim(0, 1) + xlab("False positive rate") + coord_fixed() + geom_abline(intercept = 0, slope = 1, linetype = "dotted", alpha = 0.5)
-    else
-        plot = plot + xlab("False positive count")
-
-    plot
-}
-
-
-calcSensSpecAtCutoff = function(perf, cutoff)
+getPerfAtCutoff = function(perf, cutoff)
 {
     perf = perf[order(perf$cutoff),]
     sel = min(which(perf$cutoff >= cutoff))
-
-    if (!is.finite(perf$cutoff[sel]))
-    {
-        # Boundary cases (see vcfPerf for details); although --
-        # technically -- performance can be determined for these,
-        # it isn't particularly useful.  Return NA here so that
-        # the relevant table entries will be clearly missing, 
-        # rather than present and misleading.
-        return(list(sens = NA, spec = NA, ntp = NA, nfp = NA, ntn = NA, nfn = NA))
-    }
-
-    list(
-        sens = perf$tp[sel] / (perf$tp[sel] + perf$fn[sel]), 
-        spec = perf$tn[sel] / (perf$tn[sel] + perf$fp[sel]), 
-        ntp = perf$tp[sel], 
-        nfp = perf$fp[sel], 
-        ntn = perf$tn[sel], 
-        nfn = perf$fn[sel])
+    unlist(perf[sel,])
 }
-
-
-plotSensAtCutoff = function(perf, cutoff)
-{
-    if (class(perf) == "data.frame")
-    {
-        # Case A
-        sensspec = calcSensSpecAtCutoff(perf, cutoff)
-        plotdata = data.frame(sens = sensspec$sens)
-        theplot = ggplot(plotdata, aes(x = 1, y = sens)) + geom_bar(stat = "identity")
-    }
-    else if (class(perf) == "list" && length(perf) > 0 && all(sapply(perf, class) == "data.frame"))
-    {
-        # Case B
-        sensspec = lapply(perf, calcSensSpecAtCutoff, cutoff = cutoff)
-        plotdata = data.frame(group1 = names(sensspec), sens = sapply(sensspec, function(x) x$sens))
-        theplot = ggplot(plotdata, aes(x = group1, fill = group1, y = sens)) + geom_bar(stat = "identity")
-    }
-    else if (class(perf) == "list" && length(perf) > 0 && all(sapply(perf, class) == "list") && min(sapply(perf, length)) > 0 && all(sapply(perf, function(p1) all(sapply(p1, class) == "data.frame"))))
-    {
-        # Case C
-        sensspec = lapply(perf, function(p1) lapply(p1, calcSensSpecAtCutoff, cutoff = cutoff))
-        plotdata = data.frame(group1 = names(sensspec), group2 = names(sensspec[[1]]), sens = unlist(lapply(sensspec, function(ss1) lapply(ss1, function(x) x$sens))))
-        theplot = ggplot(plotdata, aes(x = group2, fill = group1, y = sens)) + geom_bar(stat = "identity", position = "dodge")
-    }
-    else
-    {
-        stop("Error: perf is not of a supported type.  Must be either data.frame, list(data.frame), or list(list(data.frame))")
-    }
-
-    theplot
-}
-
-# calcSensSpecAtCutoff(perf.snv$zyg[[report$specifications$measure]]$RRvsRA, report$specifications$cutoff)
-# plotSensAtCutoff(perf.snv$zyg[[report$specifications$measure]]$RRvsRA, report$specifications$cutoff)
-# plotSensAtCutoff(perf.snv$zyg[[report$specifications$measure]], report$specifications$cutoff)
-# plotSensAtCutoff(perf.snv$zyg, report$specifications$cutoff)

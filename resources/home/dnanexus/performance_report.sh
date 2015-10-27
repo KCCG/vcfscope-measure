@@ -40,7 +40,7 @@ if [ ${IS_DNANEXUS} -eq 1 ]; then
   RTG_VCFEVAL="${JAVA} -Xmx${mem_in_mb}m -jar ${RTG_TOOLS} vcfeval -T ${RTG_THREADS}"
 else
   # Wolfpack settings (marpin only for now)
-  PATH_RESOURCES_HEAD="/directflow/ClinicalGenomicsPipeline/projects/performance-reporter/resources-${CONST_VERSION_SCRIPT}"
+  PATH_RESOURCES_HEAD="/directflow/ClinicalGenomicsPipeline/projects/performance-reporter/kccg_performance_reporter_resources_bundle-2.0"
   PATH_SCRATCH_DEFAULT="/directflow/ClinicalGenomicsPipeline/tmp"
 
   RSCRIPT="/home/marpin/bin/Rscript"
@@ -65,9 +65,10 @@ fi
 export CONST_GOLD_CALLS_VCFGZ="${PATH_RESOURCES_HEAD}/gold_standard/calls-2.19.vcf.gz"
 export CONST_GOLD_CALLS_VCFGZTBI="${PATH_RESOURCES_HEAD}/gold_standard/calls-2.19.vcf.gz.tbi"
 export CONST_GOLD_HARDMASK_VALID_REGIONS_BEDGZ="${PATH_RESOURCES_HEAD}/gold_standard/valid_regions-2.19.bed.gz"
-export CONST_REFERENCE_SDF="${PATH_RESOURCES_HEAD}/reference/ref.sdf/"
-export CONST_FUNCTIONAL_REGIONS_BEDGZ_PREFIX="${PATH_RESOURCES_HEAD}/functional_regions/"
-export CONST_MASK_REGIONS_BEDGZ_PREFIX="${PATH_RESOURCES_HEAD}/mask_regions/"
+export CONST_REFERENCE_SDF="${PATH_RESOURCES_HEAD}/reference/hs37d5.sdf/"
+export CONST_RMSK_REGIONS_BEDGZ="${PATH_RESOURCES_HEAD}/redundant_regions/rmsk.bed.gz"
+export CONST_MDUST_REGIONS_BEDGZ="${PATH_RESOURCES_HEAD}/redundant_regions/mdust.bed.gz"
+export CONST_GENOME_BEDGZ="${PATH_RESOURCES_HEAD}/reportable_range/genome.bed.gz"
 export CONST_REFERENCE_BSGENOME="BSgenome.HSapiens.1000g.37d5"		# This is a custom package, available at /share/ClusterShare/biodata/contrib/marpin/reference/hs37d5/build/BSgenome.HSapiens.1000g.37d5_1.0.0.tar.gz
 
 # Script location
@@ -119,7 +120,7 @@ export LOOP_PATH_SAMPLE_OVERLAP_FN
 #####################################################################
 print_usage() {
 cat << EOF
-Usage: ${0##*/} [-o OUTFILE] [-d RDSOUT] [-j JSONOUT] [-r BEDFILE] [-x] [-t] <INFILE>
+Usage: ${0##*/} [-o OUTFILE] [-d RDSOUT] [-j JSONOUT] [-r BEDFILE] [-t] <INFILE>
 
 Create a WGS performance report.
 
@@ -136,13 +137,9 @@ Create a WGS performance report.
                  sample IDs, exactly as they occur in the VCF, or
                  *.  Default: * (a report is generated for each
                  sample in the VCF).
-    -x           Generate an extended report, with threshold and
-                 score diagnostics appended to the standard report.
-                 Default: generate the standard report only.
     -t           Perfom regression tests and consistency checks 
                  prior to report generation.  Generally only for
                  development use.  Default: tests are not performed.
-                 Implies -x.
     -h           Display this help and exit.
 
 Version ${CONST_VERSION_SCRIPT}
@@ -160,10 +157,9 @@ PARAM_REGION_BED_PATH="NA"
 PARAM_OUTPUT_PDF_PATH="${PARAM_SCRIPT_PATH}/performance_report.pdf"
 PARAM_OUTPUT_RDS_PATH=""
 PARAM_OUTPUT_JSON_PATH=""
-PARAM_EXTENDED=0
 PARAM_DOTESTS=0
 
-while getopts "r:o:d:j:s:hxt" opt; do
+while getopts "r:o:d:j:s:ht" opt; do
 	case "$opt" in
 		h)
 			print_usage
@@ -185,12 +181,8 @@ while getopts "r:o:d:j:s:hxt" opt; do
     s)
       PARAM_INPUT_VCF_SAMPLES="${OPTARG}"
       ;;
-		x)
-			PARAM_EXTENDED=1
-			;;
     t)
       PARAM_DOTESTS=1
-      PARAM_EXTENDED=1
       ;;
 		'?')
 			print_usage >&2
@@ -296,8 +288,9 @@ echo >&2 "  CONST_GOLD_CALLS_VCFGZ=${CONST_GOLD_CALLS_VCFGZ}"
 echo >&2 "  CONST_GOLD_CALLS_VCFGZTBI=${CONST_GOLD_CALLS_VCFGZTBI}"
 echo >&2 "  CONST_GOLD_HARDMASK_VALID_REGIONS_BEDGZ=${CONST_GOLD_HARDMASK_VALID_REGIONS_BEDGZ}"
 echo >&2 "  CONST_REFERENCE_SDF=${CONST_REFERENCE_SDF}"
-echo >&2 "  CONST_FUNCTIONAL_REGIONS_BEDGZ_PREFIX=${CONST_FUNCTIONAL_REGIONS_BEDGZ_PREFIX}"
-echo >&2 "  CONST_MASK_REGIONS_BEDGZ_PREFIX=${CONST_MASK_REGIONS_BEDGZ_PREFIX}"
+echo >&2 "  CONST_RMSK_REGIONS_BEDGZ=${CONST_RMSK_REGIONS_BEDGZ}"
+echo >&2 "  CONST_MDUST_REGIONS_BEDGZ=${CONST_MDUST_REGIONS_BEDGZ}"
+echo >&2 "  CONST_GENOME_BEDGZ=${CONST_GENOME_BEDGZ}"
 echo >&2 "  CONST_REFERENCE_BSGENOME=${CONST_REFERENCE_BSGENOME}"
 echo >&2 "  PARAM_SCRIPT_PATH=${PARAM_SCRIPT_PATH}"
 echo >&2 "  PARAM_SCRATCH=${PARAM_SCRATCH}"
@@ -311,7 +304,6 @@ echo >&2 "  PARAM_REGION_BED_PATH=${PARAM_REGION_BED_PATH}"
 echo >&2 "  PARAM_OUTPUT_PDF_PATH=${PARAM_OUTPUT_PDF_PATH}"
 echo >&2 "  PARAM_OUTPUT_RDS_PATH=${PARAM_OUTPUT_RDS_PATH}"
 echo >&2 "  PARAM_OUTPUT_JSON_PATH=${PARAM_OUTPUT_JSON_PATH}"
-echo >&2 "  PARAM_EXTENDED=${PARAM_EXTENDED}"
 echo >&2 "  PARAM_VERSION_EXEC_HOST=${PARAM_VERSION_EXEC_HOST}"
 echo >&2 "  PARAM_VERSION_RTG=${PARAM_VERSION_RTG}"
 echo >&2 "  PARAM_VERSION_JAVA=${PARAM_VERSION_JAVA}"
