@@ -262,22 +262,32 @@ classifyMutationSize = function(vcfs)
 }
 
 
-classifyMutationSizeVcf = function(vcf, max_size = 30)
+classifyMutationSizeVcf = function(vcf)
 {
-    levels = c(as.character(0:(max_size-1)), paste(max_size, "+", sep = ""))
+    breaks = c(1:9, seq(10, 50, 10), 75, 100, Inf)
+    levels = levels(cut(0, breaks, right = FALSE))
+    interval_start_inclusive = as.numeric(sub("^\\[", "", sub(",.*", "", levels)))
+    interval_end_inclusive = as.numeric(sub(".*,", "", sub("\\)$", "", levels))) - 1
+    interval_labels = mapply(function(start, end) { 
+        if (start == end)
+            return(start)
+        else if (end == "Inf")
+            return(paste(start, "+", sep = ""))
+        else
+            return(paste(start, "-", end, sep = "")) },
+        interval_start_inclusive, interval_end_inclusive)
+
     if (nrow(vcf) == 0) 
     {
-        result_list = lapply(0:max_size, function(x) Rle())
+        result_list = lapply(interval_labels, function(x) Rle())
     }
     else
     {
-        cut_lengths = cut(getMutationSizeVcf(vcf), 
-            breaks = c(-1:(max_size-1) + 0.5, 1e6), 
-            labels = levels)
-        result_list = lapply(levels, function(l) Rle(cut_lengths == l))
+        cut_lengths = cut(getMutationSizeVcf(vcf), breaks = breaks, labels = interval_labels, right = FALSE)
+        result_list = lapply(interval_labels, function(l) Rle(cut_lengths == l))
     }
 
-    names(result_list) = levels
+    names(result_list) = interval_labels
     result_list
 }
 
@@ -296,13 +306,14 @@ getMutationSizeVcf = function(vcf)
     subst_or_del = isSubstitution(vcf, singleAltOnly = FALSE) | isDeletion(vcf, singleAltOnly = FALSE)
     ins = isInsertion(vcf, singleAltOnly = FALSE)
     delins = isDelins(vcf, singleAltOnly = FALSE)
-    size[subst_or_del] = pmax(size[subst_or_del], width(vcf[subst_or_del]))
-    size[ins] = pmax(size[ins], sapply(alt(vcf[ins]), function(x) max(width(x))))
-    size[delins] = pmax(size[delins], width(vcf[delins]), sapply(alt(vcf[delins]), function(x) max(width(x))))
+    widths = width(vcf)
+    alts = alt(vcf)
+    size[subst_or_del] = pmax(size[subst_or_del], widths[subst_or_del])
+    size[ins] = pmax(size[ins], sapply(alts[ins], function(x) max(width(x))))
+    size[delins] = pmax(size[delins], widths[delins], sapply(alts[delins], function(x) max(width(x))))
     size[size == 0] = NA
     size
 }
-
 
 
 tabulatePositiveCallTruth = cxxfunction(

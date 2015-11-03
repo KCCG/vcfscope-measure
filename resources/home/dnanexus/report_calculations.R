@@ -299,11 +299,7 @@ stopifnot(sum(class_subsets.performance_thresholded$nfp) + sum(class_subsets.per
 #####################################################################
 # MARGINALIZE THRESHOLDED PERFORMANCE FOR PLOTS
 #####################################################################
-universe_analysis_size
-
 library(ggplot2)
-ggplot(class_subsets.performance_thresholded, aes(x = mutsize, y = ntp / (ntp + nfn), fill = zyg)) + geom_bar(stat = "sum") + facet_grid(muttype ~ rmsk + mdust) + theme_bw()
-
 library(plyr)
 
 
@@ -318,14 +314,16 @@ marginalizePerformance = function(perf_data, subset, vars, ...)
             return(NULL)
         ci_test = binom.test(ntp, ntp + nfn, ...)
 
-        sens = ci_test$estimate
+        sens = as.vector(ci_test$estimate)
         sens.lci = ci_test$conf.int[1]
         sens.uci = ci_test$conf.int[2]
 
-        c("sens" = sens, "sens.lci" = sens.lci, "sens.uci" = sens.uci)
+        c("sens" = sens, "sens.lci" = sens.lci, "sens.uci" = sens.uci, "n" = ntp + nfn + nfp + ntn)
     })
 }
 
+# TODO: Testing only, remove for production
+pdf("~/temp.pdf", height = 12, width = 12)
 
 ggplot(
     marginalizePerformance(class_subsets.performance_thresholded, quote(muttype == "Subst"), .(zyg, mdust, rmsk)), 
@@ -338,32 +336,48 @@ ggplot(
     geom_bar(stat = "identity", position = "dodge") + theme_bw()
 
 temp.perf = marginalizePerformance(class_subsets.performance_thresholded, quote(muttype == "Ins"), .(zyg, mutsize, mdust, rmsk))
-temp.maxsize = max(as.numeric(gsub("+", "", unique(temp.perf$mutsize))))
-temp.perf$mutsize = ordered(as.vector(temp.perf$mutsize), levels = c(as.character(0:(temp.maxsize-1)), paste(temp.maxsize, "+", sep = ""))), 
+temp.maxsize = max(as.numeric(gsub("\\+", "", unique(temp.perf$mutsize))))
+temp.perf$mutsize = ordered(as.vector(temp.perf$mutsize), levels = c(as.character(0:(temp.maxsize-1)), paste(temp.maxsize, "+", sep = ""))) 
 ggplot(
     temp.perf, 
     aes(x = mutsize, y = sens, fill = zyg)) + 
-    geom_bar(stat = "identity", position = "dodge") + facet_grid(mdust ~ rmsk) + theme_bw()
+    geom_point(stat = "identity", position = "dodge") + facet_grid(mdust ~ rmsk) + theme_bw()
+
+temp.perf = marginalizePerformance(class_subsets.performance_thresholded, quote(muttype == "Ins"), .(zyg, mutsize, mdust, rmsk))
+temp.maxsize = max(as.numeric(gsub("\\+", "", unique(temp.perf$mutsize))))
+temp.perf$mutsize = ordered(as.vector(temp.perf$mutsize), levels = c(as.character(0:(temp.maxsize-1)), paste(temp.maxsize, "+", sep = ""))) 
+ggplot(
+    temp.perf, 
+    aes(x = mutsize, y = n, fill = zyg)) + 
+    geom_point(stat = "identity", position = "dodge") + facet_grid(mdust ~ rmsk) + theme_bw()
+
+temp.perf = marginalizePerformance(class_subsets.performance_thresholded, quote(muttype == "Ins"), .(zyg, mutsize, mdust, rmsk))
+temp.maxsize = max(as.numeric(gsub("\\+", "", unique(temp.perf$mutsize))))
+temp.perf$mutsize = ordered(as.vector(temp.perf$mutsize), levels = c(as.character(0:(temp.maxsize-1)), paste(temp.maxsize, "+", sep = ""))) 
+ggplot(
+    temp.perf, 
+    aes(x = mutsize, y = n, fill = zyg)) + 
+    geom_point(stat = "identity", position = "dodge") + facet_grid(mdust ~ rmsk) + theme_bw() + scale_y_log10()
 
 temp.perf = marginalizePerformance(class_subsets.performance_thresholded, quote(muttype == "Ins"), .(zyg, mutsize))
-temp.maxsize = max(as.numeric(gsub("+", "", unique(temp.perf$mutsize))))
-temp.perf$mutsize = ordered(as.vector(temp.perf$mutsize), levels = c(as.character(0:(temp.maxsize-1)), paste(temp.maxsize, "+", sep = ""))), 
+temp.maxsize = max(as.numeric(gsub("\\+", "", unique(temp.perf$mutsize))))
+temp.perf$mutsize = ordered(as.vector(temp.perf$mutsize), levels = c(as.character(0:(temp.maxsize-1)), paste(temp.maxsize, "+", sep = "")))
 ggplot(
     temp.perf, 
     aes(x = mutsize, y = sens, fill = zyg)) + 
     geom_bar(stat = "identity", position = "dodge") + theme_bw()
 
-temp.perf = marginalizePerformance(class_subsets.performance_thresholded, quote(muttype == "Del"), .(zyg, mutsize, mdust, rmsk)), 
-temp.maxsize = max(as.numeric(gsub("+", "", unique(temp.perf$mutsize))))
-temp.perf$mutsize = ordered(as.vector(temp.perf$mutsize), levels = c(as.character(0:(temp.maxsize-1)), paste(temp.maxsize, "+", sep = ""))), 
+temp.perf = marginalizePerformance(class_subsets.performance_thresholded, quote(muttype == "Del"), .(zyg, mutsize, mdust, rmsk))
+temp.maxsize = max(as.numeric(gsub("\\+", "", unique(temp.perf$mutsize))))
+temp.perf$mutsize = ordered(as.vector(temp.perf$mutsize), levels = c(as.character(0:(temp.maxsize-1)), paste(temp.maxsize, "+", sep = "")))
 ggplot(
     temp.perf,
     aes(x = mutsize, y = sens, fill = zyg)) + 
     geom_bar(stat = "identity", position = "dodge") + facet_grid(mdust ~ rmsk) + theme_bw()
 
-temp.perf = marginalizePerformance(class_subsets.performance_thresholded, quote(muttype == "Del"), .(zyg, mutsize)), 
-temp.maxsize = max(as.numeric(gsub("+", "", unique(temp.perf$mutsize))))
-temp.perf$mutsize = ordered(as.vector(temp.perf$mutsize), levels = c(as.character(0:(temp.maxsize-1)), paste(temp.maxsize, "+", sep = ""))), 
+temp.perf = marginalizePerformance(class_subsets.performance_thresholded, quote(muttype == "Del"), .(zyg, mutsize))
+temp.maxsize = max(as.numeric(gsub("\\+", "", unique(temp.perf$mutsize))))
+temp.perf$mutsize = ordered(as.vector(temp.perf$mutsize), levels = c(as.character(0:(temp.maxsize-1)), paste(temp.maxsize, "+", sep = "")))
 ggplot(
     temp.perf,
     aes(x = mutsize, y = sens, fill = zyg)) + 
@@ -389,3 +403,7 @@ false_positive_counts$class = ordered(false_positive_counts$class, levels = c("B
 
 ggplot(false_positive_counts, aes(x = class, y = rate_per_Mb)) + geom_bar(stat = "identity")
 sum(false_positive_counts$rate_per_Mb)
+
+# TODO: Testing only, remove for production
+dev.off()
+
