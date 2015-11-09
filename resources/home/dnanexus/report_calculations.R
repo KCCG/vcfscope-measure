@@ -70,6 +70,7 @@ param$path.rds.output = env$PARAM_OUTPUT_RDS_PATH
 library(VariantAnnotation)
 library(GenomicRanges)
 library(BSgenome)
+library(parallel)
 
 
 #####################################################################
@@ -148,24 +149,23 @@ calls = lapply(calls, function(x) x[x %within% universe$analysis])
 #####################################################################
 # CLASSIFY VARIANTS
 #####################################################################
-class = list(
-    zyg = classifyZygosity(calls),                  # By zygosity
-    muttype = classifyMutationType(calls),          # By mutation type: Subst, Ins, Del, Other
-    mutsize = classifyMutationSize(calls),          # By mutation 'size' (see getMutationSizeVcf for the definition of size)
+class = mclapply(
+    list(
+        zyg = classifyZygosity,                     # By zygosity
+        muttype = classifyMutationType,             # By mutation type: Subst, Ins, Del, Other
+        mutsize = classifyMutationSize,             # By mutation 'size' (see getMutationSizeVcf for the definition of size)
+        depth = classifyDepth,                      # By depth
 
-    # By any overlap with Repeatmasker masked regions
-    rmsk = classifyRegionOverlap(calls, 
-        list(masked = regions$rmsk, unmasked = setdiff(universe$analysis, regions$rmsk, ignore.strand = TRUE)), 
-        c("masked" = "Any", "unmasked" = "All")),
-    
-    # By any overlap with mdust marked low-complexity regions
-    mdust = classifyRegionOverlap(calls, 
-        list(masked = regions$mdust, unmasked = setdiff(universe$analysis, regions$mdust, ignore.strand = TRUE)), 
-        c("masked" = "Any", "unmasked" = "All"))
-)
+        # By any overlap with Repeatmasker masked regions
+        rmsk = function(calls) classifyRegionOverlap(calls, 
+            list(masked = regions$rmsk, unmasked = setdiff(universe$analysis, regions$rmsk, ignore.strand = TRUE)), 
+            c("masked" = "Any", "unmasked" = "All")),
 
-# TODO: Set zyg, muttype, and mutsize by reference variants.  TP is fine, but for FN need
-# aligned true variants.  And for FP, need to hard code.
+        # By any overlap with mdust marked low-complexity regions
+        mdust = function(calls) classifyRegionOverlap(calls,
+            list(masked = regions$mdust, unmasked = setdiff(universe$analysis, regions$mdust, ignore.strand = TRUE)), 
+        c("masked" = "Any", "unmasked" = "All"))),
+    function(func) func(calls), mc.preschedule = FALSE)
 
 # There is a bit of subtlety in this.  Some classes (zygosity, muttype,
 # and mutsize), should based on the properties of the true variant, as 
@@ -178,19 +178,19 @@ class = list(
 # based on data that are not affected by an incorrect call.
 
 # False positives are in truth zygosity RR (hom. ref.)
-class$zyg$RR$fp = class$zyg$RR$fp | TRUE
-for (i in setdiff(names(class$zyg), "RR"))
-    class$zyg[[i]]$fp = class$zyg[[i]]$fp & FALSE
+class$zyg$fp$RR = class$zyg$fp$RR | TRUE
+for (i in setdiff(names(class$zyg$fp), "RR"))
+    class$zyg$fp[[i]] = class$zyg$fp[[i]] & FALSE
 
 # False positives are in truth mutation type None
-class$muttype$None$fp = class$muttype$None$fp | TRUE
-for (i in setdiff(names(class$muttype), "None"))
-    class$muttype[[i]]$fp = class$muttype[[i]]$fp & FALSE
+class$muttype$fp$None = class$muttype$fp$None | TRUE
+for (i in setdiff(names(class$muttype$fp), "None"))
+    class$muttype$fp[[i]] = class$muttype$fp[[i]] & FALSE
 
 # False positives are in truth mutation size zero
-class$mutsize[["0"]]$fp = class$mutsize[["0"]]$fp | TRUE
-for (i in setdiff(names(class$mutsize), "0"))
-    class$mutsize[[i]]$fp = class$mutsize[[i]]$fp & FALSE
+class$mutsize$fp[["0"]] = class$mutsize$fp[["0"]] | TRUE
+for (i in setdiff(names(class$mutsize$fp), "0"))
+    class$mutsize$fp[[i]] = class$mutsize$fp[[i]] & FALSE
 
 
 # Basic consistency check: ensure all class vectors match the length 
@@ -209,23 +209,15 @@ for (temp.i in class)
 # simplifications.
 checkClassExclusive = function(class)
 {
-    ngroups = length(class)
-    if (ngroups == 1)
-        return()
-
-    bins = names(class[[1]])
-
-    for (bin in bins)
+    for (subgroup in class)
     {
-        x = class[[1]][[bin]]
-        for (i in 2:ngroups)
+        membership = Rle(FALSE, length(subgroup[[1]]))
+        for (value in subgroup)
         {
-            y = class[[i]][[bin]]
-            stopifnot(any(x & y) == FALSE)
-            x = x | y
+            stopifnot(any(value & membership) == FALSE)
+            membership = membership | value
         }
-
-        stopifnot(all(x) == TRUE)
+        stopifnot(all(membership) == TRUE)
     }
 }
 
@@ -252,46 +244,51 @@ criteria = list(
 #####################################################################
 # CALCULATE PERFORMANCE ON EVERY CLASS VALUE COMBINATION
 #####################################################################
-class_subsets.values = expand.grid(lapply(class, names))
+sapply(class, function(x) length(names(x[[1]])))
+class_subsets.values = expand.grid(lapply(class, function(x) names(x[[1]])))
+for (i in 1:ncol(class_subsets.values))
+        class_subsets.values[,i] = ordered(class_subsets.values[,i])
 class_subsets.variant_counts = matrix(0, nrow = nrow(class_subsets.values), ncol = 3)
 colnames(class_subsets.variant_counts) = names(calls)
 class_subsets.performance_path = list()
 
 message("Calculating performance on disjoint variant subsets...")
-temp.progress = txtProgressBar(max = nrow(class_subsets.values), style = 3)
-for (i in 1:nrow(class_subsets.values))
-{
-    # Calculate an indicator variable for the variants (in each of the 
-    # three major categories -- tp, fp, and fn), that match the 
-    # combination in class_subsets.values[i,]
-    temp.indicator = sapply(names(calls), function(call_type) Rle(TRUE, length(calls[[call_type]])), USE.NAMES = TRUE)
-    for (class_name in colnames(class_subsets.values))
-    {
-        temp.indicator = sapply(names(calls), function(call_type) temp.indicator[[call_type]] = temp.indicator[[call_type]] & class[[class_name]][[class_subsets.values[i, class_name]]][[call_type]])
-    }
 
-    # Tally the number of variants that fall into this subset, for
-    # later sanity checking.    
-    class_subsets.variant_counts[i,] = sapply(temp.indicator, sum)[colnames(class_subsets.variant_counts)]
+class_subsets.performance_path = mclapply(
+    1:nrow(class_subsets.values),
+    function(i) {
+        if (i %% 100 == 0)
+            message(sprintf("%d / %d (%.2f%%)", i, nrow(class_subsets.values), i / nrow(class_subsets.values) * 100))
 
-    if (all(class_subsets.variant_counts[i,] == 0))
-        class_subsets.performance_path[[i]] = vcfPerf(data = NULL, criteria$FILTER$scoreFunc)
-    else
-        class_subsets.performance_path[[i]] = vcfPerf(
-            data = list(
-                vcf.tp = calls$tp[temp.indicator$tp],
-                vcf.fp = calls$fp[temp.indicator$fp],
-                n.fn = class_subsets.variant_counts[i, "fn"],
-                n.tn = 0),
-            criteria$FILTER$scoreFunc)
+        # Calculate an indicator variable for the variants (in each of the 
+        # three major categories -- tp, fp, and fn), that match the 
+        # combination in class_subsets.values[i,]
+        temp.indicator = sapply(names(calls), function(call_type) Rle(TRUE, length(calls[[call_type]])), USE.NAMES = TRUE)
+        for (class_name in colnames(class_subsets.values))
+        {
+            temp.indicator = sapply(names(calls), function(call_type) temp.indicator[[call_type]] = temp.indicator[[call_type]] & class[[class_name]][[call_type]][[class_subsets.values[i, class_name]]])
+        }
 
-    setTxtProgressBar(temp.progress, i)
-}
-stopifnot(colSums(class_subsets.variant_counts) == sapply(calls, nrow)[colnames(class_subsets.variant_counts)])
+        # Tally the number of variants that fall into this subset, for
+        # later sanity checking.    
+        class_subsets.variant_counts[i,] = sapply(temp.indicator, sum)[colnames(class_subsets.variant_counts)]
+
+        if (all(class_subsets.variant_counts[i,] == 0))
+            return(vcfPerf(data = NULL, criteria$FILTER$scoreFunc))
+        else
+            return(vcfPerf(
+                data = list(
+                    vcf.tp = calls$tp[temp.indicator$tp],
+                    vcf.fp = calls$fp[temp.indicator$fp],
+                    n.fn = class_subsets.variant_counts[i, "fn"],
+                    n.tn = 0),
+                criteria$FILTER$scoreFunc))
+    },
+    mc.preschedule = FALSE
+)
 
 class_subsets.performance_thresholded = cbind(class_subsets.values, as.data.frame(t(sapply(class_subsets.performance_path, getPerfAtCutoff, cutoff = criteria$FILTER$threshold))))
 
-stopifnot(rowSums(class_subsets.performance_thresholded[,c("ntp", "nfp", "ntn", "nfn")]) == rowSums(class_subsets.variant_counts))
 stopifnot(sum(colSums(class_subsets.performance_thresholded[,c("ntp", "nfp", "ntn", "nfn")])) == sum(sapply(calls, nrow)))
 stopifnot(sum(class_subsets.performance_thresholded$nfp) + sum(class_subsets.performance_thresholded$ntn) == nrow(calls$fp))
 
@@ -322,8 +319,6 @@ marginalizePerformance = function(perf_data, subset, vars, ...)
     })
 }
 
-# TODO: Testing only, remove for production
-pdf("~/temp.pdf", height = 12, width = 12)
 
 ggplot(
     marginalizePerformance(class_subsets.performance_thresholded, quote(muttype == "Subst"), .(zyg, mdust, rmsk)), 
@@ -335,53 +330,49 @@ ggplot(
     aes(x = zyg, y = sens, fill = zyg)) + 
     geom_bar(stat = "identity", position = "dodge") + theme_bw()
 
-temp.perf = marginalizePerformance(class_subsets.performance_thresholded, quote(muttype == "Ins"), .(zyg, mutsize, mdust, rmsk))
-temp.maxsize = max(as.numeric(gsub("\\+", "", unique(temp.perf$mutsize))))
-temp.perf$mutsize = ordered(as.vector(temp.perf$mutsize), levels = c(as.character(0:(temp.maxsize-1)), paste(temp.maxsize, "+", sep = ""))) 
 ggplot(
-    temp.perf, 
-    aes(x = mutsize, y = sens, fill = zyg)) + 
-    geom_point(stat = "identity", position = "dodge") + facet_grid(mdust ~ rmsk) + theme_bw()
+    marginalizePerformance(class_subsets.performance_thresholded, quote(muttype == "Ins"), .(zyg, mutsize, mdust, rmsk)), 
+    aes(x = mutsize, y = sens, group = zyg, colour = zyg)) + 
+    geom_ribbon(aes(ymin = sens.lci, ymax = sens.uci, fill = zyg), alpha = 0.25, colour = NA) + 
+    geom_line() + facet_grid(mdust ~ rmsk) + theme_bw() + ylim(0, 1)
 
-temp.perf = marginalizePerformance(class_subsets.performance_thresholded, quote(muttype == "Ins"), .(zyg, mutsize, mdust, rmsk))
-temp.maxsize = max(as.numeric(gsub("\\+", "", unique(temp.perf$mutsize))))
-temp.perf$mutsize = ordered(as.vector(temp.perf$mutsize), levels = c(as.character(0:(temp.maxsize-1)), paste(temp.maxsize, "+", sep = ""))) 
 ggplot(
-    temp.perf, 
-    aes(x = mutsize, y = n, fill = zyg)) + 
-    geom_point(stat = "identity", position = "dodge") + facet_grid(mdust ~ rmsk) + theme_bw()
+    marginalizePerformance(class_subsets.performance_thresholded, quote(muttype == "Ins"), .(zyg, mutsize, mdust, rmsk)), 
+    aes(x = mutsize, y = n, group = zyg, colour = zyg)) + 
+    geom_line() + facet_grid(mdust ~ rmsk) + theme_bw()
 
-temp.perf = marginalizePerformance(class_subsets.performance_thresholded, quote(muttype == "Ins"), .(zyg, mutsize, mdust, rmsk))
-temp.maxsize = max(as.numeric(gsub("\\+", "", unique(temp.perf$mutsize))))
-temp.perf$mutsize = ordered(as.vector(temp.perf$mutsize), levels = c(as.character(0:(temp.maxsize-1)), paste(temp.maxsize, "+", sep = ""))) 
 ggplot(
-    temp.perf, 
-    aes(x = mutsize, y = n, fill = zyg)) + 
-    geom_point(stat = "identity", position = "dodge") + facet_grid(mdust ~ rmsk) + theme_bw() + scale_y_log10()
+    marginalizePerformance(class_subsets.performance_thresholded, quote(muttype == "Ins"), .(zyg, mutsize, mdust, rmsk)), 
+    aes(x = mutsize, y = n, group = zyg, colour = zyg)) + 
+    geom_line() + facet_grid(mdust ~ rmsk) + theme_bw() + scale_y_log10()
 
-temp.perf = marginalizePerformance(class_subsets.performance_thresholded, quote(muttype == "Ins"), .(zyg, mutsize))
-temp.maxsize = max(as.numeric(gsub("\\+", "", unique(temp.perf$mutsize))))
-temp.perf$mutsize = ordered(as.vector(temp.perf$mutsize), levels = c(as.character(0:(temp.maxsize-1)), paste(temp.maxsize, "+", sep = "")))
 ggplot(
-    temp.perf, 
-    aes(x = mutsize, y = sens, fill = zyg)) + 
-    geom_bar(stat = "identity", position = "dodge") + theme_bw()
+    marginalizePerformance(class_subsets.performance_thresholded, quote(muttype == "Del"), .(zyg, mutsize, mdust, rmsk)), 
+    aes(x = mutsize, y = sens, group = zyg, colour = zyg)) + 
+    geom_ribbon(aes(ymin = sens.lci, ymax = sens.uci, fill = zyg), alpha = 0.25, colour = NA) + 
+    geom_line() + facet_grid(mdust ~ rmsk) + theme_bw() + ylim(0, 1)
 
-temp.perf = marginalizePerformance(class_subsets.performance_thresholded, quote(muttype == "Del"), .(zyg, mutsize, mdust, rmsk))
-temp.maxsize = max(as.numeric(gsub("\\+", "", unique(temp.perf$mutsize))))
-temp.perf$mutsize = ordered(as.vector(temp.perf$mutsize), levels = c(as.character(0:(temp.maxsize-1)), paste(temp.maxsize, "+", sep = "")))
 ggplot(
-    temp.perf,
-    aes(x = mutsize, y = sens, fill = zyg)) + 
-    geom_bar(stat = "identity", position = "dodge") + facet_grid(mdust ~ rmsk) + theme_bw()
+    marginalizePerformance(class_subsets.performance_thresholded, quote(muttype == "Del"), .(zyg, mutsize, mdust, rmsk)),
+    aes(x = mutsize, y = n, group = zyg, colour = zyg)) + 
+    geom_line() + facet_grid(mdust ~ rmsk) + theme_bw()
 
-temp.perf = marginalizePerformance(class_subsets.performance_thresholded, quote(muttype == "Del"), .(zyg, mutsize))
-temp.maxsize = max(as.numeric(gsub("\\+", "", unique(temp.perf$mutsize))))
-temp.perf$mutsize = ordered(as.vector(temp.perf$mutsize), levels = c(as.character(0:(temp.maxsize-1)), paste(temp.maxsize, "+", sep = "")))
 ggplot(
-    temp.perf,
-    aes(x = mutsize, y = sens, fill = zyg)) + 
-    geom_bar(stat = "identity", position = "dodge") + theme_bw()
+    marginalizePerformance(class_subsets.performance_thresholded, quote(muttype == "Del"), .(zyg, mutsize, mdust, rmsk)),
+    aes(x = mutsize, y = n, group = zyg, colour = zyg)) + 
+    geom_line() + facet_grid(mdust ~ rmsk) + theme_bw() + scale_y_log10()
+
+ggplot(
+    marginalizePerformance(class_subsets.performance_thresholded, quote(muttype == "Del"), .(zyg, mutsize, mdust)), 
+    aes(x = mutsize, y = sens, group = zyg, colour = zyg)) + 
+    geom_ribbon(aes(ymin = sens.lci, ymax = sens.uci, fill = zyg), alpha = 0.25, colour = NA) + 
+    geom_line() + facet_wrap(~ mdust) + theme_bw() + ylim(0, 1)
+
+ggplot(
+    marginalizePerformance(class_subsets.performance_thresholded, quote(muttype == "Ins"), .(zyg, mutsize, mdust)), 
+    aes(x = mutsize, y = sens, group = zyg, colour = zyg)) + 
+    geom_ribbon(aes(ymin = sens.lci, ymax = sens.uci, fill = zyg), alpha = 0.25, colour = NA) + 
+    geom_line() + facet_wrap(~ mdust) + theme_bw() + ylim(0, 1)
 
 false_positive_counts = ddply(subset(class_subsets.performance_thresholded, muttype == "None"), .(mdust, rmsk), function(x) c(nfp = sum(x$nfp)))
 false_positive_counts$subset_size = NA
@@ -403,7 +394,4 @@ false_positive_counts$class = ordered(false_positive_counts$class, levels = c("B
 
 ggplot(false_positive_counts, aes(x = class, y = rate_per_Mb)) + geom_bar(stat = "identity")
 sum(false_positive_counts$rate_per_Mb)
-
-# TODO: Testing only, remove for production
-dev.off()
 

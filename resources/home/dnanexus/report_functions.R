@@ -90,41 +90,9 @@ readMaskRegions = function(prefix, seqinfo)
 }
 
 
-# Transform l, a list of lists, with outer list A and inner list
-# B, into a list of lists, with outer list B and inner list A.
-# For example, transforms:
-#   list(A1 = list(B1 = "w", B2 = "x"), A2 = list(B1 = "y", B2 = "z", B3 = "p"))
-# into
-#   list(B1 = list(A1 = "w", A2 = "y"), B2 = list(A1 = "x", A2 = "z"), B3 = list(A1 = NULL, A2 = "p"))
-# Returns the transformed list.  Does not preserve item ordering
-# within levels.
-#
-# R> str(swapListOrder(list(A1 = list(B1 = "w", B2 = "x"), A2 = list(B1 = "y", B2 = "z", B3 = "p"))))
-# List of 3
-#  $ B1:List of 2
-#   ..$ A1: chr "w"
-#   ..$ A2: chr "y"
-#  $ B2:List of 2
-#   ..$ A1: chr "x"
-#   ..$ A2: chr "z"
-#  $ B3:List of 2
-#   ..$ A1: NULL
-#   ..$ A2: chr "p"
-swapListOrder = function(l)
-{
-    outer_names = suppressWarnings(sort(names(l)))
-    inner_names = sort(unique(unlist(lapply(l, names))))
-    sapply(inner_names, function(inner_name) {
-        sapply(outer_names, function(outer_name) {
-            l[[outer_name]][[inner_name]]
-        }, simplify = FALSE, USE.NAMES = TRUE)
-    }, simplify = FALSE, USE.NAMES = TRUE)
-}
-
-
 classifyZygosity = function(vcfs)
 {
-    swapListOrder(lapply(vcfs, classifyZygosityVcf))
+    lapply(vcfs, classifyZygosityVcf)
 }
 
 
@@ -196,7 +164,7 @@ classifyZygosityVcf = function(vcf)
 
 classifyMutationType = function(vcfs)
 {
-    swapListOrder(lapply(vcfs, classifyMutationTypeVcf))
+    lapply(vcfs, classifyMutationTypeVcf)
 }
 
 
@@ -251,20 +219,19 @@ classifyRegionOverlapVcf = function(vcf, regions, mode)
 
 classifyRegionOverlap = function(vcfs, regions, mode)
 {
-    swapListOrder(lapply(vcfs, classifyRegionOverlapVcf, regions = regions, mode = mode))
+    lapply(vcfs, classifyRegionOverlapVcf, regions = regions, mode = mode)
 }
-
 
 
 classifyMutationSize = function(vcfs)
 {
-    swapListOrder(lapply(vcfs, classifyMutationSizeVcf))
+    lapply(vcfs, classifyMutationSizeVcf)
 }
 
 
 classifyMutationSizeVcf = function(vcf)
 {
-    breaks = c(1:9, seq(10, 50, 10), 75, 100, Inf)
+    breaks = c(0:9, seq(10, 50, 10), 75, 100, 125, 150, Inf)
     levels = levels(cut(0, breaks, right = FALSE))
     interval_start_inclusive = as.numeric(sub("^\\[", "", sub(",.*", "", levels)))
     interval_end_inclusive = as.numeric(sub(".*,", "", sub("\\)$", "", levels))) - 1
@@ -295,24 +262,79 @@ classifyMutationSizeVcf = function(vcf)
 getMutationSizeVcf = function(vcf)
 {
     # Return the 'size' of the mutation.
-    # For substitutions, this is the size of the feature
-    # For insertions, the number of inserted bases
-    # For deletions, the number of deleted bases
+
+    # For substitutions, this is the size of the alt
+    # For insertions, the number of inserted bases (== width(alt) - width(ref))
+    # For deletions, the number of deleted bases (== width(ref) - width(alt))
     # For delins, the largest of the number of inserted and deleted bases
+
     # In the case of multiple alt alleles, some variants will likely fall under multiple classes,
     # and therefore multiple size definitions.  In this situation, the largest passing size is
     # used (therefore all the pmaxes).
-    size = rep(0, nrow(vcf))
-    subst_or_del = isSubstitution(vcf, singleAltOnly = FALSE) | isDeletion(vcf, singleAltOnly = FALSE)
+
+    subst = isSubstitution(vcf, singleAltOnly = FALSE)
+    del = isDeletion(vcf, singleAltOnly = FALSE)
     ins = isInsertion(vcf, singleAltOnly = FALSE)
     delins = isDelins(vcf, singleAltOnly = FALSE)
-    widths = width(vcf)
+
     alts = alt(vcf)
-    size[subst_or_del] = pmax(size[subst_or_del], widths[subst_or_del])
-    size[ins] = pmax(size[ins], sapply(alts[ins], function(x) max(width(x))))
-    size[delins] = pmax(size[delins], widths[delins], sapply(alts[delins], function(x) max(width(x))))
+
+    alt_widths = sapply(alts, function(alt_options) max(width(alt_options)))
+    ref_widths = width(vcf)
+    delta_width = abs(alt_widths - ref_widths)
+    max_width = pmax(alt_widths, ref_widths)
+
+    size = rep(0, nrow(vcf))
+
+    size[subst] = ref_widths[subst]
+    size[del] = pmax(size[del], delta_width[del])
+    size[ins] = pmax(size[ins], delta_width[ins])
+    size[delins] = pmax(size[delins], max_width[delins])
     size[size == 0] = NA
     size
+}
+
+
+classifyDepth = function(vcfs)
+{
+    lapply(vcfs, classifyDepthVcf)
+}
+
+
+classifyDepthVcf = function(vcf)
+{
+    breaks = c(seq(0, 50, 5), Inf)
+    levels = levels(cut(0, breaks, right = FALSE))
+    interval_start_inclusive = as.numeric(sub("^\\[", "", sub(",.*", "", levels)))
+    interval_end_inclusive = as.numeric(sub(".*,", "", sub("\\)$", "", levels))) - 1
+    interval_labels = mapply(function(start, end) { 
+        if (start == end)
+            return(start)
+        else if (end == "Inf")
+            return(paste(start, "+", sep = ""))
+        else
+            return(paste(start, "-", end, sep = "")) },
+        interval_start_inclusive, interval_end_inclusive)
+    interval_labels2 = c(interval_labels, "Unknown")
+
+    if (nrow(vcf) == 0) 
+    {
+        result_list = lapply(interval_labels2, function(x) Rle())
+    }
+    else
+    {
+        depth = info(vcf)$DP
+        cut_lengths = cut(depth, breaks = breaks, labels = interval_labels, right = FALSE)
+        result_list = lapply(interval_labels2, function(l) { 
+            if (l != "Unknown")
+                return(Rle(!is.na(cut_lengths) & cut_lengths == l))
+            else
+                return(Rle(is.na(cut_lengths))) 
+        } )
+    }
+
+    names(result_list) = interval_labels2
+    result_list
 }
 
 
