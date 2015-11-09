@@ -33,29 +33,20 @@
 % LOAD PRECOMPUTED RESULTS
 %--------------------------------------------------------------------
 <<load-results, cache=FALSE, echo=FALSE>>=
-load("report_data.rda")
+temp = readRDS("report_data.rds")
+params = temp$params
+class_subsets.performance_thresholded = temp$class_subsets.performance_thresholded
+sampleid = temp$sampleid
 @
 
 
-% LIBRARIES
+% LIBRARIES AND HELPER FUNCTIONS
 %--------------------------------------------------------------------
 <<load-libs, cache=FALSE, echo=FALSE>>=
-suppressPackageStartupMessages(library(VariantAnnotation))
-suppressPackageStartupMessages(library(GenomicRanges))
-suppressPackageStartupMessages(library(BSgenome))
-
-suppressPackageStartupMessages(library(Rcpp))
-suppressPackageStartupMessages(library(inline))
-
+suppressPackageStartupMessages(source("report_functions.R"))
 suppressPackageStartupMessages(library(ggplot2))
+suppressPackageStartupMessages(library(plyr))
 suppressPackageStartupMessages(library(xtable))
-@
-
-
-% HELPER FUNCTIONS
-%--------------------------------------------------------------------
-<<load-funcs, cache=FALSE, echo=FALSE>>=
-source("report_functions.R")
 @
 
 
@@ -86,123 +77,129 @@ options(warn = 1)
 \newcommand{\HRule}{\rule{\linewidth}{0.5mm}}
 
 \fancyhf{}
-\lhead{WGS Performance Report (v\texttt{\Sexpr{param$version$script}}): \texttt{\Sexpr{texquote(calls.sampleid)}}}
+\lhead{WGS Performance Report (v\texttt{\Sexpr{params$version$script}}): \texttt{\Sexpr{texquote(report$sampleid)}}}
 \rhead{Page \thepage\ of \pageref{LastPage}}
 
 \let\endtitlepage\relax
 \begin{titlepage}
 \begin{flushleft}
-\LARGE{WGS Performance Report: \texttt{\Sexpr{texquote(calls.sampleid)}}}
+\LARGE{WGS Performance Report: \texttt{\Sexpr{texquote(report$sampleid)}}}
 \HRule
 \end{flushleft}
 \end{titlepage}
 
 \section{Summary}
-Sample ID: \texttt{\Sexpr{texquote(calls.sampleid)}} \\
-Input VCF: \texttt{\url{\Sexpr{param$path.test.orig}}} \\
-Report version: \texttt{\Sexpr{param$version$script}} \\
+Sample ID: \texttt{\Sexpr{texquote(report$sampleid)}} \\
+Input VCF: \texttt{\url{\Sexpr{params$path.test.orig}}} \\
+Report version: \texttt{\Sexpr{params$version$script}} \\
 Report time: \texttt{\Sexpr{texquote(report$gentime)}} \\
-Call criterion: \Sexpr{report$specifications$label_latex} \\
+Call criterion: \Sexpr{report$specifications$criterion_latex}
 
-<<summary-table,results='asis'>>=
-summary.table = xtable(data.frame(
-	Criterion = c(
-		"Het SNV sensitivity", 
-		"Het SNV specificity", 
-		"Het Indel sensitivity",
-		"Hom SNV sensitivity", 
-		"Hom SNV specificity", 
-		"Hom Indel sensitivity"),
-	"Measured" = c(
-		report$snv.het.sens.value, 
-		report$snv.het.spec.value, 
-		report$indelsubst.het.sens.value,
-		report$snv.hom.sens.value, 
-		report$snv.hom.spec.value, 
-		report$indelsubst.hom.sens.value),
-	"Requirement" = c(
-		sprintf("$\\ge %.2f$", report$specifications$snv.het.min.sens), 
-		sprintf("$\\ge %.2f$", report$specifications$snv.het.min.spec), 
-		sprintf("$\\ge %.2f$", report$specifications$indelsubst.het.min.sens),
-		sprintf("$\\ge %.2f$", report$specifications$snv.hom.min.sens), 
-		sprintf("$\\ge %.2f$", report$specifications$snv.hom.min.spec), 
-		sprintf("$\\ge %.2f$", report$specifications$indelsubst.hom.min.sens)),
-	"Call" = c(
-		report$snv.het.sens.call, 
-		report$snv.het.spec.call, 
-		report$indelsubst.het.sens.call, 
-		report$snv.hom.sens.call, 
-		report$snv.hom.spec.call, 
-		report$indelsubst.hom.sens.call)), 
-	digits = 4, align = "llrll")
-print(summary.table, sanitize.text.function = function(x) x, include.rownames = FALSE)
+<<plots>>=
+marginalizePerformance = function(perf_data, subset, vars, ...)
+{
+    ddply(perf_data[eval(subset, perf_data, parent.frame()),], vars, function(x) { 
+        ntp = sum(x$ntp)
+        nfn = sum(x$nfn)
+        nfp = sum(x$nfp)
+        ntn = sum(x$ntn)
+
+        if (ntp + nfn + nfp + ntn == 0)
+        {
+            sens = NA
+            sens.lci = NA
+            sens.uci = NA
+        }
+        else
+        {
+            ci_test = binom.test(ntp, ntp + nfn, ...)
+            sens = as.vector(ci_test$estimate)
+            sens.lci = ci_test$conf.int[1]
+            sens.uci = ci_test$conf.int[2]
+        }
+
+        c("sens" = sens, "sens.lci" = sens.lci, "sens.uci" = sens.uci, "n" = ntp + nfn + nfp + ntn)
+    }, .drop = TRUE)
+}
+
+class_subsets.performance_thresholded$mdust = ordered(c("masked" = "Low Complexity", "unmasked" = "High Complexity")[class_subsets.performance_thresholded$mdust], levels = c("Low Complexity", "High Complexity"))
+class_subsets.performance_thresholded$rmsk = ordered(c("masked" = "Repeat", "unmasked" = "Non-repeat")[class_subsets.performance_thresholded$rmsk], levels = c("Repeat", "Non-repeat"))
+
+
+ggplot(
+    marginalizePerformance(class_subsets.performance_thresholded, quote(muttype == "Subst" & zyg %in% c("RA", "AA")), .(zyg, mdust)), 
+    aes(x = zyg, y = sens, fill = zyg)) + 
+    geom_bar(stat = "identity", position = "dodge") + 
+    geom_errorbar(aes(ymin = sens.lci, ymax = sens.uci), width = 0.2) + 
+    labs(x = "", y = "Sensitivity", fill = "Zygosity", title = "SNV Detection Performance") + 
+    facet_wrap(~ mdust) + theme_bw()
+
+ggplot(
+    marginalizePerformance(class_subsets.performance_thresholded, quote(muttype == "Subst" & zyg %in% c("RA", "AA")), .(zyg, mdust)), 
+    aes(x = zyg, y = n, fill = zyg)) + 
+    geom_bar(stat = "identity", position = "dodge") + 
+    labs(x = "", y = "Number of mutations", fill = "Zygosity", title = "SNV Counts in Gold Standard") + 
+    facet_wrap(~ mdust) + theme_bw()
+
+
+ggplot(
+    marginalizePerformance(class_subsets.performance_thresholded, quote(muttype == "Ins" & zyg %in% c("RA", "AA")), .(zyg, mutsize, mdust)), 
+    aes(x = mutsize, y = sens, group = zyg, colour = zyg)) + 
+    geom_line() + 
+    geom_ribbon(aes(ymin = sens.lci, ymax = sens.uci, fill = zyg), alpha = 0.25, colour = NA) + 
+    geom_point(size = 2, shape = 21, fill = "white") + 
+    labs(x = "Number of bases inserted (inclusive)", y = "Sensitivity", fill = "Zygosity", colour = "Zygosity", title = "Insertion Detection Performance") + 
+    facet_wrap(~ mdust) + theme_bw() + ylim(0, 1)
+
+ggplot(
+    marginalizePerformance(class_subsets.performance_thresholded, quote(muttype == "Ins" & zyg %in% c("RA", "AA")), .(zyg, mutsize, mdust)), 
+    aes(x = mutsize, y = n, group = zyg, colour = zyg)) + 
+    geom_line() + 
+    geom_point(size = 2, shape = 21, fill = "white") + 
+    labs(x = "Number of bases inserted (inclusive)", y = "Number of mutations", fill = "Zygosity", colour = "Zygosity", title = "Insertion Counts in Gold Standard") + 
+    facet_wrap(~ mdust) + theme_bw()
+
+
+ggplot(
+    marginalizePerformance(class_subsets.performance_thresholded, quote(muttype == "Del" & zyg %in% c("RA", "AA")), .(zyg, mutsize, mdust)), 
+    aes(x = mutsize, y = sens, group = zyg, colour = zyg)) + 
+    geom_line() + 
+    geom_ribbon(aes(ymin = sens.lci, ymax = sens.uci, fill = zyg), alpha = 0.25, colour = NA) + 
+    geom_point(size = 2, shape = 21, fill = "white") + 
+    labs(x = "Number of bases deleted (inclusive)", y = "Sensitivity", fill = "Zygosity", colour = "Zygosity", title = "Deletion Detection Performance") + 
+    facet_wrap(~ mdust) + theme_bw() + ylim(0, 1)
+
+ggplot(
+    marginalizePerformance(class_subsets.performance_thresholded, quote(muttype == "Del" & zyg %in% c("RA", "AA")), .(zyg, mutsize, mdust)), 
+    aes(x = mutsize, y = n, group = zyg, colour = zyg)) + 
+    geom_line() + 
+    geom_point(size = 2, shape = 21, fill = "white") + 
+    labs(x = "Number of bases deleted (inclusive)", y = "Number of mutations", fill = "Zygosity", colour = "Zygosity", title = "Deletion Counts in Gold Standard") + 
+    facet_wrap(~ mdust) + theme_bw()
+
+
+
+false_positive_counts = ddply(subset(class_subsets.performance_thresholded, muttype == "None"), .(mdust, rmsk), function(x) c(nfp = sum(x$nfp)))
+false_positive_counts$subset_size = NA
+false_positive_counts$subset_size[false_positive_counts$rmsk == "masked" & false_positive_counts$mdust == "masked"] = sum(as.numeric(width(intersect(regions$rmsk, regions$mdust, ignore.strand = TRUE))))
+false_positive_counts$subset_size[false_positive_counts$rmsk == "masked" & false_positive_counts$mdust == "unmasked"] = sum(as.numeric(width(intersect(regions$rmsk, setdiff(universe$analysis, regions$mdust, ignore.strand = TRUE), ignore.strand = TRUE))))
+false_positive_counts$subset_size[false_positive_counts$rmsk == "unmasked" & false_positive_counts$mdust == "masked"] = sum(as.numeric(width(intersect(setdiff(universe$analysis, regions$rmsk, ignore.strand = TRUE), regions$mdust, ignore.strand = TRUE))))
+false_positive_counts$subset_size[false_positive_counts$rmsk == "unmasked" & false_positive_counts$mdust == "unmasked"] = sum(as.numeric(width(intersect(setdiff(universe$analysis, regions$rmsk, ignore.strand = TRUE), setdiff(universe$analysis, regions$mdust, ignore.strand = TRUE), ignore.strand = TRUE))))
+stopifnot(sum(false_positive_counts$subset_size) == universe_analysis_size)
+false_positive_counts$rate_per_Mb = false_positive_counts$nfp / false_positive_counts$subset_size * 1e6
+
+sum(false_positive_counts$nfp) / universe_analysis_size * 1e6
+
+false_positive_counts$class = NA
+false_positive_counts$class[false_positive_counts$rmsk == "masked" & false_positive_counts$mdust == "masked"] = "Both"
+false_positive_counts$class[false_positive_counts$rmsk == "masked" & false_positive_counts$mdust == "unmasked"] = "RMSK"
+false_positive_counts$class[false_positive_counts$rmsk == "unmasked" & false_positive_counts$mdust == "masked"] = "mdust"
+false_positive_counts$class[false_positive_counts$rmsk == "unmasked" & false_positive_counts$mdust == "unmasked"] = "Neither"
+false_positive_counts$class = ordered(false_positive_counts$class, levels = c("Both", "mdust", "RMSK", "Neither"))
+
+ggplot(false_positive_counts, aes(x = class, y = rate_per_Mb)) + geom_bar(stat = "identity")
+sum(false_positive_counts$rate_per_Mb)
 @
-
-\textbf{OVERALL RESULT: \Sexpr{report$overall.call}} \\
-
-<<summary-plots, out.width='.45\\linewidth', fig.show='hold'>>=
-plotROC(perf.snv$zyg[[report$specifications$measure]][c("RRvsAA", "RRvsRA")]) + 
-	ggtitle("SNV: Whole genome") + 
-	labs(colour = "Zygosity") + 
-	scale_colour_brewer(palette = "Set1") +
-	coord_cartesian(xlim = c(-1e-7, 1e-5)) + ylim(0, 1) + 
-	geom_point(aes(colour = Zygosity, shape = Score), size = 4, data = data.frame(
-		FP = c(1 - snv.het.perf$spec, 1 - snv.hom.perf$spec, 1 - snv.het.perf$spec, 1 - snv.hom.perf$spec),
-		TP = c(snv.het.perf$sens, snv.hom.perf$sens, snv.het.perf$sens, snv.hom.perf$sens),
-		Zygosity = c("RRvsRA", "RRvsAA", "RRvsRA", "RRvsAA"),
-		Score = c(report$specifications$label, report$specifications$label, "FILTER = PASS", "FILTER = PASS"))) + 
-	scale_shape_manual(name = "Score", breaks = c(report$specifications$label, "FILTER = PASS"), values = c(5, 16)) + 
-	guides(size = FALSE) + 
-	geom_vline(xintercept = 1 - report$specifications$snv.het.min.spec, lty = "dashed") + 
-	geom_hline(yintercept = report$specifications$snv.het.min.sens, lty = "dashed") + 
-	theme_bw()
-
-plotROC(perf.indelsubst$zyg[[report$specifications$measure]][c("RRvsAA", "RRvsRA")], type.fp = "count") + 
-	ggtitle("Indel: Whole genome") + 
-	labs(colour = "Zygosity") + 
-	scale_colour_brewer(palette = "Set1") +
-	ylim(0, 1) + 
-	geom_point(aes(colour = Zygosity, shape = Score), size = 4, data = data.frame(
-		FP = c(indelsubst.het.perf$nfp, indelsubst.hom.perf$nfp, indelsubst.het.perf$nfp, indelsubst.hom.perf$nfp),
-		TP = c(indelsubst.het.perf$sens, indelsubst.hom.perf$sens, indelsubst.het.perf$sens, indelsubst.hom.perf$sens),
-		Zygosity = c("RRvsRA", "RRvsAA", "RRvsRA", "RRvsAA"),
-		Score = c(report$specifications$label, report$specifications$label, "FILTER = PASS", "FILTER = PASS"))) + 
-	scale_shape_manual(name = "Score", breaks = c(report$specifications$label, "FILTER = PASS"), values = c(5, 16)) + 
-	guides(size = FALSE) + 
-	geom_hline(yintercept = report$specifications$indelsubst.het.min.sens, lty = "dashed") + 
-	theme_bw()
-@
-
-\subsection{Raw Counts at Cutoff: \Sexpr{report$specifications$label_latex}}
-<<count-table,results='asis'>>=
-count.table = xtable(data.frame(
-	"Region" = c("Whole genome", "", "", ""),
-	"Zygosity" = c("Het", "", "Hom", ""),
-	"Mutation" = c("SNV", "Indel/MNV", "SNV", "Indel/MNV"),
-	"TP" = c(
-		formatC2(snv.het.perf$ntp, digits=0, format="f", big.mark=","),
-		formatC2(indelsubst.het.perf$ntp, digits=0, format="f", big.mark=","),
-		formatC2(snv.hom.perf$ntp, digits=0, format="f", big.mark=","),
-		formatC2(indelsubst.hom.perf$ntp, digits=0, format="f", big.mark=",")),
-	"FP" = c(
-		formatC2(snv.het.perf$nfp, digits=0, format="f", big.mark=","),
-		formatC2(indelsubst.het.perf$nfp, digits=0, format="f", big.mark=","),
-		formatC2(snv.hom.perf$nfp, digits=0, format="f", big.mark=","),
-		formatC2(indelsubst.hom.perf$nfp, digits=0, format="f", big.mark=",")),
-	"TN" = c(
-		formatC2(snv.het.perf$ntn, digits=0, format="f", big.mark=","),
-		NA,
-		formatC2(snv.hom.perf$ntn, digits=0, format="f", big.mark=","),
-		NA),
-	"FN" = c(
-		formatC2(snv.het.perf$nfn, digits=0, format="f", big.mark=","),
-		formatC2(indelsubst.het.perf$nfn, digits=0, format="f", big.mark=","),
-		formatC2(snv.hom.perf$nfn, digits=0, format="f", big.mark=","),
-		formatC2(indelsubst.hom.perf$nfn, digits=0, format="f", big.mark=","))),
-	digits = 0, align = "llllrrrr")
-print(count.table, sanitize.text.function = function(x) x, include.rownames = FALSE, floating = FALSE)
-@
-
 
 % DATA AND SOFTWARE VERSIONS
 %--------------------------------------------------------------------
@@ -230,32 +227,16 @@ if (param$region.subset)
 \end{itemize}
 \item Data: \begin{itemize}
 	\item Input VCF: \texttt{\url{\Sexpr{param$path.test.orig}}} (MD5 \texttt{\Sexpr{texquote(fileMD5(param$path.test.orig))}})
-	\item Sample ID: \texttt{\Sexpr{texquote(calls.sampleid)}}
+	\item Sample ID: \texttt{\Sexpr{texquote(report$sampleid)}}
 	\item GiaB VCF: \texttt{\url{\Sexpr{param$path.gold.variants.orig}}} (MD5 \texttt{\Sexpr{texquote(fileMD5(param$path.gold.variants.orig))}})
 	\item GiaB BED: \texttt{\url{\Sexpr{param$path.gold.regions.orig}}} (MD5 \texttt{\Sexpr{texquote(fileMD5(param$path.gold.regions.orig))}})
 	\item Analysis restricted to regions? \Sexpr{temp.region_label} \begin{itemize}
 		\item Analysis region BED: \texttt{\url{\Sexpr{param$region.subset.path}}} (MD5 \texttt{\Sexpr{texquote(temp.region_md5)}})
 	\end{itemize}
 	\item Sequence masks: \texttt{\url{\Sexpr{param$path.mask.regions.prefix}}} \begin{itemize}
-		\item Ambiguous: \texttt{ambiguous.bed.gz} (MD5 \texttt{\Sexpr{texquote(fileMD5(paste(param$path.mask.regions.prefix, "ambiguous.bed.gz", sep = "")))}})
-		\item Low complexity: \texttt{mdust.bed.gz} (MD5 \texttt{\Sexpr{texquote(fileMD5(paste(param$path.mask.regions.prefix, "mdust.bed.gz", sep = "")))}})
-		\item Repetitive: \texttt{repetitive.bed.gz} (MD5 \texttt{\Sexpr{texquote(fileMD5(paste(param$path.mask.regions.prefix, "repetitive.bed.gz", sep = "")))}})
-	\end{itemize}
-	\item Functional regions: \texttt{\url{\Sexpr{param$path.function.regions.prefix}}} \begin{itemize}
-		\item Exonic coding: \texttt{exonic\_coding.bed.gz} (MD5 \texttt{\Sexpr{texquote(fileMD5(paste(param$path.function.regions.prefix, "exonic_coding.bed.gz", sep = "")))}})
-		\item Exonic non-coding: \texttt{exonic\_utr.bed.gz} (MD5 \texttt{\Sexpr{texquote(fileMD5(paste(param$path.function.regions.prefix, "exonic_utr.bed.gz", sep = "")))}})
-		\item Genic: \texttt{genes.bed.gz} (MD5 \texttt{\Sexpr{texquote(fileMD5(paste(param$path.function.regions.prefix, "genes.bed.gz", sep = "")))}})
-		\item Intergenic: \texttt{intergenic.bed.gz} (MD5 \texttt{\Sexpr{texquote(fileMD5(paste(param$path.function.regions.prefix, "intergenic.bed.gz", sep = "")))}})
-		\item Intronic: \texttt{intronic.bed.gz} (MD5 \texttt{\Sexpr{texquote(fileMD5(paste(param$path.function.regions.prefix, "intronic.bed.gz", sep = "")))}})
-		\item Splice sites: \texttt{splice.bed.gz} (MD5 \texttt{\Sexpr{texquote(fileMD5(paste(param$path.function.regions.prefix, "splice.bed.gz", sep = "")))}})
+		\item Low complexity: \texttt{\Sexpr{gsub(".*/", "", param$path.mdust)}} (MD5 \texttt{\Sexpr{texquote(fileMD5(param$path.mdust))}})
+		\item Repetitive: \texttt{\Sexpr{gsub(".*/", "", param$path.rmsk)}} (MD5 \texttt{\Sexpr{texquote(fileMD5(param$path.rmsk))}})
 	\end{itemize}
 \end{itemize}
-
-
-% EXTENDED REPORT
-%--------------------------------------------------------------------
-<<child = if (param$extended) 'report_extended.Rnw'>>=
-@
-
 
 \end{document}

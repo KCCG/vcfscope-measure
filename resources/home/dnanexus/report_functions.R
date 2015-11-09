@@ -231,7 +231,7 @@ classifyMutationSize = function(vcfs)
 
 classifyMutationSizeVcf = function(vcf)
 {
-    breaks = c(0:9, seq(10, 50, 10), 75, 100, 125, 150, Inf)
+    breaks = c(seq(0, 50, 10), seq(75, 150, 25), Inf)
     levels = levels(cut(0, breaks, right = FALSE))
     interval_start_inclusive = as.numeric(sub("^\\[", "", sub(",.*", "", levels)))
     interval_end_inclusive = as.numeric(sub(".*,", "", sub("\\)$", "", levels))) - 1
@@ -279,17 +279,28 @@ getMutationSizeVcf = function(vcf)
 
     alts = alt(vcf)
 
-    alt_widths = sapply(alts, function(alt_options) max(width(alt_options)))
+    # The following code requires the fields alt_width_min and alt_width_max
+    # to be present in the CollapsedVCF rowRanges.  These fields aren't present
+    # in the original files, but are instead added at execute time by the 
+    # function augmentCollapsedVCFWithAltLengthRange (see report_calculations.R).
+    # This hack is to get around the canonical code to do this being extremely
+    # slow.
+    alt_widths_min = rowRanges(vcf)$alt_width_min
+    alt_widths_max = rowRanges(vcf)$alt_width_max
+    # The canonical (using CollapsedVCF / XStringSet calls) code which is 
+    # replaced by the above, follows:
+    # alt_widths = sapply(alts, function(alt_options) range(width(alt_options)))
+    # alt_widths_min = alt_widths[1,]
+    # alt_widths_max = alt_widths[2,]
+
     ref_widths = width(vcf)
-    delta_width = abs(alt_widths - ref_widths)
-    max_width = pmax(alt_widths, ref_widths)
 
     size = rep(0, nrow(vcf))
 
     size[subst] = ref_widths[subst]
-    size[del] = pmax(size[del], delta_width[del])
-    size[ins] = pmax(size[ins], delta_width[ins])
-    size[delins] = pmax(size[delins], max_width[delins])
+    size[del] = pmax(size[del], ref_widths[del] - alt_widths_min[del])
+    size[ins] = pmax(size[ins], alt_widths_max[ins] - ref_widths[ins])
+    size[delins] = pmax(size[delins], pmax(alt_widths_max, ref_widths)[delins])
     size[size == 0] = NA
     size
 }
@@ -323,7 +334,7 @@ classifyDepthVcf = function(vcf)
     }
     else
     {
-        depth = info(vcf)$DP
+        depth = geno(vcf)$DP
         cut_lengths = cut(depth, breaks = breaks, labels = interval_labels, right = FALSE)
         result_list = lapply(interval_labels2, function(l) { 
             if (l != "Unknown")

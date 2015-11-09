@@ -88,7 +88,7 @@ genome(genome.seqinfo) = param$genome     # To get around disagreement
 # LOAD VARIANTS (SPLIT INTO ERROR CLASSES FROM RTG VCFEVAL)
 #####################################################################
 # The call overlaps.  Load just the required fields from the VCFs.
-vcf.scan_param = ScanVcfParam(geno = c("GT"))
+vcf.scan_param = ScanVcfParam(geno = c("GT", "DP"), fixed = c("ALT", "FILTER"), info = NA)
 
 calls = list(
     tp = suppressWarnings(readVcf(TabixFile(param$path.tp), param$genome, vcf.scan_param)),
@@ -104,6 +104,30 @@ stopifnot(length(temp.sample.tp) == 1)
 
 calls.sampleid = header(calls$tp)@samples
 
+
+# Get the variant sizes.  This can be done by accessing the CollapsedVCF
+# structures, but is extremely slow -- in particular, access to the
+# alt allele lengths is very inefficient when using the following code:
+# alt_widths = sapply(alt(vcf), function(alt_options) range(width(alt_options)))
+# Get around this problem using the following hack, calculating the 
+# range of alternate allele lengths on the shell, and then
+# augmenting the CollapsedVCF objects with these data.  These data will
+# be used by classifyMutationSize.
+augmentCollapsedVCFWithAltLengthRange = function(vcf, path)
+{
+    vcf2 = vcf
+    inpipe = pipe(sprintf("gzip -dc %s | grep -v '^#' | awk 'BEGIN {FS=\"\\t\"} { nalts = split($5, alts, \",\"); min = length(alts[1]); max = length(alts[1]); for (i = 2; i <= nalts; i++) { if (length(alts[i]) < min) { min = length(alts[i]) } else if (length(alts[i]) > max) { max = length(alts[i]) } }; print length($4), min, max}'", path))
+    lengths = scan(inpipe, list(ref = integer(), minalt = integer(), maxalt = integer()))
+    close(inpipe)
+    stopifnot(all(width(vcf) == lengths$ref))
+    rowRanges(vcf2)$alt_width_min = lengths$minalt
+    rowRanges(vcf2)$alt_width_max = lengths$maxalt
+    return(vcf2)
+}
+
+calls$tp = augmentCollapsedVCFWithAltLengthRange(calls$tp, param$path.tp)
+calls$fp = augmentCollapsedVCFWithAltLengthRange(calls$fp, param$path.fp)
+calls$fn = augmentCollapsedVCFWithAltLengthRange(calls$fn, param$path.fn)
 
 #####################################################################
 # LOAD UNIVERSE AND ANALYSIS SUBSET
@@ -168,7 +192,7 @@ class = mclapply(
     function(func) func(calls), mc.preschedule = FALSE)
 
 # There is a bit of subtlety in this.  Some classes (zygosity, muttype,
-# and mutsize), should based on the properties of the true variant, as 
+# and mutsize) should based on the properties of the true variant, as 
 # given in the gold standard.  However, in the case of FP or FN calls, 
 # these properties may be wrong, as they are based on a known 
 # incorrect call.  To resolve this, we manually go back and set these
@@ -188,9 +212,19 @@ for (i in setdiff(names(class$muttype$fp), "None"))
     class$muttype$fp[[i]] = class$muttype$fp[[i]] & FALSE
 
 # False positives are in truth mutation size zero
-class$mutsize$fp[["0"]] = class$mutsize$fp[["0"]] | TRUE
-for (i in setdiff(names(class$mutsize$fp), "0"))
+class$mutsize$fp[["0-9"]] = class$mutsize$fp[["0-9"]] | TRUE
+for (i in setdiff(names(class$mutsize$fp), "0-9"))
     class$mutsize$fp[[i]] = class$mutsize$fp[[i]] & FALSE
+
+# False negatives don't have a reliable depth (as they probably never 
+# had a VCF entry), so set all to Unknown.
+# TODO: This is a potential point for refinement -- technically I 
+# *can* calculate the depth here, and it will provide useful information
+# on the effect of low depth on the dropout rate, but I'd have to start 
+# from the BAMs instead of VCFs.
+class$depth$fn[["Unknown"]] = class$depth$fn[["Unknown"]] | TRUE
+for (i in setdiff(names(class$depth$fn), "Unknown"))
+    class$depth$fn[[i]] = class$depth$fn[[i]] & FALSE
 
 
 # Basic consistency check: ensure all class vectors match the length 
@@ -244,21 +278,24 @@ criteria = list(
 #####################################################################
 # CALCULATE PERFORMANCE ON EVERY CLASS VALUE COMBINATION
 #####################################################################
-sapply(class, function(x) length(names(x[[1]])))
 class_subsets.values = expand.grid(lapply(class, function(x) names(x[[1]])))
 for (i in 1:ncol(class_subsets.values))
         class_subsets.values[,i] = ordered(class_subsets.values[,i])
-class_subsets.variant_counts = matrix(0, nrow = nrow(class_subsets.values), ncol = 3)
-colnames(class_subsets.variant_counts) = names(calls)
 class_subsets.performance_path = list()
 
-message("Calculating performance on disjoint variant subsets...")
+message(sprintf("Calculating performance on %d disjoint variant subsets...", prod(sapply(class, function(x) length(names(x[[1]]))))))
+temp.start_time = Sys.time()
 
 class_subsets.performance_path = mclapply(
     1:nrow(class_subsets.values),
     function(i) {
         if (i %% 100 == 0)
-            message(sprintf("%d / %d (%.2f%%)", i, nrow(class_subsets.values), i / nrow(class_subsets.values) * 100))
+        {
+            elapsed = as.numeric(difftime(Sys.time(), temp.start_time, units = "secs"))
+            rate = i / elapsed
+            remaining = (nrow(class_subsets.values) - i) / rate
+            message(sprintf("%d / %d (%.2f%%)\tElapsed: %.0fs, est. remaining: %.0fs", i, nrow(class_subsets.values), i / nrow(class_subsets.values) * 100, elapsed, remaining))
+        }
 
         # Calculate an indicator variable for the variants (in each of the 
         # three major categories -- tp, fp, and fn), that match the 
@@ -269,22 +306,20 @@ class_subsets.performance_path = mclapply(
             temp.indicator = sapply(names(calls), function(call_type) temp.indicator[[call_type]] = temp.indicator[[call_type]] & class[[class_name]][[call_type]][[class_subsets.values[i, class_name]]])
         }
 
-        # Tally the number of variants that fall into this subset, for
-        # later sanity checking.    
-        class_subsets.variant_counts[i,] = sapply(temp.indicator, sum)[colnames(class_subsets.variant_counts)]
+        class_subsets.variant_counts = sapply(temp.indicator, sum)
 
-        if (all(class_subsets.variant_counts[i,] == 0))
+        if (all(class_subsets.variant_counts == 0))
             return(vcfPerf(data = NULL, criteria$FILTER$scoreFunc))
         else
             return(vcfPerf(
                 data = list(
                     vcf.tp = calls$tp[temp.indicator$tp],
                     vcf.fp = calls$fp[temp.indicator$fp],
-                    n.fn = class_subsets.variant_counts[i, "fn"],
+                    n.fn = class_subsets.variant_counts["fn"],
                     n.tn = 0),
                 criteria$FILTER$scoreFunc))
     },
-    mc.preschedule = FALSE
+    mc.preschedule = TRUE
 )
 
 class_subsets.performance_thresholded = cbind(class_subsets.values, as.data.frame(t(sapply(class_subsets.performance_path, getPerfAtCutoff, cutoff = criteria$FILTER$threshold))))
@@ -293,105 +328,9 @@ stopifnot(sum(colSums(class_subsets.performance_thresholded[,c("ntp", "nfp", "nt
 stopifnot(sum(class_subsets.performance_thresholded$nfp) + sum(class_subsets.performance_thresholded$ntn) == nrow(calls$fp))
 
 
-#####################################################################
-# MARGINALIZE THRESHOLDED PERFORMANCE FOR PLOTS
-#####################################################################
-library(ggplot2)
-library(plyr)
-
-
-marginalizePerformance = function(perf_data, subset, vars, ...)
-{
-    ddply(perf_data[eval(subset, perf_data, parent.frame()),], vars, function(x) { 
-        ntp = sum(x$ntp)
-        nfn = sum(x$nfn)
-        nfp = sum(x$nfp)
-        ntn = sum(x$ntn)
-        if (ntp + nfn + nfp + ntn == 0)
-            return(NULL)
-        ci_test = binom.test(ntp, ntp + nfn, ...)
-
-        sens = as.vector(ci_test$estimate)
-        sens.lci = ci_test$conf.int[1]
-        sens.uci = ci_test$conf.int[2]
-
-        c("sens" = sens, "sens.lci" = sens.lci, "sens.uci" = sens.uci, "n" = ntp + nfn + nfp + ntn)
-    })
-}
-
-
-ggplot(
-    marginalizePerformance(class_subsets.performance_thresholded, quote(muttype == "Subst"), .(zyg, mdust, rmsk)), 
-    aes(x = zyg, y = sens, fill = zyg)) + 
-    geom_bar(stat = "identity", position = "dodge") + facet_grid(mdust ~ rmsk) + theme_bw()
-
-ggplot(
-    marginalizePerformance(class_subsets.performance_thresholded, quote(muttype == "Subst"), .(zyg)), 
-    aes(x = zyg, y = sens, fill = zyg)) + 
-    geom_bar(stat = "identity", position = "dodge") + theme_bw()
-
-ggplot(
-    marginalizePerformance(class_subsets.performance_thresholded, quote(muttype == "Ins"), .(zyg, mutsize, mdust, rmsk)), 
-    aes(x = mutsize, y = sens, group = zyg, colour = zyg)) + 
-    geom_ribbon(aes(ymin = sens.lci, ymax = sens.uci, fill = zyg), alpha = 0.25, colour = NA) + 
-    geom_line() + facet_grid(mdust ~ rmsk) + theme_bw() + ylim(0, 1)
-
-ggplot(
-    marginalizePerformance(class_subsets.performance_thresholded, quote(muttype == "Ins"), .(zyg, mutsize, mdust, rmsk)), 
-    aes(x = mutsize, y = n, group = zyg, colour = zyg)) + 
-    geom_line() + facet_grid(mdust ~ rmsk) + theme_bw()
-
-ggplot(
-    marginalizePerformance(class_subsets.performance_thresholded, quote(muttype == "Ins"), .(zyg, mutsize, mdust, rmsk)), 
-    aes(x = mutsize, y = n, group = zyg, colour = zyg)) + 
-    geom_line() + facet_grid(mdust ~ rmsk) + theme_bw() + scale_y_log10()
-
-ggplot(
-    marginalizePerformance(class_subsets.performance_thresholded, quote(muttype == "Del"), .(zyg, mutsize, mdust, rmsk)), 
-    aes(x = mutsize, y = sens, group = zyg, colour = zyg)) + 
-    geom_ribbon(aes(ymin = sens.lci, ymax = sens.uci, fill = zyg), alpha = 0.25, colour = NA) + 
-    geom_line() + facet_grid(mdust ~ rmsk) + theme_bw() + ylim(0, 1)
-
-ggplot(
-    marginalizePerformance(class_subsets.performance_thresholded, quote(muttype == "Del"), .(zyg, mutsize, mdust, rmsk)),
-    aes(x = mutsize, y = n, group = zyg, colour = zyg)) + 
-    geom_line() + facet_grid(mdust ~ rmsk) + theme_bw()
-
-ggplot(
-    marginalizePerformance(class_subsets.performance_thresholded, quote(muttype == "Del"), .(zyg, mutsize, mdust, rmsk)),
-    aes(x = mutsize, y = n, group = zyg, colour = zyg)) + 
-    geom_line() + facet_grid(mdust ~ rmsk) + theme_bw() + scale_y_log10()
-
-ggplot(
-    marginalizePerformance(class_subsets.performance_thresholded, quote(muttype == "Del"), .(zyg, mutsize, mdust)), 
-    aes(x = mutsize, y = sens, group = zyg, colour = zyg)) + 
-    geom_ribbon(aes(ymin = sens.lci, ymax = sens.uci, fill = zyg), alpha = 0.25, colour = NA) + 
-    geom_line() + facet_wrap(~ mdust) + theme_bw() + ylim(0, 1)
-
-ggplot(
-    marginalizePerformance(class_subsets.performance_thresholded, quote(muttype == "Ins"), .(zyg, mutsize, mdust)), 
-    aes(x = mutsize, y = sens, group = zyg, colour = zyg)) + 
-    geom_ribbon(aes(ymin = sens.lci, ymax = sens.uci, fill = zyg), alpha = 0.25, colour = NA) + 
-    geom_line() + facet_wrap(~ mdust) + theme_bw() + ylim(0, 1)
-
-false_positive_counts = ddply(subset(class_subsets.performance_thresholded, muttype == "None"), .(mdust, rmsk), function(x) c(nfp = sum(x$nfp)))
-false_positive_counts$subset_size = NA
-false_positive_counts$subset_size[false_positive_counts$rmsk == "masked" & false_positive_counts$mdust == "masked"] = sum(as.numeric(width(intersect(regions$rmsk, regions$mdust, ignore.strand = TRUE))))
-false_positive_counts$subset_size[false_positive_counts$rmsk == "masked" & false_positive_counts$mdust == "unmasked"] = sum(as.numeric(width(intersect(regions$rmsk, setdiff(universe$analysis, regions$mdust, ignore.strand = TRUE), ignore.strand = TRUE))))
-false_positive_counts$subset_size[false_positive_counts$rmsk == "unmasked" & false_positive_counts$mdust == "masked"] = sum(as.numeric(width(intersect(setdiff(universe$analysis, regions$rmsk, ignore.strand = TRUE), regions$mdust, ignore.strand = TRUE))))
-false_positive_counts$subset_size[false_positive_counts$rmsk == "unmasked" & false_positive_counts$mdust == "unmasked"] = sum(as.numeric(width(intersect(setdiff(universe$analysis, regions$rmsk, ignore.strand = TRUE), setdiff(universe$analysis, regions$mdust, ignore.strand = TRUE), ignore.strand = TRUE))))
-stopifnot(sum(false_positive_counts$subset_size) == universe_analysis_size)
-false_positive_counts$rate_per_Mb = false_positive_counts$nfp / false_positive_counts$subset_size * 1e6
-
-sum(false_positive_counts$nfp) / universe_analysis_size * 1e6
-
-false_positive_counts$class = NA
-false_positive_counts$class[false_positive_counts$rmsk == "masked" & false_positive_counts$mdust == "masked"] = "Both"
-false_positive_counts$class[false_positive_counts$rmsk == "masked" & false_positive_counts$mdust == "unmasked"] = "RMSK"
-false_positive_counts$class[false_positive_counts$rmsk == "unmasked" & false_positive_counts$mdust == "masked"] = "mdust"
-false_positive_counts$class[false_positive_counts$rmsk == "unmasked" & false_positive_counts$mdust == "unmasked"] = "Neither"
-false_positive_counts$class = ordered(false_positive_counts$class, levels = c("Both", "mdust", "RMSK", "Neither"))
-
-ggplot(false_positive_counts, aes(x = class, y = rate_per_Mb)) + geom_bar(stat = "identity")
-sum(false_positive_counts$rate_per_Mb)
-
+saveRDS(
+    list(
+        report = list(sampleid = calls.sampleid, gentime = date(), criterion = "FILTER = PASS", criterion_latex = "$\\mathrm{FILTER} = \\mathrm{PASS}$"), 
+        params = params, 
+        class_subsets.performance_thresholded = class_subsets.performance_thresholded), 
+    file = "report_data.rds")
