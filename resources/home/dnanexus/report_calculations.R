@@ -104,7 +104,7 @@ stopifnot(length(temp.sample.tp) == 1)
 
 calls.sampleid = header(calls$tp)@samples
 
-
+# HACK:
 # Get the variant sizes.  This can be done by accessing the CollapsedVCF
 # structures, but is extremely slow -- in particular, access to the
 # alt allele lengths is very inefficient when using the following code:
@@ -128,6 +128,7 @@ augmentCollapsedVCFWithAltLengthRange = function(vcf, path)
 calls$tp = augmentCollapsedVCFWithAltLengthRange(calls$tp, param$path.tp)
 calls$fp = augmentCollapsedVCFWithAltLengthRange(calls$fp, param$path.fp)
 calls$fn = augmentCollapsedVCFWithAltLengthRange(calls$fn, param$path.fn)
+# END HACK
 
 #####################################################################
 # LOAD UNIVERSE AND ANALYSIS SUBSET
