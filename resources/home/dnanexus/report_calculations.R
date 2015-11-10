@@ -302,6 +302,8 @@ class_subsets.performance_path = mclapply(
         for (class_name in colnames(class_subsets.values))
         {
             temp.indicator = sapply(names(calls), function(call_type) temp.indicator[[call_type]] = temp.indicator[[call_type]] & class[[class_name]][[call_type]][[class_subsets.values[i, class_name]]])
+            if (!any(temp.indicator))
+                break
         }
 
         class_subsets.variant_counts = sapply(temp.indicator, sum)
@@ -329,6 +331,8 @@ stopifnot(sum(class_subsets.performance_thresholded$nfp) + sum(class_subsets.per
 saveRDS(
     list(
         report = list(gentime = date(), criterion = "FILTER = PASS", criterion_latex = "$\\mathrm{FILTER} = \\mathrm{PASS}$"), 
-        params = params, 
-        class_subsets.performance_thresholded = class_subsets.performance_thresholded), 
+        params = param, 
+        class_subsets.performance_thresholded = class_subsets.performance_thresholded, 
+        regions = regions,
+        universe = universe), 
     file = "report_data.rds")

@@ -19,7 +19,7 @@ for (sample.index in 0:(param$sample.count-1))
     sample.rds_path = paste(param$knitr.scratch, "_", sample.index, "/report_data.rds", sep = "")
     message(paste("  ", sample.rds_path, "...", sep = ""))
     sample.exported_summary = readRDS(sample.rds_path)
-    sample.id = sample.exported_summary$param$sample.id
+    sample.id = sample.exported_summary$params$sample.id
     if (sample.id %in% merged_data)
     {
         stop(sprintf("Error: Duplicate VCF sample IDs found (offending ID: %s).  Sample IDs must be unique.", sample.id))
