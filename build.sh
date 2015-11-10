@@ -28,12 +28,12 @@ function run_smoketest {
   region=project-BVJz7k0098GX43GV9ZPFXVY2:file-Bf9b5zQ098Ggq5zZ3kf846ZP
 
   # Case 1: All samples in VCF
-  jobid=$(dx run app-kccg-validation-reporter/bamboo_smoketest -ivcfgz=$vcfgz -iregion=$region -iextended=true -iruntests=true --yes --brief)
+  jobid=$(dx run app-kccg-validation-reporter/bamboo_smoketest -ivcfgz=$vcfgz -iregion=$region -iruntests=true --yes --brief)
   dx watch -q --no-job-info  -f '{msg}' ${jobid}
   dx describe ${jobid}
 
   # Case 2: Specified sample in VCF
-  jobid=$(dx run app-kccg-validation-reporter/bamboo_smoketest -ivcfgz=$vcfgz -iregion=$region -iextended=true -iruntests=true -isampleIDs=NA12878-Vial1_140319_K3 --yes --brief)
+  jobid=$(dx run app-kccg-validation-reporter/bamboo_smoketest -ivcfgz=$vcfgz -iregion=$region -iruntests=true -isampleIDs=NA12878-Vial1_140319_K3 --yes --brief)
   dx watch -q --no-job-info  -f '{msg}' ${jobid}
   dx describe ${jobid}
 }
