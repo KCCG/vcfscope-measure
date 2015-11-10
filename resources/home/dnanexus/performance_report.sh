@@ -441,7 +441,6 @@ for (( LOOP_SAMPLE_INDEX = 0; LOOP_SAMPLE_INDEX < ${LOOP_NUM_SAMPLES}; LOOP_SAMP
   mkdir -p ${LOOP_KNITR_PATH}
   cp -f ${PARAM_SCRIPT_PATH}/report.Rnw ${LOOP_KNITR_PATH}
   cp -f ${PARAM_SCRIPT_PATH}/report_functions.R ${LOOP_KNITR_PATH}
-  cp -f ${PARAM_SCRIPT_PATH}/report_extended.Rnw ${LOOP_KNITR_PATH}
   cp -f ${PARAM_SCRIPT_PATH}/report_calculations.R ${LOOP_KNITR_PATH}
   cp -f ${PARAM_SCRIPT_PATH}/test-calcs.R ${LOOP_KNITR_PATH}
   cp -f ${PARAM_SCRIPT_PATH}/merge_report_summaries.R ${LOOP_KNITR_PATH}
