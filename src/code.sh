@@ -28,7 +28,7 @@ main() {
   #
   mkdir ~/resources
   cd ~/resources
-  dx cat "${DX_ASSETS_ID}:/assets/kccg_validation_reporter_resources_bundle-2.0.tar" | tar xf -
+  dx cat "${DX_ASSETS_ID}:/assets/kccg_performance_reporter_resources_bundle-2.0.tar" | tar xf -
 
   #
   # setup R
