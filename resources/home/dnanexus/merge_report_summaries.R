@@ -16,7 +16,7 @@ merged_data = list()
 
 for (sample.index in 0:(param$sample.count-1))
 {
-    sample.rds_path = paste(param$knitr.scratch, "_", sample.index, "/report_summary.rds", sep = "")
+    sample.rds_path = paste(param$knitr.scratch, "_", sample.index, "/report_data.rds", sep = "")
     message(paste("  ", sample.rds_path, "...", sep = ""))
     sample.exported_summary = readRDS(sample.rds_path)
     sample.id = sample.exported_summary$param$sample.id

@@ -36,7 +36,6 @@
 temp = readRDS("report_data.rds")
 params = temp$params
 class_subsets.performance_thresholded = temp$class_subsets.performance_thresholded
-sampleid = temp$sampleid
 @
 
 
@@ -77,19 +76,19 @@ options(warn = 1)
 \newcommand{\HRule}{\rule{\linewidth}{0.5mm}}
 
 \fancyhf{}
-\lhead{WGS Performance Report (v\texttt{\Sexpr{params$version$script}}): \texttt{\Sexpr{texquote(report$sampleid)}}}
+\lhead{WGS Performance Report (v\texttt{\Sexpr{params$version$script}}): \texttt{\Sexpr{texquote(params$sample.id)}}}
 \rhead{Page \thepage\ of \pageref{LastPage}}
 
 \let\endtitlepage\relax
 \begin{titlepage}
 \begin{flushleft}
-\LARGE{WGS Performance Report: \texttt{\Sexpr{texquote(report$sampleid)}}}
+\LARGE{WGS Performance Report: \texttt{\Sexpr{texquote(params$sample.id)}}}
 \HRule
 \end{flushleft}
 \end{titlepage}
 
 \section{Summary}
-Sample ID: \texttt{\Sexpr{texquote(report$sampleid)}} \\
+Sample ID: \texttt{\Sexpr{texquote(params$sample.id)}} \\
 Input VCF: \texttt{\url{\Sexpr{params$path.test.orig}}} \\
 Report version: \texttt{\Sexpr{params$version$script}} \\
 Report time: \texttt{\Sexpr{texquote(report$gentime)}} \\
@@ -227,7 +226,7 @@ if (param$region.subset)
 \end{itemize}
 \item Data: \begin{itemize}
 	\item Input VCF: \texttt{\url{\Sexpr{param$path.test.orig}}} (MD5 \texttt{\Sexpr{texquote(fileMD5(param$path.test.orig))}})
-	\item Sample ID: \texttt{\Sexpr{texquote(report$sampleid)}}
+	\item Sample ID: \texttt{\Sexpr{texquote(params$sample.id)}}
 	\item GiaB VCF: \texttt{\url{\Sexpr{param$path.gold.variants.orig}}} (MD5 \texttt{\Sexpr{texquote(fileMD5(param$path.gold.variants.orig))}})
 	\item GiaB BED: \texttt{\url{\Sexpr{param$path.gold.regions.orig}}} (MD5 \texttt{\Sexpr{texquote(fileMD5(param$path.gold.regions.orig))}})
 	\item Analysis restricted to regions? \Sexpr{temp.region_label} \begin{itemize}

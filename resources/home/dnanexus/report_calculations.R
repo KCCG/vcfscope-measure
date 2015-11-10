@@ -96,13 +96,10 @@ calls = list(
     fn = suppressWarnings(readVcf(TabixFile(param$path.fn), param$genome, vcf.scan_param))
 )
 
-# Simple data sanity check: do the vcfs have the same sample name?
-temp.sample.tp = header(calls$tp)@samples
-temp.sample.fp = header(calls$fp)@samples
-stopifnot(temp.sample.tp == temp.sample.fp)
-stopifnot(length(temp.sample.tp) == 1)
+# Simple data sanity check: do the vcfs have the same, correct sample name?
+stopifnot(length(header(calls$tp)@samples) == 1 && all(header(calls$tp)@samples == param$sample.id))
+stopifnot(length(header(calls$fp)@samples) == 1 && all(header(calls$fp)@samples == param$sample.id))
 
-calls.sampleid = header(calls$tp)@samples
 
 # HACK:
 # Get the variant sizes.  This can be done by accessing the CollapsedVCF
@@ -331,7 +328,7 @@ stopifnot(sum(class_subsets.performance_thresholded$nfp) + sum(class_subsets.per
 
 saveRDS(
     list(
-        report = list(sampleid = calls.sampleid, gentime = date(), criterion = "FILTER = PASS", criterion_latex = "$\\mathrm{FILTER} = \\mathrm{PASS}$"), 
+        report = list(gentime = date(), criterion = "FILTER = PASS", criterion_latex = "$\\mathrm{FILTER} = \\mathrm{PASS}$"), 
         params = params, 
         class_subsets.performance_thresholded = class_subsets.performance_thresholded), 
     file = "report_data.rds")
