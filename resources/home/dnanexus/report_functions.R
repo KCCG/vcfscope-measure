@@ -582,3 +582,44 @@ getPerfAtCutoff = function(perf, cutoff)
     sel = min(which(perf$cutoff >= cutoff))
     unlist(perf[sel,])
 }
+
+
+# Whole genome, showing target as slice
+# Target, showing GiaB callable as slice, with mdust marked
+
+plotGenomeBreakdown = function(f_targ_of_wg, f_gold_of_targ, f_hc_of_gold, f_hc_of_notgold,
+    B = 0.2, D = 0.06, E = 0.03, 
+    lwd.hatch = 0.5, lwd.box = 2, lwd.divide = 2, lwd.link = 1, 
+    density.targ = 10, angle.targ = 45, 
+    density.mask = 10, angle.mask = 135)
+{
+    A = f_targ_of_wg
+    C = f_gold_of_targ
+
+    plot.new()
+
+    # Top box hatched region (target)
+    rect(0, 1-B, A, 1, lwd = lwd.hatch, density = density.targ, angle = angle.targ, border = NA)
+    # Top box divider
+    segments(A, 1, A, 1-B, lwd = lwd.divide)
+    # Top box outer border
+    rect(0, 1-B, 1, 1, lwd = lwd.box)
+
+    # Bottom box left shaded region (target AND GiaB AND High Complexity)
+    rect(0, B*f_hc_of_gold, C, 0, density = NA, col = grey(0.8), border = NA)
+
+    # Bottom box right shaded region (target AND not GiaB AND High Complexity)
+    rect(C, B*f_hc_of_notgold, 1, 0, density = NA, col = grey(0.8), border = NA)
+
+    # Bottom box hatched region (target)
+    rect(0, B, 1, 0, lwd = lwd.hatch, density = density.targ, angle = angle.targ, border = NA)
+    # Bottom box overshaded region (GiaB callable within target)
+    rect(0, B, C, 0, lwd = lwd.hatch, density = density.mask, angle = angle.mask, border = NA)
+    # Bottom box divider
+    segments(C, B, C, 0, lwd = lwd.divide)
+    # Bottom box outer border
+    rect(0, B, 1, 0, lwd = lwd.box)
+
+    # Lines joining subsets
+    segments(c(0, A, A, 1), c(1-B-D, 1-B-D, 1-B-D-E, B+D+E), c(0, A, 1, 1), c(B+D, 1-B-D-E, B+D+E, B+D), lwd = lwd.link)
+}

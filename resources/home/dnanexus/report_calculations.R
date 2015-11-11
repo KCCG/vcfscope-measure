@@ -57,7 +57,6 @@ param$version$rtg = env$PARAM_VERSION_RTG           # Software versions.
 param$version$java = env$PARAM_VERSION_JAVA         #
 param$version$bedtools = env$PARAM_VERSION_BEDTOOLS #
 
-param$path.rmsk = env$CONST_RMSK_REGIONS_BEDGZ      # Repeatmasker masked regions
 param$path.mdust = env$CONST_MDUST_REGIONS_BEDGZ    # mdust low-complexity regions
 param$path.genome = env$CONST_GENOME_BEDGZ          # The full target genome
 
@@ -101,7 +100,7 @@ stopifnot(length(header(calls$tp)@samples) == 1 && all(header(calls$tp)@samples 
 stopifnot(length(header(calls$fp)@samples) == 1 && all(header(calls$fp)@samples == param$sample.id))
 
 
-# HACK:
+# BEGIN HACK:
 # Get the variant sizes.  This can be done by accessing the CollapsedVCF
 # structures, but is extremely slow -- in particular, access to the
 # alt allele lengths is very inefficient when using the following code:
@@ -131,19 +130,22 @@ calls$fn = augmentCollapsedVCFWithAltLengthRange(calls$fn, param$path.fn)
 # LOAD UNIVERSE AND ANALYSIS SUBSET
 #####################################################################
 universe = list(
-    genome = bed2GRanges(param$path.genome, genome.seqinfo),
-    gold_standard = bed2GRanges(param$path.gold.regions.subset, genome.seqinfo))
+    genome = bed2GRanges(param$path.genome, genome.seqinfo))
+
+universe$gold_standard = bed2GRanges(param$path.gold.regions.subset, genome.seqinfo)
+universe$gold_standard = intersect(universe$gold_standard, universe$genome, ignore.strand = TRUE)
 
 # If a regions subset BED was supplied, additionally restrict the analysis 
 # region to the intersection with this BED.
 if (param$region.subset) {
     universe$subset = bed2GRanges(param$region.subset.path, genome.seqinfo)
+    universe$subset = intersect(universe$subset, universe$genome, ignore.strand = TRUE)
 } else {
     universe$subset = universe$genome
 }
 
 # Define the analysis region for set operations.
-universe$analysis = intersect(universe$subset, intersect(universe$genome, universe$gold_standard, ignore.strand = TRUE), ignore.strand = TRUE)
+universe$analysis = intersect(universe$subset, universe$gold_standard, ignore.strand = TRUE)
 
 # The total number of bases in the subset of the genome used for this analysis
 universe_analysis_size = sum(as.numeric(width(universe$analysis)))
@@ -155,11 +157,13 @@ universe_analysis_size = sum(as.numeric(width(universe$analysis)))
 # Various genomic regions; variants will be labelled by their
 # presence or absence in these regions.
 regions = list(
-    rmsk = bed2GRanges(param$path.rmsk, genome.seqinfo),
     mdust = bed2GRanges(param$path.mdust, genome.seqinfo))
 
+regions = lapply(regions, intersect, y = universe$genome, ignore.strand = TRUE)
+regions.orig = regions
+
 # Intersect all regions with the analysis subset.
-regions = lapply(regions, intersect, y = universe$analysis, ignore.strand = TRUE)
+regions = lapply(regions.orig, intersect, y = universe$analysis, ignore.strand = TRUE)
 
 
 #####################################################################
@@ -178,16 +182,10 @@ class = mclapply(
         mutsize = classifyMutationSize,             # By mutation 'size' (see getMutationSizeVcf for the definition of size)
         depth = classifyDepth,                      # By depth
 
-        # By any overlap with Repeatmasker masked regions
-        rmsk = function(calls) classifyRegionOverlap(calls, 
-            list(masked = regions$rmsk, unmasked = setdiff(universe$analysis, regions$rmsk, ignore.strand = TRUE)), 
-            c("masked" = "Any", "unmasked" = "All")),
-
         # By any overlap with mdust marked low-complexity regions
         mdust = function(calls) classifyRegionOverlap(calls,
-            list(masked = regions$mdust, unmasked = setdiff(universe$analysis, regions$mdust, ignore.strand = TRUE)), 
-        c("masked" = "Any", "unmasked" = "All"))),
-    function(func) func(calls), mc.preschedule = FALSE)
+            list(masked = regions$mdust, unmasked = setdiff(universe$analysis, regions$mdust, ignore.strand = TRUE)), c("masked" = "Any", "unmasked" = "All"))
+    ), function(func) func(calls), mc.preschedule = FALSE)
 
 # There is a bit of subtlety in this.  Some classes (zygosity, muttype,
 # and mutsize) should based on the properties of the true variant, as 
@@ -256,7 +254,6 @@ checkClassExclusive = function(class)
 checkClassExclusive(class$zyg)
 checkClassExclusive(class$muttype)
 checkClassExclusive(class$mutsize)
-checkClassExclusive(class$rmsk)
 checkClassExclusive(class$mdust)
 
 
@@ -284,43 +281,42 @@ class_subsets.performance_path = list()
 message(sprintf("Calculating performance on %d disjoint variant subsets...", prod(sapply(class, function(x) length(names(x[[1]]))))))
 temp.start_time = Sys.time()
 
-class_subsets.performance_path = mclapply(
-    1:nrow(class_subsets.values),
-    function(i) {
-        if (i %% 100 == 0)
-        {
-            elapsed = as.numeric(difftime(Sys.time(), temp.start_time, units = "secs"))
-            rate = i / elapsed
-            remaining = (nrow(class_subsets.values) - i) / rate
-            message(sprintf("%d / %d (%.2f%%)\tElapsed: %.0fs, est. remaining: %.0fs", i, nrow(class_subsets.values), i / nrow(class_subsets.values) * 100, elapsed, remaining))
-        }
+class_subset_performance_func = function(i)
+{
+    if (i %% 100 == 0)
+    {
+        elapsed = as.numeric(difftime(Sys.time(), temp.start_time, units = "secs"))
+        rate = i / elapsed
+        remaining = (nrow(class_subsets.values) - i) / rate
+        message(sprintf("%d / %d (%.2f%%)\tElapsed: %.0fs, est. remaining: %.0fs", i, nrow(class_subsets.values), i / nrow(class_subsets.values) * 100, elapsed, remaining))
+    }
 
-        # Calculate an indicator variable for the variants (in each of the 
-        # three major categories -- tp, fp, and fn), that match the 
-        # combination in class_subsets.values[i,]
-        temp.indicator = sapply(names(calls), function(call_type) Rle(TRUE, length(calls[[call_type]])), USE.NAMES = TRUE)
-        for (class_name in colnames(class_subsets.values))
-        {
-            temp.indicator = sapply(names(calls), function(call_type) temp.indicator[[call_type]] = temp.indicator[[call_type]] & class[[class_name]][[call_type]][[class_subsets.values[i, class_name]]])
-            if (!any(temp.indicator))
-                break
-        }
+    # Calculate an indicator variable for the variants (in each of the 
+    # three major categories -- tp, fp, and fn), that match the 
+    # combination in class_subsets.values[i,]
+    temp.indicator = sapply(names(calls), function(call_type) Rle(TRUE, nrow(calls[[call_type]])), USE.NAMES = TRUE)
+    for (class_name in colnames(class_subsets.values))
+    {
+        temp.indicator = sapply(names(calls), function(call_type) temp.indicator[[call_type]] = temp.indicator[[call_type]] & class[[class_name]][[call_type]][[class_subsets.values[i, class_name]]])
+        if (!any(sapply(temp.indicator, any)))
+            break
+    }
 
-        class_subsets.variant_counts = sapply(temp.indicator, sum)
+    class_subsets.variant_counts = sapply(temp.indicator, sum)
 
-        if (all(class_subsets.variant_counts == 0))
-            return(vcfPerf(data = NULL, criteria$FILTER$scoreFunc))
-        else
-            return(vcfPerf(
-                data = list(
-                    vcf.tp = calls$tp[temp.indicator$tp],
-                    vcf.fp = calls$fp[temp.indicator$fp],
-                    n.fn = class_subsets.variant_counts["fn"],
-                    n.tn = 0),
-                criteria$FILTER$scoreFunc))
-    },
-    mc.preschedule = TRUE
-)
+    if (all(class_subsets.variant_counts == 0))
+        return(vcfPerf(data = NULL, criteria$FILTER$scoreFunc))
+    else
+        return(vcfPerf(
+            data = list(
+                vcf.tp = calls$tp[temp.indicator$tp],
+                vcf.fp = calls$fp[temp.indicator$fp],
+                n.fn = class_subsets.variant_counts["fn"],
+                n.tn = 0),
+            criteria$FILTER$scoreFunc))
+}
+
+class_subsets.performance_path = mclapply(1:nrow(class_subsets.values), class_subset_performance_func, mc.preschedule = TRUE)
 
 class_subsets.performance_thresholded = cbind(class_subsets.values, as.data.frame(t(sapply(class_subsets.performance_path, getPerfAtCutoff, cutoff = criteria$FILTER$threshold))))
 
@@ -334,5 +330,6 @@ saveRDS(
         params = param, 
         class_subsets.performance_thresholded = class_subsets.performance_thresholded, 
         regions = regions,
+        regions.orig = regions.orig,
         universe = universe), 
     file = "report_data.rds")

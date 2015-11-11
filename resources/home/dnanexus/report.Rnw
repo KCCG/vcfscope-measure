@@ -33,14 +33,13 @@
 % LIBRARIES AND HELPER FUNCTIONS
 %--------------------------------------------------------------------
 <<load-libs, cache=FALSE, echo=FALSE>>=
-suppressPackageStartupMessages(library(S4Vectors))
-suppressPackageStartupMessages(library(VariantAnnotation))
-suppressPackageStartupMessages(library(GenomicRanges))
-suppressPackageStartupMessages(library(ggplot2))
-suppressPackageStartupMessages(library(plyr))
-suppressPackageStartupMessages(library(xtable))
+suppressMessages(library(VariantAnnotation))
+suppressMessages(library(GenomicRanges))
+suppressMessages(library(ggplot2))
+suppressMessages(library(plyr))
+suppressMessages(library(xtable))
 
-suppressPackageStartupMessages(source("report_functions.R"))
+suppressMessages(source("report_functions.R"))
 @
 
 
@@ -52,6 +51,7 @@ params = temp$params
 class_subsets.performance_thresholded = temp$class_subsets.performance_thresholded
 report = temp$report
 regions = temp$regions
+regions.orig = temp$regions.orig
 universe = temp$universe
 
 universe_analysis_size = sum(as.numeric(width(universe$analysis)))
@@ -103,7 +103,36 @@ Report version: \texttt{\Sexpr{params$version$script}} \\
 Report time: \texttt{\Sexpr{texquote(report$gentime)}} \\
 Call criterion: \Sexpr{report$criterion_latex}
 
-<<plots>>=
+<<subset-calcs>>=
+temp.size_genome = sum(as.numeric(width(universe$genome)))      # | GENOME |
+temp.size_subset = sum(as.numeric(width(universe$subset)))      # | BED ^ GENOME |
+temp.size_gold = sum(as.numeric(width(universe$analysis)))      # | GIAB ^ BED ^ GENOME |
+temp.size_gold_lcr = sum(as.numeric(width(regions$mdust)))      # | GIAB ^ BED ^ GENOME ^ MDUST |
+
+# | (GENOME - GIAB) ^ BED | = | BED - GIAB |
+temp.size_notgold = sum(as.numeric(width(setdiff(universe$subset, universe$gold_standard, ignore.strand = TRUE))))
+
+# | (GENOME - GIAB) ^ BED ^ MDUST | = | (BED - GIAB) ^ MDUST |
+temp.size_notgold_lcr = sum(as.numeric(width(intersect(setdiff(universe$subset, universe$gold_standard, ignore.strand = TRUE), regions.orig$mdust, ignore.strand = TRUE))))
+@
+
+\begin{itemize}
+\item Of \Sexpr{temp.size_genome} bases in the genome, \Sexpr{temp.size_subset} (\Sexpr{temp.size_subset / temp.size_genome * 100}\%) were in the target analysis regions.
+\item Of \Sexpr{temp.size_subset} bases in the target analysis regions, \Sexpr{temp.size_gold} (\Sexpr{temp.size_gold / temp.size_subset * 100}\%) had gold-standard genotype available.
+\item Of \Sexpr{temp.size_gold} target bases with gold-standard calls, \Sexpr{temp.size_gold_lcr} (\Sexpr{temp.size_gold_lcr / temp.size_gold * 100}\%) were in low-complexity regions.
+\item Of \Sexpr{temp.size_notgold} target bases without gold-standard calls, \Sexpr{temp.size_notgold_lcr} (\Sexpr{temp.size_notgold_lcr / temp.size_notgold * 100}\%) were in low-complexity regions.
+\end{itemize}
+
+<<subset-plots>>=
+plotGenomeBreakdown(
+    f_targ_of_wg =      temp.size_subset / temp.size_genome, 
+    f_gold_of_targ =    temp.size_gold / temp.size_subset,
+    f_hc_of_gold =      temp.size_gold_lcr / temp.size_gold,
+    f_hc_of_notgold =   temp.size_notgold_lcr / temp.size_notgold
+)
+@
+
+<<performance-plots>>=
 marginalizePerformance = function(perf_data, subset, vars, ...)
 {
     ddply(perf_data[eval(subset, perf_data, parent.frame()),], vars, function(x) { 
@@ -131,33 +160,25 @@ marginalizePerformance = function(perf_data, subset, vars, ...)
 }
 
 class_subsets.performance_thresholded$mdust = ordered(c("masked" = "Low Complexity", "unmasked" = "High Complexity")[class_subsets.performance_thresholded$mdust], levels = c("Low Complexity", "High Complexity"))
-class_subsets.performance_thresholded$rmsk = ordered(c("masked" = "Repeat", "unmasked" = "Non-repeat")[class_subsets.performance_thresholded$rmsk], levels = c("Repeat", "Non-repeat"))
 
-
-ggplot(
-    marginalizePerformance(class_subsets.performance_thresholded, quote(muttype == "Subst" & zyg %in% c("RA", "AA")), .(zyg, mdust)), 
-    aes(x = zyg, y = sens, fill = zyg)) + 
+ggplot(marginalizePerformance(class_subsets.performance_thresholded, quote(muttype == "Subst" & zyg %in% c("RA", "AA")), .(zyg, mdust)), aes(x = zyg, y = sens, fill = zyg)) + 
     geom_bar(stat = "identity", position = "dodge") + 
     geom_errorbar(aes(ymin = sens.lci, ymax = sens.uci), width = 0.2) + 
     labs(x = "", y = "Sensitivity", fill = "Zygosity", title = "SNV Detection Performance") + 
     facet_wrap(~ mdust) + theme_bw() + ylim(0, 1)
 
-ggplot(
-    marginalizePerformance(class_subsets.performance_thresholded, quote(muttype == "Subst" & zyg %in% c("RA", "AA")), .(zyg, mdust)), 
-    aes(x = zyg, y = n, fill = zyg)) + 
+ggplot(marginalizePerformance(class_subsets.performance_thresholded, quote(muttype == "Subst" & zyg %in% c("RA", "AA")), .(zyg, mdust)), aes(x = zyg, y = n, fill = zyg)) + 
     geom_bar(stat = "identity", position = "dodge") + 
     labs(x = "", y = "Number of mutations", fill = "Zygosity", title = "SNV Counts in Gold Standard") + 
     facet_wrap(~ mdust) + theme_bw()
 
 
-ggplot(
-    marginalizePerformance(class_subsets.performance_thresholded, quote(muttype == "Ins" & zyg %in% c("RA", "AA")), .(zyg, mutsize, mdust)), 
-    aes(x = mutsize, y = sens, group = zyg, colour = zyg)) + 
+ggplot(marginalizePerformance(class_subsets.performance_thresholded, quote(muttype == "Ins" & zyg %in% c("RA", "AA")), .(zyg, mutsize, mdust)), aes(x = mutsize, y = sens, group = zyg, colour = zyg)) + 
     geom_line() + 
     geom_ribbon(aes(ymin = sens.lci, ymax = sens.uci, fill = zyg), alpha = 0.25, colour = NA) + 
     geom_point(size = 2, shape = 21, fill = "white") + 
     labs(x = "Number of bases inserted (inclusive)", y = "Sensitivity", fill = "Zygosity", colour = "Zygosity", title = "Insertion Detection Performance") + 
-    facet_wrap(~ mdust) + theme_bw() + ylim(0, 1)
+    facet_wrap(~ mdust, ncol = 1) + theme_bw() + ylim(0, 1)
 
 ggplot(
     marginalizePerformance(class_subsets.performance_thresholded, quote(muttype == "Ins" & zyg %in% c("RA", "AA")), .(zyg, mutsize, mdust)), 
@@ -165,48 +186,39 @@ ggplot(
     geom_line() + 
     geom_point(size = 2, shape = 21, fill = "white") + 
     labs(x = "Number of bases inserted (inclusive)", y = "Number of mutations", fill = "Zygosity", colour = "Zygosity", title = "Insertion Counts in Gold Standard") + 
-    facet_wrap(~ mdust) + theme_bw()
+    facet_wrap(~ mdust, ncol = 1) + theme_bw()
 
 
-ggplot(
-    marginalizePerformance(class_subsets.performance_thresholded, quote(muttype == "Del" & zyg %in% c("RA", "AA")), .(zyg, mutsize, mdust)), 
-    aes(x = mutsize, y = sens, group = zyg, colour = zyg)) + 
+ggplot(marginalizePerformance(class_subsets.performance_thresholded, quote(muttype == "Del" & zyg %in% c("RA", "AA")), .(zyg, mutsize, mdust)), aes(x = mutsize, y = sens, group = zyg, colour = zyg)) + 
     geom_line() + 
     geom_ribbon(aes(ymin = sens.lci, ymax = sens.uci, fill = zyg), alpha = 0.25, colour = NA) + 
     geom_point(size = 2, shape = 21, fill = "white") + 
     labs(x = "Number of bases deleted (inclusive)", y = "Sensitivity", fill = "Zygosity", colour = "Zygosity", title = "Deletion Detection Performance") + 
-    facet_wrap(~ mdust) + theme_bw() + ylim(0, 1)
+    facet_wrap(~ mdust, ncol = 1) + theme_bw() + ylim(0, 1)
 
-ggplot(
-    marginalizePerformance(class_subsets.performance_thresholded, quote(muttype == "Del" & zyg %in% c("RA", "AA")), .(zyg, mutsize, mdust)), 
-    aes(x = mutsize, y = n, group = zyg, colour = zyg)) + 
+ggplot(marginalizePerformance(class_subsets.performance_thresholded, quote(muttype == "Del" & zyg %in% c("RA", "AA")), .(zyg, mutsize, mdust)), aes(x = mutsize, y = n, group = zyg, colour = zyg)) + 
     geom_line() + 
     geom_point(size = 2, shape = 21, fill = "white") + 
     labs(x = "Number of bases deleted (inclusive)", y = "Number of mutations", fill = "Zygosity", colour = "Zygosity", title = "Deletion Counts in Gold Standard") + 
-    facet_wrap(~ mdust) + theme_bw()
+    facet_wrap(~ mdust, ncol = 1) + theme_bw()
 
 
 
-false_positive_counts = ddply(subset(class_subsets.performance_thresholded, muttype == "None"), .(mdust, rmsk), function(x) c(nfp = sum(x$nfp)))
+false_positive_counts = ddply(subset(class_subsets.performance_thresholded, muttype == "None"), .(mdust), function(x) c(nfp = sum(x$nfp)))
 false_positive_counts$subset_size = NA
-false_positive_counts$subset_size[false_positive_counts$rmsk == "masked" & false_positive_counts$mdust == "masked"] = sum(as.numeric(width(intersect(regions$rmsk, regions$mdust, ignore.strand = TRUE))))
-false_positive_counts$subset_size[false_positive_counts$rmsk == "masked" & false_positive_counts$mdust == "unmasked"] = sum(as.numeric(width(intersect(regions$rmsk, setdiff(universe$analysis, regions$mdust, ignore.strand = TRUE), ignore.strand = TRUE))))
-false_positive_counts$subset_size[false_positive_counts$rmsk == "unmasked" & false_positive_counts$mdust == "masked"] = sum(as.numeric(width(intersect(setdiff(universe$analysis, regions$rmsk, ignore.strand = TRUE), regions$mdust, ignore.strand = TRUE))))
-false_positive_counts$subset_size[false_positive_counts$rmsk == "unmasked" & false_positive_counts$mdust == "unmasked"] = sum(as.numeric(width(intersect(setdiff(universe$analysis, regions$rmsk, ignore.strand = TRUE), setdiff(universe$analysis, regions$mdust, ignore.strand = TRUE), ignore.strand = TRUE))))
+false_positive_counts$subset_size[false_positive_counts$mdust == "Low Complexity"] = sum(as.numeric(width(regions$mdust)))
+false_positive_counts$subset_size[false_positive_counts$mdust == "High Complexity"] = sum(as.numeric(width(setdiff(universe$analysis, regions$mdust, ignore.strand = TRUE))))
 stopifnot(sum(false_positive_counts$subset_size) == universe_analysis_size)
 false_positive_counts$rate_per_Mb = false_positive_counts$nfp / false_positive_counts$subset_size * 1e6
 
-sum(false_positive_counts$nfp) / universe_analysis_size * 1e6
-
 false_positive_counts$class = NA
-false_positive_counts$class[false_positive_counts$rmsk == "masked" & false_positive_counts$mdust == "masked"] = "Both"
-false_positive_counts$class[false_positive_counts$rmsk == "masked" & false_positive_counts$mdust == "unmasked"] = "RMSK"
-false_positive_counts$class[false_positive_counts$rmsk == "unmasked" & false_positive_counts$mdust == "masked"] = "mdust"
-false_positive_counts$class[false_positive_counts$rmsk == "unmasked" & false_positive_counts$mdust == "unmasked"] = "Neither"
-false_positive_counts$class = ordered(false_positive_counts$class, levels = c("Both", "mdust", "RMSK", "Neither"))
-
-ggplot(false_positive_counts, aes(x = class, y = rate_per_Mb)) + geom_bar(stat = "identity")
-sum(false_positive_counts$rate_per_Mb)
+false_positive_counts$class[false_positive_counts$mdust == "Low Complexity"] = "Low"
+false_positive_counts$class[false_positive_counts$mdust == "High Complexity"] = "High"
+false_positive_counts$class = ordered(false_positive_counts$class, levels = c("Low", "High"))
+ggplot(false_positive_counts, aes(x = class, y = rate_per_Mb)) + 
+    geom_bar(stat = "identity") + 
+    labs(x = "Sequence Complexity", y = "False positive rate per Mb", title = "False Positive Rate") + 
+    theme_bw()
 @
 
 % DATA AND SOFTWARE VERSIONS
@@ -243,7 +255,6 @@ if (params$region.subset)
 	\end{itemize}
 	\item Sequence masks: \texttt{\url{\Sexpr{params$path.mask.regions.prefix}}} \begin{itemize}
 		\item Low complexity: \texttt{\Sexpr{gsub(".*/", "", params$path.mdust)}} (MD5 \texttt{\Sexpr{texquote(fileMD5(params$path.mdust))}})
-		\item Repetitive: \texttt{\Sexpr{gsub(".*/", "", params$path.rmsk)}} (MD5 \texttt{\Sexpr{texquote(fileMD5(params$path.rmsk))}})
 	\end{itemize}
 \end{itemize}
 

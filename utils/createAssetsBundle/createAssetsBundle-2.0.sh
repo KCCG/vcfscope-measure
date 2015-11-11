@@ -68,11 +68,8 @@ cp -r ${RESOURCES_DIR}/RTG ${BUNDLE_DIR}/rtg-tools
 ############################################
 ## REDUNDANT REGIONS
 
-# Currently a mix of UCSC's rmsk track, and LCRs from mDust.  Break these two into
-# disjoint subsets (R and L, R and notL, notR and L, notR and notL), to allow
-# marginalization later in the performance reporter analysis script.
+# Currently only LCRs from mDust.
 (
-	gzip -dc ${RESOURCES_DIR}/ucsc/rmsk.txt.gz | awk 'BEGIN {OFS="\t"} {print $6, $7, $8}' | grep -E '^chr([0-9]+|[XYM])' | sed 's/^chrM/MT/; s/^chr//' | sort -k1,1 -k2,2n | bedtools merge | bgzip > ${BUNDLE_DIR}/redundant_regions/rmsk.bed.gz
 	gzip -dc ${RESOURCES_DIR}/reference/hs37d5.fa.gz | ${RESOURCES_DIR}/tools/mdust -c | awk 'BEGIN {OFS="\t"} {print $1, $3-1, $4}' | grep -E '^([0-9]+|[XY]|MT)' | sort -k1,1 -k2,2n | bedtools merge | bgzip > ${BUNDLE_DIR}/redundant_regions/mdust.bed.gz
 )&
 
