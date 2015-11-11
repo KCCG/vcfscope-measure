@@ -161,6 +161,7 @@ marginalizePerformance = function(perf_data, subset, vars, ...)
 
 class_subsets.performance_thresholded$mdust = ordered(c("masked" = "Low Complexity", "unmasked" = "High Complexity")[class_subsets.performance_thresholded$mdust], levels = c("Low Complexity", "High Complexity"))
 
+
 ggplot(marginalizePerformance(class_subsets.performance_thresholded, quote(muttype == "Subst" & zyg %in% c("RA", "AA")), .(zyg, mdust)), aes(x = zyg, y = sens, fill = zyg)) + 
     geom_bar(stat = "identity", position = "dodge") + 
     geom_errorbar(aes(ymin = sens.lci, ymax = sens.uci), width = 0.2) + 
@@ -171,6 +172,22 @@ ggplot(marginalizePerformance(class_subsets.performance_thresholded, quote(mutty
     geom_bar(stat = "identity", position = "dodge") + 
     labs(x = "", y = "Number of mutations", fill = "Zygosity", title = "SNV Counts in Gold Standard") + 
     facet_wrap(~ mdust) + theme_bw()
+
+
+ggplot(marginalizePerformance(class_subsets.performance_thresholded, quote(muttype == "Subst" & zyg %in% c("RA", "AA")), .(zyg, depth, mdust)), aes(x = depth, y = sens, group = zyg, colour = zyg)) + 
+    geom_line() + 
+    geom_ribbon(aes(ymin = sens.lci, ymax = sens.uci, fill = zyg), alpha = 0.25, colour = NA) + 
+    geom_point(size = 2, shape = 21, fill = "white") + 
+    labs(x = "Sequence depth (inclusive)", y = "Sensitivity", fill = "Zygosity", colour = "Zygosity", title = "SNV Detection Performance") + 
+    facet_wrap(~ mdust, ncol = 1) + theme_bw() + ylim(0, 1)
+
+ggplot(
+    marginalizePerformance(class_subsets.performance_thresholded, quote(muttype == "Ins" & zyg %in% c("RA", "AA")), .(zyg, depth, mdust)), 
+    aes(x = depth, y = n, group = zyg, colour = zyg)) + 
+    geom_line() + 
+    geom_point(size = 2, shape = 21, fill = "white") + 
+    labs(x = "Sequence depth (inclusive)", y = "Number of mutations", fill = "Zygosity", colour = "Zygosity", title = "SNV Counts in Gold Standard") + 
+    facet_wrap(~ mdust, ncol = 1) + theme_bw()
 
 
 ggplot(marginalizePerformance(class_subsets.performance_thresholded, quote(muttype == "Ins" & zyg %in% c("RA", "AA")), .(zyg, mutsize, mdust)), aes(x = mutsize, y = sens, group = zyg, colour = zyg)) + 

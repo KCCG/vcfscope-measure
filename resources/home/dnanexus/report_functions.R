@@ -231,7 +231,7 @@ classifyMutationSize = function(vcfs)
 
 classifyMutationSizeVcf = function(vcf)
 {
-    breaks = c(seq(0, 50, 10), seq(75, 150, 25), Inf)
+    breaks = c(seq(0, 50, 10), Inf)
     levels = levels(cut(0, breaks, right = FALSE))
     interval_start_inclusive = as.numeric(sub("^\\[", "", sub(",.*", "", levels)))
     interval_end_inclusive = as.numeric(sub(".*,", "", sub("\\)$", "", levels))) - 1
