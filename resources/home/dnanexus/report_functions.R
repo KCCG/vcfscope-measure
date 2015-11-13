@@ -2,6 +2,7 @@ library(ggplot2)
 library(scales)
 library(inline)
 library(Rcpp)
+library(plyr)
 
 
 texquote = function(str) gsub("_", "\\\\_", sub("\\s+$", "", str))
@@ -585,41 +586,45 @@ getPerfAtCutoff = function(perf, cutoff)
 
 
 # Whole genome, showing target as slice
-# Target, showing GiaB callable as slice, with mdust marked
+# Target, showing GiaB callable as slice
 
-plotGenomeBreakdown = function(f_targ_of_wg, f_gold_of_targ, f_hc_of_gold, f_hc_of_notgold,
-    B = 0.2, D = 0.06, E = 0.03, 
-    lwd.hatch = 0.5, lwd.box = 2, lwd.divide = 2, lwd.link = 1, 
-    density.targ = 10, angle.targ = 45, 
-    density.mask = 10, angle.mask = 135)
+plotGenomeBreakdown = function(f_targ_of_wg, f_gold_of_targ,
+    B = 0.3, D = 0.06, E = 0.03, 
+    mar.left = 0.0, mar.right = 0.0, mar.top = 0.0, mar.bottom = 0.2,
+    lwd.hatch = 1, lwd.box = 2, lwd.divide = 2, lwd.link = 1, 
+    density.targ = NULL, angle.targ = 45, fill.targ = grey(0.8),
+    density.giab = NULL, angle.giab = 135, fill.giab = grey(0.5))
 {
     A = f_targ_of_wg
     C = f_gold_of_targ
 
+    height = 1 - mar.top - mar.bottom
+    width = 1 - mar.left - mar.right
+
+    pars = par(no.readonly = TRUE)
+    par(mar = c(0, 0, 0, 0))
     plot.new()
 
     # Top box hatched region (target)
-    rect(0, 1-B, A, 1, lwd = lwd.hatch, density = density.targ, angle = angle.targ, border = NA)
+    rect(mar.left, 1-(mar.top+B*height), mar.left+A*width, 1-mar.top, lwd = lwd.hatch, density = density.targ, angle = angle.targ, border = NA, col = fill.targ)
     # Top box divider
-    segments(A, 1, A, 1-B, lwd = lwd.divide)
+    segments(mar.left+A*width, 1-mar.top, mar.left+A*width, 1-(mar.top+B*height), lwd = lwd.divide)
     # Top box outer border
-    rect(0, 1-B, 1, 1, lwd = lwd.box)
-
-    # Bottom box left shaded region (target AND GiaB AND High Complexity)
-    rect(0, B*f_hc_of_gold, C, 0, density = NA, col = grey(0.8), border = NA)
-
-    # Bottom box right shaded region (target AND not GiaB AND High Complexity)
-    rect(C, B*f_hc_of_notgold, 1, 0, density = NA, col = grey(0.8), border = NA)
+    rect(mar.left, 1-(mar.top+B*height), 1-mar.right, 1-mar.top, lwd = lwd.box)
 
     # Bottom box hatched region (target)
-    rect(0, B, 1, 0, lwd = lwd.hatch, density = density.targ, angle = angle.targ, border = NA)
+    rect(mar.left, mar.bottom+B*height, 1-mar.right, mar.bottom, lwd = lwd.hatch, density = density.targ, angle = angle.targ, border = NA, col = fill.targ)
     # Bottom box overshaded region (GiaB callable within target)
-    rect(0, B, C, 0, lwd = lwd.hatch, density = density.mask, angle = angle.mask, border = NA)
+    rect(mar.left, mar.bottom+B*height, mar.left+C*width, mar.bottom, lwd = lwd.hatch, density = density.giab, angle = angle.giab, border = NA, col = fill.giab)
     # Bottom box divider
-    segments(C, B, C, 0, lwd = lwd.divide)
+    segments(mar.left+C*width, mar.bottom+B*height, mar.left+C*width, mar.bottom, lwd = lwd.divide)
     # Bottom box outer border
-    rect(0, B, 1, 0, lwd = lwd.box)
+    rect(mar.left, mar.bottom+B*height, 1-mar.right, mar.bottom, lwd = lwd.box)
 
     # Lines joining subsets
-    segments(c(0, A, A, 1), c(1-B-D, 1-B-D, 1-B-D-E, B+D+E), c(0, A, 1, 1), c(B+D, 1-B-D-E, B+D+E, B+D), lwd = lwd.link)
+    segments(mar.left+c(0, A, A, 1)*width, mar.bottom+c(1-B-D, 1-B-D, 1-B-D-E, B+D+E)*height, mar.left+c(0, A, 1, 1)*width, mar.bottom+c(B+D, 1-B-D-E, B+D+E, B+D)*height, lwd = lwd.link)
+
+    legend("bottom", legend = c("Genome", "Supplied region", "In gold standard"), fill = c(grey(1), fill.targ, fill.giab), horiz = TRUE, bty = "n")
+
+    par(pars)
 }

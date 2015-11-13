@@ -66,7 +66,7 @@ export CONST_GOLD_CALLS_VCFGZ="${PATH_RESOURCES_HEAD}/gold_standard/calls-2.19.v
 export CONST_GOLD_CALLS_VCFGZTBI="${PATH_RESOURCES_HEAD}/gold_standard/calls-2.19.vcf.gz.tbi"
 export CONST_GOLD_HARDMASK_VALID_REGIONS_BEDGZ="${PATH_RESOURCES_HEAD}/gold_standard/valid_regions-2.19.bed.gz"
 export CONST_REFERENCE_SDF="${PATH_RESOURCES_HEAD}/reference/hs37d5.sdf/"
-export CONST_MDUST_REGIONS_BEDGZ="${PATH_RESOURCES_HEAD}/redundant_regions/mdust.bed.gz"
+# export CONST_MDUST_REGIONS_BEDGZ="${PATH_RESOURCES_HEAD}/redundant_regions/mdust.bed.gz"
 export CONST_GENOME_BEDGZ="${PATH_RESOURCES_HEAD}/reportable_range/genome.bed.gz"
 export CONST_REFERENCE_BSGENOME="BSgenome.HSapiens.1000g.37d5"		# This is a custom package, available at /share/ClusterShare/biodata/contrib/marpin/reference/hs37d5/build/BSgenome.HSapiens.1000g.37d5_1.0.0.tar.gz
 
@@ -287,7 +287,7 @@ echo >&2 "  CONST_GOLD_CALLS_VCFGZ=${CONST_GOLD_CALLS_VCFGZ}"
 echo >&2 "  CONST_GOLD_CALLS_VCFGZTBI=${CONST_GOLD_CALLS_VCFGZTBI}"
 echo >&2 "  CONST_GOLD_HARDMASK_VALID_REGIONS_BEDGZ=${CONST_GOLD_HARDMASK_VALID_REGIONS_BEDGZ}"
 echo >&2 "  CONST_REFERENCE_SDF=${CONST_REFERENCE_SDF}"
-echo >&2 "  CONST_MDUST_REGIONS_BEDGZ=${CONST_MDUST_REGIONS_BEDGZ}"
+# echo >&2 "  CONST_MDUST_REGIONS_BEDGZ=${CONST_MDUST_REGIONS_BEDGZ}"
 echo >&2 "  CONST_GENOME_BEDGZ=${CONST_GENOME_BEDGZ}"
 echo >&2 "  CONST_REFERENCE_BSGENOME=${CONST_REFERENCE_BSGENOME}"
 echo >&2 "  PARAM_SCRIPT_PATH=${PARAM_SCRIPT_PATH}"
