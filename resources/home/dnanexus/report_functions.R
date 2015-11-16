@@ -682,6 +682,6 @@ replicatedBinomialCI = function(successes, trials, conf_level)
     # this success rate distribution, R.  We do this by ML.
 
     fit = betaBinomML(successes, trials)
-    qbeta(c((1-conf_level)/2, 1-(1-conf_level)/2), shape1 = fit[1], shape2 = fit[2])
+    qbeta(c(lower = (1-conf_level)/2, median = 0.5, upper = 1-(1-conf_level)/2), shape1 = fit[1], shape2 = fit[2])
 }
 
