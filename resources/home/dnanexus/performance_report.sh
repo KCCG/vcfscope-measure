@@ -153,7 +153,7 @@ PARAM_OUTPUT_PDF_PATH="${PARAM_SCRIPT_PATH}/performance_report.pdf"
 PARAM_OUTPUT_RDS_PATH=""
 PARAM_DOTESTS=0
 
-while getopts "r:o:d:j:s:ht" opt; do
+while getopts "r:o:d:s:ht" opt; do
 	case "$opt" in
 		h)
 			print_usage
