@@ -58,10 +58,6 @@ main() {
   dx get "${DX_ASSETS_ID}:/assets/VariantAnnotation_1.14.6.tar.gz"
   R CMD INSTALL VariantAnnotation_1.14.6.tar.gz
 
-  # jsonlite is used to export performance statistics in JSON format
-  dx get "${DX_ASSETS_ID}:/assets/jsonlite_0.9.16.tar.gz"
-  R CMD INSTALL jsonlite_0.9.16.tar.gz
-
   # ROCR is used in the test harness
   if [ "${runtests}" == "true" ]; then
     dx get "${DX_ASSETS_ID}:/assets/ROCR_1.0-7.tar.gz"
@@ -84,7 +80,7 @@ main() {
   #
   mkdir -p ~/out/report/ ~/out/rds ~/out/json
   sample_basename=$(basename ${vcfgz_path} .vcf.gz)
-  ./performance_report.sh -o "/home/dnanexus/out/report/${sample_basename}.valrept.pdf" -d "/home/dnanexus/out/rds/${sample_basename}.valrept.rds" -j "/home/dnanexus/out/json/${sample_basename}.valrept.json" -s "${sampleIDs}" "${opts[@]}" "${vcfgz_path}"
+  ./performance_report.sh -o "/home/dnanexus/out/report/${sample_basename}.valrept.pdf" -d "/home/dnanexus/out/rds/${sample_basename}.valrept.rds" -s "${sampleIDs}" "${opts[@]}" "${vcfgz_path}"
 
   #
   # upload results

@@ -57,7 +57,6 @@ param$version$rtg = env$PARAM_VERSION_RTG           # Software versions.
 param$version$java = env$PARAM_VERSION_JAVA         #
 param$version$bedtools = env$PARAM_VERSION_BEDTOOLS #
 
-# param$path.mdust = env$CONST_MDUST_REGIONS_BEDGZ    # mdust low-complexity regions
 param$path.genome = env$CONST_GENOME_BEDGZ          # The full target genome
 
 param$path.rds.output = env$PARAM_OUTPUT_RDS_PATH
@@ -126,6 +125,7 @@ calls$fp = augmentCollapsedVCFWithAltLengthRange(calls$fp, param$path.fp)
 calls$fn = augmentCollapsedVCFWithAltLengthRange(calls$fn, param$path.fn)
 # END HACK
 
+
 #####################################################################
 # LOAD UNIVERSE AND ANALYSIS SUBSET
 #####################################################################
@@ -157,7 +157,6 @@ universe_analysis_size = sum(as.numeric(width(universe$analysis)))
 # Various genomic regions; variants will be labelled by their
 # presence or absence in these regions.
 regions = list(
-    # mdust = bed2GRanges(param$path.mdust, genome.seqinfo)
 )
 
 regions = lapply(regions, intersect, y = universe$genome, ignore.strand = TRUE)
@@ -181,11 +180,7 @@ class = mclapply(
         zyg = classifyZygosity,                     # By zygosity
         muttype = classifyMutationType,             # By mutation type: Subst, Ins, Del, Other
         mutsize = classifyMutationSize,             # By mutation 'size' (see getMutationSizeVcf for the definition of size)
-        depth = classifyDepth#,                      # By depth
-
-        # # By any overlap with mdust marked low-complexity regions
-        # mdust = function(calls) classifyRegionOverlap(calls,
-        #     list(masked = regions$mdust, unmasked = setdiff(universe$analysis, regions$mdust, ignore.strand = TRUE)), c("masked" = "Any", "unmasked" = "All"))
+        depth = classifyDepth                       # By depth
     ), function(func) func(calls), mc.preschedule = FALSE)
 
 # There is a bit of subtlety in this.  Some classes (zygosity, muttype,

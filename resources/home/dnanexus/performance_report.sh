@@ -66,7 +66,6 @@ export CONST_GOLD_CALLS_VCFGZ="${PATH_RESOURCES_HEAD}/gold_standard/calls-2.19.v
 export CONST_GOLD_CALLS_VCFGZTBI="${PATH_RESOURCES_HEAD}/gold_standard/calls-2.19.vcf.gz.tbi"
 export CONST_GOLD_HARDMASK_VALID_REGIONS_BEDGZ="${PATH_RESOURCES_HEAD}/gold_standard/valid_regions-2.19.bed.gz"
 export CONST_REFERENCE_SDF="${PATH_RESOURCES_HEAD}/reference/hs37d5.sdf/"
-# export CONST_MDUST_REGIONS_BEDGZ="${PATH_RESOURCES_HEAD}/redundant_regions/mdust.bed.gz"
 export CONST_GENOME_BEDGZ="${PATH_RESOURCES_HEAD}/reportable_range/genome.bed.gz"
 export CONST_REFERENCE_BSGENOME="BSgenome.HSapiens.1000g.37d5"		# This is a custom package, available at /share/ClusterShare/biodata/contrib/marpin/reference/hs37d5/build/BSgenome.HSapiens.1000g.37d5_1.0.0.tar.gz
 
@@ -88,7 +87,6 @@ export PARAM_REGION_BED_SUPPLIED
 export PARAM_REGION_BED_PATH
 export PARAM_OUTPUT_PDF_PATH
 export PARAM_OUTPUT_RDS_PATH
-export PARAM_OUTPUT_JSON_PATH
 export PARAM_EXTENDED
 export PARAM_VERSION_EXEC_HOST
 export PARAM_VERSION_RTG
@@ -119,15 +117,13 @@ export LOOP_PATH_SAMPLE_OVERLAP_FN
 #####################################################################
 print_usage() {
 cat << EOF
-Usage: ${0##*/} [-o OUTFILE] [-d RDSOUT] [-j JSONOUT] [-r BEDFILE] [-t] <INFILE>
+Usage: ${0##*/} [-o OUTFILE] [-d RDSOUT] [-r BEDFILE] [-t] <INFILE>
 
 Create a WGS performance report.
 
     INFILE       Input NA12878 genotype calls, in vcf.gz format.
     -o OUTFILE   Write the report to OUTFILE (default: report.pdf)
     -d RDSOUT    Write performance report data to RDSOUT (default: 
-                 not written)
-    -j JSONOUT   Write performance report summary to JSONOUT (default: 
                  not written)
     -r BEDFILE   Restrict analysis to the regions in BEDFILE only.
                  Default: the full genome is considered.
@@ -155,7 +151,6 @@ PARAM_REGION_BED_SUPPLIED=0
 PARAM_REGION_BED_PATH="NA"
 PARAM_OUTPUT_PDF_PATH="${PARAM_SCRIPT_PATH}/performance_report.pdf"
 PARAM_OUTPUT_RDS_PATH=""
-PARAM_OUTPUT_JSON_PATH=""
 PARAM_DOTESTS=0
 
 while getopts "r:o:d:j:s:ht" opt; do
@@ -169,9 +164,6 @@ while getopts "r:o:d:j:s:ht" opt; do
 			;;
     d)
       PARAM_OUTPUT_RDS_PATH=$(readlink -f "${OPTARG}")
-      ;;
-    j)
-      PARAM_OUTPUT_JSON_PATH=$(readlink -f "${OPTARG}")
       ;;
 		r)
 			PARAM_REGION_BED_SUPPLIED=1
@@ -287,7 +279,6 @@ echo >&2 "  CONST_GOLD_CALLS_VCFGZ=${CONST_GOLD_CALLS_VCFGZ}"
 echo >&2 "  CONST_GOLD_CALLS_VCFGZTBI=${CONST_GOLD_CALLS_VCFGZTBI}"
 echo >&2 "  CONST_GOLD_HARDMASK_VALID_REGIONS_BEDGZ=${CONST_GOLD_HARDMASK_VALID_REGIONS_BEDGZ}"
 echo >&2 "  CONST_REFERENCE_SDF=${CONST_REFERENCE_SDF}"
-# echo >&2 "  CONST_MDUST_REGIONS_BEDGZ=${CONST_MDUST_REGIONS_BEDGZ}"
 echo >&2 "  CONST_GENOME_BEDGZ=${CONST_GENOME_BEDGZ}"
 echo >&2 "  CONST_REFERENCE_BSGENOME=${CONST_REFERENCE_BSGENOME}"
 echo >&2 "  PARAM_SCRIPT_PATH=${PARAM_SCRIPT_PATH}"
@@ -301,7 +292,6 @@ echo >&2 "  PARAM_REGION_BED_SUPPLIED=${PARAM_REGION_BED_SUPPLIED}"
 echo >&2 "  PARAM_REGION_BED_PATH=${PARAM_REGION_BED_PATH}"
 echo >&2 "  PARAM_OUTPUT_PDF_PATH=${PARAM_OUTPUT_PDF_PATH}"
 echo >&2 "  PARAM_OUTPUT_RDS_PATH=${PARAM_OUTPUT_RDS_PATH}"
-echo >&2 "  PARAM_OUTPUT_JSON_PATH=${PARAM_OUTPUT_JSON_PATH}"
 echo >&2 "  PARAM_VERSION_EXEC_HOST=${PARAM_VERSION_EXEC_HOST}"
 echo >&2 "  PARAM_VERSION_RTG=${PARAM_VERSION_RTG}"
 echo >&2 "  PARAM_VERSION_JAVA=${PARAM_VERSION_JAVA}"
@@ -325,7 +315,6 @@ mkdir -p ${PARAM_INPUT_SCRATCH}
 #####################################################################
 mkdir -p $(dirname ${PARAM_OUTPUT_PDF_PATH})
 [ -e ${PARAM_OUTPUT_RDS_PATH} ] || mkdir -p $(dirname ${PARAM_OUTPUT_RDS_PATH})
-[ -e ${PARAM_OUTPUT_JSON_PATH} ] || mkdir -p $(dirname ${PARAM_OUTPUT_JSON_PATH})
 
 
 #####################################################################
@@ -409,7 +398,6 @@ if [ ${IS_DNANEXUS} -eq 1 ]; then
   chown -R dnanexus:dnanexus ${PARAM_SCRATCH}
   chown -R dnanexus:dnanexus $(dirname ${PARAM_OUTPUT_PDF_PATH})
   [ -e ${PARAM_OUTPUT_RDS_PATH} ] || chown -R dnanexus:dnanexus $(dirname ${PARAM_OUTPUT_RDS_PATH})
-  [ -e ${PARAM_OUTPUT_JSON_PATH} ] || chown -R dnanexus:dnanexus $(dirname ${PARAM_OUTPUT_JSON_PATH})
 fi
 # DIRTY DIRTY DIRTY
 #####################################################################

@@ -232,7 +232,8 @@ classifyMutationSize = function(vcfs)
 
 classifyMutationSizeVcf = function(vcf)
 {
-    breaks = c(seq(0, 50, 10), Inf)
+    # breaks = c(seq(0, 50, 10), Inf)
+    breaks = c(0, 5, seq(10, 50, 10), Inf)
     levels = levels(cut(0, breaks, right = FALSE))
     interval_start_inclusive = as.numeric(sub("^\\[", "", sub(",.*", "", levels)))
     interval_end_inclusive = as.numeric(sub(".*,", "", sub("\\)$", "", levels))) - 1
@@ -585,9 +586,6 @@ getPerfAtCutoff = function(perf, cutoff)
 }
 
 
-# Whole genome, showing target as slice
-# Target, showing GiaB callable as slice
-
 plotGenomeBreakdown = function(f_targ_of_wg, f_gold_of_targ,
     B = 0.3, D = 0.06, E = 0.03, 
     mar.left = 0.0, mar.right = 0.0, mar.top = 0.0, mar.bottom = 0.2,
@@ -628,3 +626,62 @@ plotGenomeBreakdown = function(f_targ_of_wg, f_gold_of_targ,
 
     par(pars)
 }
+
+
+betaBinomML = function(x, S)
+{
+    # Fit a Beta-binomial distribution:
+    # x[i] ~ Binom(p[i]; S)
+    # p[i] ~ Beta(a, b)
+    # Returns the vector c(a, b) containing optimised values
+    # for the beta parameters.
+
+    objective = function(logpars, .counts, .trials)
+    {
+        # Use a log transformation on the parameters to enforce positivity.
+        a = exp(logpars[1])
+        b = exp(logpars[2])
+        logliks = lbeta(.counts+a,.trials-.counts+b)-lbeta(a,b)-lgamma(.counts+1)-lgamma(.trials-.counts+1)
+        -sum(logliks)
+    }
+
+    # Use Nelder-Mead, as the derivatives are numerically tricky for large S.  For
+    # reference, here is the derivation:
+    # dbeta(x,a,b) := x^(a-1)*(1-x)^(b-1)/beta(a,b);
+    # dbinom(x,r,S) := gamma(S+1)/(gamma(x+1)*gamma(S-x+1))*r^x*(1-r)^(S-x);
+    # sum(log(integrate(dbinom(x[i],r[i],S)*dbeta(r[i],a,b), r[i], 0, 1)), i, 1, m);
+    #   "Is "x[g18936]+a" positive, negative or zero?"positive;
+    #   "Is "x[g18936]-S-b" positive, negative or zero?"negative;
+    #   sum(log((beta(x[i]+a,S-x[i]+b)*gamma(S+1))/(beta(a,b)*gamma(x[i]+1)*gamma(S-x[i]+1))),i=1,1,m)
+    # radcan(diff(sum(log((beta(x[i]+a,S-x[i]+b)*gamma(S+1))/(beta(a,b)*gamma(x[i]+1)*gamma(S-x[i]+1))),i,1,m),a,1));
+    #   -sum(gamma(S+1)*psi[0](S+b+a)+(-psi[0](x[i]+a)-psi[0](b+a)+psi[0](a))*gamma(S+1),i=1,1,m)/gamma(S+1)
+    # radcan(diff(sum(log((beta(x[i]+a,S-x[i]+b)*gamma(S+1))/(beta(a,b)*gamma(x[i]+1)*gamma(S-x[i]+1))),i,1,m),b,1));
+    #   sum(gamma(S+1)*psi[0](S-x[i]+b)-gamma(S+1)*psi[0](S+b+a)+(psi[0](b+a)-psi[0](b))*gamma(S+1),i=1,1,m)/gamma(S+1)
+
+    # The likelihood appears well-behaved -- a uniform starting point seems to work well:
+    start = c(0, 0)
+
+    opt = optim(start, fn = objective, .counts = x, .trials = S, method = "Nelder-Mead")$par
+
+    exp(opt)
+}
+
+
+replicatedBinomialCI = function(successes, trials, conf_level)
+{
+    # Estimate a confidence interval for the underlying rate
+    # distribution of a beta binomial model.  Suppose m 
+    # experiments are performed, where in each experiment i,
+    # the measured variable x[i] is the number of successes 
+    # in S binomial trials.  The success rate in each experiment,
+    # r[i], is a random beta-distributed variable.  Symbolically,
+    #  x[i] ~ Binom(r[i], S)
+    #  r[i] ~ Beta(a, b)
+    # The r[i]s allow experiments to have a slightly differing
+    # success rate.  The goal is to place confidence limits on
+    # this success rate distribution, R.  We do this by ML.
+
+    fit = betaBinomML(successes, trials)
+    qbeta(c((1-conf_level)/2, 1-(1-conf_level)/2), shape1 = fit[1], shape2 = fit[2])
+}
+

@@ -231,16 +231,14 @@ ggplot(temp_nfp, aes(x = depth, y = approx_fpr)) +
     labs(x = "Sequence depth (inclusive)", y = "False positives per Mb (approx.)", title = "False positive rate vs depth") + 
     theme_bw()
 
-# temp_nfp = marginalizePerformance(class_subsets.performance_thresholded, quote(TRUE), .(depth, mdust))
-# temp_nfp$approx_fpr = temp_nfp$nfp / temp_nfp$n * sum(temp_nfp$n) / sum(as.numeric(width(universe$analysis))) * 1e6
-# ggplot(temp_nfp, aes(x = depth, y = approx_fpr, fill = mdust)) + 
-#     geom_bar(stat = "identity", position = "dodge") + 
-#     labs(x = "Sequence depth (inclusive)", y = "False positives per Mb (approx.)", title = "False positive rate vs depth") + 
-#     theme_bw()
-
 ggplot(temp_nfp, aes(x = depth, y = n)) + 
     geom_bar(stat = "identity") + 
     labs(x = "Sequence depth (inclusive)", y = "Variant count at this depth", title = "Variant count vs depth") + 
+    theme_bw()
+
+ggplot(temp_nfp, aes(x = depth, y = n * approx_fpr)) + 
+    geom_bar(stat = "identity") + 
+    labs(x = "Sequence depth (inclusive)", y = "False positive count at this depth", title = "False positive count vs depth") + 
     theme_bw()
 
 
