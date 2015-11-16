@@ -441,6 +441,8 @@ for (( LOOP_SAMPLE_INDEX = 0; LOOP_SAMPLE_INDEX < ${LOOP_NUM_SAMPLES}; LOOP_SAMP
   if [ ${PARAM_DOTESTS} -eq 1 ]; then
     ${RSCRIPT} --vanilla test-calcs.R
   fi
+
+  cd ${PARAM_EXEC_PATH}
 done
 
 
@@ -449,6 +451,8 @@ done
 #####################################################################
 echo "Merging report summary RDS files..."
 
+cd ${PARAM_SCRATCH}
+cp -f ${PARAM_SCRIPT_PATH}/merge_report_summaries.R .
 ${RSCRIPT} --vanilla merge_report_summaries.R
 
 
@@ -488,6 +492,8 @@ for (( LOOP_SAMPLE_INDEX = 0; LOOP_SAMPLE_INDEX < ${LOOP_NUM_SAMPLES}; LOOP_SAMP
 
   SUBREPORT_ARRAY=("${SUBREPORT_ARRAY[@]}" "${LOOP_KNITR_PATH}/report.pdf")
   echo "    Sub-report generated successfully."
+
+  cd ${PARAM_EXEC_PATH}
 done
 
 echo "Concatenating sub-reports..."
