@@ -30,11 +30,3 @@ for (sample.index in 0:(param$sample.count-1))
 
 if (param$path.rds.output != "")
     saveRDS(merged_data, param$path.rds.output, version = 2, compress = "xz")
-
-
-if (param$path.json.output != "")
-{
-    library(jsonlite)
-    merged_data_summary = lapply(merged_data, function(x) x$report_summary)
-    cat(toJSON(merged_data_summary), file = param$path.json.output)
-}
