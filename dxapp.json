@@ -1,7 +1,7 @@
 {
-    "name": "kccg-validation-reporter",
-    "title": "Validation Reporter (KCCG)",
-    "summary": "Create a WGS validation report from a VCF of NA12878 calls",
+    "name": "kccg-performance-reporter",
+    "title": "Performance Reporter (KCCG)",
+    "summary": "Create a WGS performance report from a single-sample VCF of NA12878 calls",
     "dxapi": "1.0.0",
     "version": "auto-updated-by-bamboo",
     "resources": "project-Bf525x80YY8XZbFV8kJ50y2f",
@@ -25,15 +25,6 @@
             "class": "file",
             "patterns": [ "*.bed" ],
             "optional": true
-        },
-        {
-            "group": "advanced",
-            "name": "sampleIDs",
-            "label": "VCF sample IDs",
-            "help": "Generate reports for these samples in the VCF only.  Comma-separated list; * indicates all samples.",
-            "class": "string",
-            "optional": true,
-            "default": "*"
         },
         {
             "group": "advanced",

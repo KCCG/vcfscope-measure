@@ -174,6 +174,33 @@ ggplot(marginalizePerformance(class_subsets.performance_thresholded, quote(mutty
     theme_bw()
 
 
+# Problem with these depth numbers: the "Unknown" DP class are for variants not
+# present in the VCF at all -- FNs.  However, they are ignored in this and
+# subsequent depth plots.  This is a problem.  In essence, all we're seeing in
+# the plots is the effect of the VQSR filter; all performance is conditional
+# on the variant being reported in the VCF in the first place.
+#
+# To resolve this we really need depth at all variant locations, that's sourced
+# independently from the VCF.  Or, alternatively, we need to augment the VCF with
+# FAIL or hom ref calls that basically just add DP information to missed loci.
+# The second approach would more elegantly slot in to the current framework, but
+# at the cost of being a rather confusing hack.  The first approach is more
+# clunky, but at least it's clear what it'll be doing.  In either case, the app
+# will need access to the mapped reads (ie the BAM).  For multiple inputs, there
+# must be a way to associate BAMs with VCF samples.
+#
+#
+# Plan: New workflow is three step:
+#   1) Single-sample VCF + BAM + GiaB VCF + GiaB BED --> Augmented single-sample VCF
+#   2) Augmented single-sample VCFs --> Augmented combined VCF
+#   3) Augmented combined VCF + GiaB VCF + GiaB BED --> Report
+# 
+# Split into three apps:
+#   1) kccg-performance-depth
+#   2) kccg-bcftools-merge 
+#   3) kccg-performance-report (this one)
+# 
+#     
 ggplot(marginalizePerformance(class_subsets.performance_thresholded, quote(muttype == "Subst" & zyg %in% c("RA", "AA")), .(zyg, depth)), aes(x = depth, y = sens, group = zyg, colour = zyg)) + 
     geom_line() + 
     geom_ribbon(aes(ymin = sens.lci, ymax = sens.uci, fill = zyg), alpha = 0.25, colour = NA) + 
