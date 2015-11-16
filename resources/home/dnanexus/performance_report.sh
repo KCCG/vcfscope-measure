@@ -70,7 +70,7 @@ export CONST_GENOME_BEDGZ="${PATH_RESOURCES_HEAD}/reportable_range/genome.bed.gz
 export CONST_REFERENCE_BSGENOME="BSgenome.HSapiens.1000g.37d5"		# This is a custom package, available at /share/ClusterShare/biodata/contrib/marpin/reference/hs37d5/build/BSgenome.HSapiens.1000g.37d5_1.0.0.tar.gz
 
 # Script location
-export PARAM_SCRIPT_PATH=$(dirname $0)
+export PARAM_SCRIPT_PATH=$(readlink -f $(dirname $0))
 export PARAM_EXEC_PATH=$(pwd)
 
 # Scratch space
