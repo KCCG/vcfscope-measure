@@ -46,12 +46,12 @@ PID_GIABCOPY=$!
 ## REAL TIME GENOMICS RTG-TOOLS
 
 # Copy over RTG
-cp -r ${RESOURCES_DIR}/RTG ${BUNDLE_DIR}/rtg-tools
+cp -r ${RESOURCES_DIR}/RTG/ ${BUNDLE_DIR}/rtg-tools
 
 # Create an RTG-format genome
 (
 	if [[ ! -e ${BUNDLE_DIR}/reference/hs37d5.sdf ]]; then
-		${JAVA} -Xmx4G -jar ${BUNDLE_DIR}/rtg-tools/RTG/RTG.jar format -f fasta -o ${BUNDLE_DIR}/reference/hs37d5.sdf ${RESOURCES_DIR}/reference/hs37d5.fa.gz
+		${JAVA} -Xmx4G -jar ${BUNDLE_DIR}/rtg-tools/RTG.jar format -f fasta -o ${BUNDLE_DIR}/reference/hs37d5.sdf ${RESOURCES_DIR}/reference/hs37d5.fa.gz
 	fi
 )&
 PID_RTGREF=$!
