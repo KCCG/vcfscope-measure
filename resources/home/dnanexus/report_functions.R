@@ -336,7 +336,7 @@ classifyDepthVcf = function(vcf)
     }
     else
     {
-        depth = geno(vcf)$DP
+        depth = geno(vcf)$KCCG_PERF_DP_MIN
         cut_lengths = cut(depth, breaks = breaks, labels = interval_labels, right = FALSE)
         result_list = lapply(interval_labels2, function(l) { 
             if (l != "Unknown")

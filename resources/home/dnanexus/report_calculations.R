@@ -40,14 +40,9 @@ param$path.gold.regions.orig = env$CONST_GOLD_HARDMASK_VALID_REGIONS_BEDGZ      
 param$path.gold.variants.subset = env$PATH_GOLD_VARIANTS                        # Gold standard variant vcf, subset to the bed in param$region.subset.path
 param$path.gold.regions.subset = env$PATH_GOLD_REGIONS                          # Gold standard valid regions, subset to the bed in param$region.subset.path
 
-param$sample.ids = env$PARAM_INPUT_VCF_SAMPLES
-param$sample.index = as.integer(env$LOOP_SAMPLE_INDEX)
-param$sample.count = as.integer(env$LOOP_NUM_SAMPLES)
-param$sample.id = env$LOOP_THIS_SAMPLE_ID
-
-param$path.tp = env$LOOP_PATH_SAMPLE_OVERLAP_TP     # Output from RTG's vcfeval, overlapping
-param$path.fp = env$LOOP_PATH_SAMPLE_OVERLAP_FP     # param$path.test.subset and 
-param$path.fn = env$LOOP_PATH_SAMPLE_OVERLAP_FN     # param$path.gold.variants.subset
+param$path.tp = env$PATH_SAMPLE_OVERLAP_TP          # Output from RTG's vcfeval, overlapping
+param$path.fp = env$PATH_SAMPLE_OVERLAP_FP          # param$path.test.subset and 
+param$path.fn = env$PATH_SAMPLE_OVERLAP_FN          # param$path.gold.variants.subset
 
 param$genome = env$CONST_REFERENCE_BSGENOME         # The reference genome R package
 param$version = list()
@@ -86,7 +81,7 @@ genome(genome.seqinfo) = param$genome     # To get around disagreement
 # LOAD VARIANTS (SPLIT INTO ERROR CLASSES FROM RTG VCFEVAL)
 #####################################################################
 # The call overlaps.  Load just the required fields from the VCFs.
-vcf.scan_param = ScanVcfParam(geno = c("GT", "DP"), fixed = c("ALT", "FILTER"), info = NA)
+vcf.scan_param = ScanVcfParam(geno = c("GT", "DP", "KCCG_PERF_DP_MIN"), fixed = c("ALT", "FILTER"), info = NA)
 
 calls = list(
     tp = suppressWarnings(readVcf(TabixFile(param$path.tp), param$genome, vcf.scan_param)),
@@ -95,8 +90,7 @@ calls = list(
 )
 
 # Simple data sanity check: do the vcfs have the same, correct sample name?
-stopifnot(length(header(calls$tp)@samples) == 1 && all(header(calls$tp)@samples == param$sample.id))
-stopifnot(length(header(calls$fp)@samples) == 1 && all(header(calls$fp)@samples == param$sample.id))
+stopifnot(length(header(calls$tp)@samples) == 1 && header(calls$tp)@samples == header(calls$fp)@samples)
 
 
 # BEGIN HACK:
@@ -207,16 +201,6 @@ for (i in setdiff(names(class$muttype$fp), "None"))
 class$mutsize$fp[["0-4"]] = class$mutsize$fp[["0-4"]] | TRUE
 for (i in setdiff(names(class$mutsize$fp), "0-4"))
     class$mutsize$fp[[i]] = class$mutsize$fp[[i]] & FALSE
-
-# False negatives don't have a reliable depth (as they probably never 
-# had a VCF entry), so set all to Unknown.
-# TODO: This is a potential point for refinement -- technically I 
-# *can* calculate the depth here, and it will provide useful information
-# on the effect of low depth on the dropout rate, but I'd have to start 
-# from the BAMs instead of VCFs.
-class$depth$fn[["Unknown"]] = class$depth$fn[["Unknown"]] | TRUE
-for (i in setdiff(names(class$depth$fn), "Unknown"))
-    class$depth$fn[[i]] = class$depth$fn[[i]] & FALSE
 
 
 # Basic consistency check: ensure all class vectors match the length 

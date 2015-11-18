@@ -18,6 +18,20 @@
             "patterns": [ "*.vcf.gz" ]
         },
         {
+            "name": "bam",
+            "label": "Mapped reads",
+            "help": "The mapped NA12878 reads used to generate the genotype calls being tested, in bam format.",
+            "class": "file",
+            "patterns": [ "*.bam" ]
+        },
+        {
+            "name": "bai",
+            "label": "Mapped read index",
+            "help": "An index for the mapped reads.",
+            "class": "file",
+            "patterns": [ "*.bai" ]
+        },
+        {
             "group": "advanced",
             "name": "region",
             "label": "Region BED",

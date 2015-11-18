@@ -7,9 +7,12 @@ set -e -x -o pipefail
 
 main() {
   #
-  # Fetch inputs (~/in/vcfgz/*)
+  # Fetch inputs
   #
   dx-download-all-inputs --parallel
+
+  # Move the BAI to the location of the BAM
+  mv ${bai_path} ${bam_path}.bai
 
   #
   # Locate the assets bundle, the location of which varies, depending on whether
@@ -78,9 +81,9 @@ main() {
   #
   # run report
   #
-  mkdir -p ~/out/report/ ~/out/rds ~/out/json
+  mkdir -p ~/out/report/ ~/out/rds
   sample_basename=$(basename ${vcfgz_path} .vcf.gz)
-  ./performance_report.sh -o "/home/dnanexus/out/report/${sample_basename}.valrept.pdf" -d "/home/dnanexus/out/rds/${sample_basename}.valrept.rds" -s "${sampleIDs}" "${opts[@]}" "${vcfgz_path}"
+  ./performance_report.sh -o "/home/dnanexus/out/report/${sample_basename}.valrept.pdf" -d "/home/dnanexus/out/rds/${sample_basename}.valrept.rds" "${opts[@]}" "${vcfgz_path}" "${bam_path}"
 
   #
   # upload results
@@ -88,5 +91,4 @@ main() {
   dx-upload-all-outputs
   propagate-user-meta vcfgz report
   propagate-user-meta vcfgz rds
-  propagate-user-meta vcfgz json
 }
