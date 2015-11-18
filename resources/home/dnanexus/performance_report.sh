@@ -9,6 +9,11 @@ IFS=$'\n\t'
 export CONST_VERSION_SCRIPT="2.0.0"
 
 
+function message {
+  echo >&2 "$(date -u)" "$1"
+}
+
+
 #####################################################################
 # SOFTWARE AND DATA LOCATIONS
 #####################################################################
@@ -195,32 +200,32 @@ PARAM_INPUT_BAM_PATH=$(readlink -f $2)
 #####################################################################
 
 if [ ! -d "${PATH_RESOURCES_HEAD}" ]; then
-  echo >&2 "Error: Resources path ${PATH_RESOURCES_HEAD} not found."
+  message "Error: Resources path ${PATH_RESOURCES_HEAD} not found."
   exit 2
 fi
 
 if [ ! -e ${PARAM_INPUT_VCFGZ_PATH} ]; then
-	echo >&2 "Error: Input file ${PARAM_INPUT_VCFGZ_PATH} not found."
+	message "Error: Input file ${PARAM_INPUT_VCFGZ_PATH} not found."
 	exit 3
 fi
 
 if [ ! -e ${PARAM_INPUT_BAM_PATH} ]; then
-  echo >&2 "Error: Input file ${PARAM_INPUT_BAM_PATH} not found."
+  message "Error: Input file ${PARAM_INPUT_BAM_PATH} not found."
   exit 3
 fi
 
 if [ ! -e ${PARAM_INPUT_BAM_PATH}.bai ]; then
-  echo >&2 "Error: Index not found for input BAM file (expected ${PARAM_INPUT_BAM_PATH}.bai)"
+  message "Error: Index not found for input BAM file (expected ${PARAM_INPUT_BAM_PATH}.bai)"
   exit 3
 fi
 
 if [ -e ${PARAM_OUTPUT_PDF_PATH} ]; then
-	echo >&2 "Error: Output file ${PARAM_OUTPUT_PDF_PATH} already exists."
+	message "Error: Output file ${PARAM_OUTPUT_PDF_PATH} already exists."
 	exit 4
 fi
 
 if [ ${PARAM_REGION_BED_SUPPLIED} -eq 1 ] && [ ! -e ${PARAM_REGION_BED_PATH} ]; then
-  echo >&2 "Error: Region file ${PARAM_REGION_BED_PATH} not found."
+  message "Error: Region file ${PARAM_REGION_BED_PATH} not found."
   exit 5
 fi
 
@@ -229,22 +234,22 @@ fi
 # SOFTWARE CHECKING
 #####################################################################
 if [ ! -e ${RSCRIPT} ]; then
-  echo >&2 "Error: Rscript executable not found at ${RSCRIPT}."
+  message "Error: Rscript executable not found at ${RSCRIPT}."
   exit 6
 fi
 
 if [ ! -e ${JAVA} ]; then
-  echo >&2 "Error: Java executable not found at ${JAVA}."
+  message "Error: Java executable not found at ${JAVA}."
   exit 7
 fi
 
 if [ ! -e ${RTG_TOOLS} ]; then
-  echo >&2 "Error: RTG.jar not found at ${RTG_TOOLS}."
+  message "Error: RTG.jar not found at ${RTG_TOOLS}."
   exit 8
 fi
 
 if [ ! -f ${PARAM_SCRIPT_PATH}/report.Rnw -o ! -f ${PARAM_SCRIPT_PATH}/report_functions.R -o ! -f ${PARAM_SCRIPT_PATH}/report_calculations.R ]; then
-  echo >&2 "Error: Missing at least one required R source file."
+  message "Error: Missing at least one required R source file."
   exit 9
 fi
 
@@ -253,7 +258,7 @@ fi
 # CHECK THE INPUT FILE IS A SINGLE-SAMPLE VCF
 #####################################################################
 if [ $(gzip -dc ${PARAM_INPUT_VCFGZ_PATH} | grep -m1 '^#[^#]' | tr '\t' '\n' | wc -l) -ne 10 ]; then
-  echo >&2 "Error: Multi-sample VCF found.  Input VCF must contain variants for only a single sample."
+  message "Error: Multi-sample VCF found.  Input VCF must contain variants for only a single sample."
   exit 10
 fi
 
@@ -277,52 +282,52 @@ PARAM_VERSION_BEDTOOLS=$(${BEDTOOLS} --version | cut -d' ' -f 2)
 #####################################################################
 # PARAMETER LOGGING
 #####################################################################
-echo >&2 "performance_report.sh parameters:"
-echo >&2 "  PATH_RESOURCES_HEAD=${PATH_RESOURCES_HEAD}"
-echo >&2 "  PATH_SCRATCH_DEFAULT=${PATH_SCRATCH_DEFAULT}"
-echo >&2 "  BEDTOOLS=${BEDTOOLS}"
-echo >&2 "  BCFTOOLS=${BCFTOOLS}"
-echo >&2 "  BGZIP=${BGZIP}"
-echo >&2 "  GHOSTSCRIPT=${GHOSTSCRIPT}"
-echo >&2 "  JAVA=${JAVA}"
-echo >&2 "  PARALLEL=${PARALLEL}"
-echo >&2 "  PYTHON=${PYTHON}"
-echo >&2 "  R=${R}"
-echo >&2 "  RSCRIPT=${RSCRIPT}"
-echo >&2 "  RTG_TOOLS=${RTG_TOOLS}"
-echo >&2 "  RTG_VCFEVAL=${RTG_VCFEVAL}"
-echo >&2 "  SAMTOOLS=${SAMTOOLS}"
-echo >&2 "  TABIX=${TABIX}"
-echo >&2 "  RTG_THREADS=${RTG_THREADS}"
-echo >&2 "  mem_in_mb=${mem_in_mb}"
-echo >&2 "  CONST_GOLD_CALLS_VCFGZ=${CONST_GOLD_CALLS_VCFGZ}"
-echo >&2 "  CONST_GOLD_CALLS_VCFGZTBI=${CONST_GOLD_CALLS_VCFGZTBI}"
-echo >&2 "  CONST_GOLD_HARDMASK_VALID_REGIONS_BEDGZ=${CONST_GOLD_HARDMASK_VALID_REGIONS_BEDGZ}"
-echo >&2 "  CONST_REFERENCE_SDF=${CONST_REFERENCE_SDF}"
-echo >&2 "  CONST_GENOME_BEDGZ=${CONST_GENOME_BEDGZ}"
-echo >&2 "  CONST_REFERENCE_BSGENOME=${CONST_REFERENCE_BSGENOME}"
-echo >&2 "  PARAM_SCRIPT_PATH=${PARAM_SCRIPT_PATH}"
-echo >&2 "  PARAM_SCRATCH=${PARAM_SCRATCH}"
-echo >&2 "  PARAM_INPUT_SCRATCH=${PARAM_INPUT_SCRATCH}"
-echo >&2 "  PARAM_RTG_OVERLAP_SCRATCH=${PARAM_RTG_OVERLAP_SCRATCH}"
-echo >&2 "  PARAM_KNITR_SCRATCH=${PARAM_KNITR_SCRATCH}"
-echo >&2 "  PARAM_INPUT_VCFGZ_PATH=${PARAM_INPUT_VCFGZ_PATH}"
-echo >&2 "  PARAM_INPUT_BAM_PATH=${PARAM_INPUT_BAM_PATH}"
-echo >&2 "  PARAM_REGION_BED_SUPPLIED=${PARAM_REGION_BED_SUPPLIED}"
-echo >&2 "  PARAM_REGION_BED_PATH=${PARAM_REGION_BED_PATH}"
-echo >&2 "  PARAM_OUTPUT_PDF_PATH=${PARAM_OUTPUT_PDF_PATH}"
-echo >&2 "  PARAM_OUTPUT_RDS_PATH=${PARAM_OUTPUT_RDS_PATH}"
-echo >&2 "  PARAM_VERSION_EXEC_HOST=${PARAM_VERSION_EXEC_HOST}"
-echo >&2 "  PARAM_VERSION_RTG=${PARAM_VERSION_RTG}"
-echo >&2 "  PARAM_VERSION_JAVA=${PARAM_VERSION_JAVA}"
-echo >&2 "  PARAM_VERSION_BEDTOOLS=${PARAM_VERSION_BEDTOOLS}"
-echo >&2 "  PATH_TEST_VARIANTS=${PATH_TEST_VARIANTS}"
-echo >&2 "  PATH_TEST_VARIANTS_INDEX=${PATH_TEST_VARIANTS_INDEX}"
-echo >&2 "  PATH_TEST_READS=${PATH_TEST_READS}"
-echo >&2 "  PATH_TEST_READS_INDEX=${PATH_TEST_READS_INDEX}"
-echo >&2 "  PATH_GOLD_VARIANTS=${PATH_GOLD_VARIANTS}"
-echo >&2 "  PATH_GOLD_VARIANTS_INDEX=${PATH_GOLD_VARIANTS_INDEX}"
-echo >&2 "  PATH_GOLD_REGIONS=${PATH_GOLD_REGIONS}"
+message "performance_report.sh parameters:"
+message "  PATH_RESOURCES_HEAD=${PATH_RESOURCES_HEAD}"
+message "  PATH_SCRATCH_DEFAULT=${PATH_SCRATCH_DEFAULT}"
+message "  BEDTOOLS=${BEDTOOLS}"
+message "  BCFTOOLS=${BCFTOOLS}"
+message "  BGZIP=${BGZIP}"
+message "  GHOSTSCRIPT=${GHOSTSCRIPT}"
+message "  JAVA=${JAVA}"
+message "  PARALLEL=${PARALLEL}"
+message "  PYTHON=${PYTHON}"
+message "  R=${R}"
+message "  RSCRIPT=${RSCRIPT}"
+message "  RTG_TOOLS=${RTG_TOOLS}"
+message "  RTG_VCFEVAL=${RTG_VCFEVAL}"
+message "  SAMTOOLS=${SAMTOOLS}"
+message "  TABIX=${TABIX}"
+message "  RTG_THREADS=${RTG_THREADS}"
+message "  mem_in_mb=${mem_in_mb}"
+message "  CONST_GOLD_CALLS_VCFGZ=${CONST_GOLD_CALLS_VCFGZ}"
+message "  CONST_GOLD_CALLS_VCFGZTBI=${CONST_GOLD_CALLS_VCFGZTBI}"
+message "  CONST_GOLD_HARDMASK_VALID_REGIONS_BEDGZ=${CONST_GOLD_HARDMASK_VALID_REGIONS_BEDGZ}"
+message "  CONST_REFERENCE_SDF=${CONST_REFERENCE_SDF}"
+message "  CONST_GENOME_BEDGZ=${CONST_GENOME_BEDGZ}"
+message "  CONST_REFERENCE_BSGENOME=${CONST_REFERENCE_BSGENOME}"
+message "  PARAM_SCRIPT_PATH=${PARAM_SCRIPT_PATH}"
+message "  PARAM_SCRATCH=${PARAM_SCRATCH}"
+message "  PARAM_INPUT_SCRATCH=${PARAM_INPUT_SCRATCH}"
+message "  PARAM_RTG_OVERLAP_SCRATCH=${PARAM_RTG_OVERLAP_SCRATCH}"
+message "  PARAM_KNITR_SCRATCH=${PARAM_KNITR_SCRATCH}"
+message "  PARAM_INPUT_VCFGZ_PATH=${PARAM_INPUT_VCFGZ_PATH}"
+message "  PARAM_INPUT_BAM_PATH=${PARAM_INPUT_BAM_PATH}"
+message "  PARAM_REGION_BED_SUPPLIED=${PARAM_REGION_BED_SUPPLIED}"
+message "  PARAM_REGION_BED_PATH=${PARAM_REGION_BED_PATH}"
+message "  PARAM_OUTPUT_PDF_PATH=${PARAM_OUTPUT_PDF_PATH}"
+message "  PARAM_OUTPUT_RDS_PATH=${PARAM_OUTPUT_RDS_PATH}"
+message "  PARAM_VERSION_EXEC_HOST=${PARAM_VERSION_EXEC_HOST}"
+message "  PARAM_VERSION_RTG=${PARAM_VERSION_RTG}"
+message "  PARAM_VERSION_JAVA=${PARAM_VERSION_JAVA}"
+message "  PARAM_VERSION_BEDTOOLS=${PARAM_VERSION_BEDTOOLS}"
+message "  PATH_TEST_VARIANTS=${PATH_TEST_VARIANTS}"
+message "  PATH_TEST_VARIANTS_INDEX=${PATH_TEST_VARIANTS_INDEX}"
+message "  PATH_TEST_READS=${PATH_TEST_READS}"
+message "  PATH_TEST_READS_INDEX=${PATH_TEST_READS_INDEX}"
+message "  PATH_GOLD_VARIANTS=${PATH_GOLD_VARIANTS}"
+message "  PATH_GOLD_VARIANTS_INDEX=${PATH_GOLD_VARIANTS_INDEX}"
+message "  PATH_GOLD_REGIONS=${PATH_GOLD_REGIONS}"
 
 
 #####################################################################
@@ -344,7 +349,7 @@ mkdir -p $(dirname ${PARAM_OUTPUT_PDF_PATH})
 # SUBSET TO REGION BED
 #####################################################################
 if [ ${PARAM_REGION_BED_SUPPLIED} -eq 1 ]; then
-  echo "Subsetting input files to supplied BED..."
+  message "Subsetting input files to supplied BED..."
   # Sort the region bed
   sort -k1,1 -k2,2n ${PARAM_REGION_BED_PATH} > ${PARAM_INPUT_SCRATCH}/region.bed
 
@@ -379,9 +384,9 @@ ${TABIX} -p vcf ${PATH_TEST_VARIANTS}
 #####################################################################
 # VCF OVERLAP EVALUATION
 #####################################################################
-echo "Computing VCF overlaps..."
+message "Computing VCF overlaps..."
 if [ -e ${PARAM_RTG_OVERLAP_SCRATCH} ]; then
-  echo "PARAM_RTG_OVERLAP_SCRATCH directory ${PARAM_RTG_OVERLAP_SCRATCH} already exists.  Clearing scratch directory and continuing..."
+  message "PARAM_RTG_OVERLAP_SCRATCH directory ${PARAM_RTG_OVERLAP_SCRATCH} already exists.  Clearing scratch directory and continuing..."
   rm -rf ${PARAM_RTG_OVERLAP_SCRATCH}
 fi
 
@@ -416,7 +421,7 @@ fi
 #####################################################################
 # CALCULATE BAM DEPTH AT VARIANT LOCATIONS
 #####################################################################
-echo "Calculating depth at variant loci..."
+message "Calculating depth at variant loci..."
 # Make beds of regions for which we want to know achieved depth
 gzip -dc ${PATH_SAMPLE_OVERLAP_TP_RAW} | grep -v '^#' | awk 'BEGIN { FS="\t"; OFS="\t" } { print $1, $2-1, $2+length($4)-1 }' > ${PARAM_DEPTH_SCRATCH}/tp.bed
 gzip -dc ${PATH_SAMPLE_OVERLAP_FP_RAW} | grep -v '^#' | awk 'BEGIN { FS="\t"; OFS="\t" } { print $1, $2-1, $2+length($4)-1 }' > ${PARAM_DEPTH_SCRATCH}/fp.bed
@@ -429,10 +434,12 @@ awk -v dir=${PARAM_DEPTH_SCRATCH} '{ print > dir"/fp_"$1".bed" }' < ${PARAM_DEPT
 awk -v dir=${PARAM_DEPTH_SCRATCH} '{ print > dir"/fn_"$1".bed" }' < ${PARAM_DEPTH_SCRATCH}/fn.bed
 
 # And the bam:
-echo "  Sharding BAM..."
-${SAMTOOLS} view -H ${PATH_TEST_READS} | grep '^@SQ' | cut -f 2 | sed 's/^SN://' > ${PARAM_DEPTH_SCRATCH}/bam_chroms.txt
+message "  Sharding BAM..."
+# Process chromosomes in descending order of size, to optimize core usage
+${SAMTOOLS} view -H ${PATH_TEST_READS} | grep '^@SQ' | cut -f 2,3 | sed 's/[SL]N://g' | sort -k2,2rn | cut -f 1 > ${PARAM_DEPTH_SCRATCH}/bam_chroms.txt
 eval ${PARALLEL} -a ${PARAM_DEPTH_SCRATCH}/bam_chroms.txt ${SAMTOOLS} view -1 -o ${PARAM_DEPTH_SCRATCH}/reads_{1}.bam ${PATH_TEST_READS} {1}
-eval ${PARALLEL} ${SAMTOOLS} index ::: ${PARAM_DEPTH_SCRATCH}/reads_*.bam
+message "  Indexing shards..."
+eval ${PARALLEL} -a ${PARAM_DEPTH_SCRATCH}/bam_chroms.txt ${SAMTOOLS} index ${PARAM_DEPTH_SCRATCH}/reads_{1}.bam
 
 # Fill in empty beds for chromosomes in the BAM but not the beds
 eval ${PARALLEL} -a ${PARAM_DEPTH_SCRATCH}/bam_chroms.txt touch ${PARAM_DEPTH_SCRATCH}/tp_{1}.bed
@@ -440,11 +447,11 @@ eval ${PARALLEL} -a ${PARAM_DEPTH_SCRATCH}/bam_chroms.txt touch ${PARAM_DEPTH_SC
 eval ${PARALLEL} -a ${PARAM_DEPTH_SCRATCH}/bam_chroms.txt touch ${PARAM_DEPTH_SCRATCH}/fn_{1}.bed
 
 # For each shard (chromosome), calculate depth in the BAM in the VCF regions
-echo "  True positives..."
+message "  True positives..."
 eval ${PARALLEL} -a ${PARAM_DEPTH_SCRATCH}/bam_chroms.txt ${PYTHON} ${PARAM_SCRIPT_PATH}/depth.py ${PARAM_DEPTH_SCRATCH}/reads_{1}.bam ${PARAM_DEPTH_SCRATCH}/tp_{1}.bed {1} 20 20 ${PARAM_DEPTH_SCRATCH}/tp_{1}.depth
-echo "  False positives..."
+message "  False positives..."
 eval ${PARALLEL} -a ${PARAM_DEPTH_SCRATCH}/bam_chroms.txt ${PYTHON} ${PARAM_SCRIPT_PATH}/depth.py ${PARAM_DEPTH_SCRATCH}/reads_{1}.bam ${PARAM_DEPTH_SCRATCH}/fp_{1}.bed {1} 20 20 ${PARAM_DEPTH_SCRATCH}/fp_{1}.depth
-echo "  False negatives..."
+message "  False negatives..."
 eval ${PARALLEL} -a ${PARAM_DEPTH_SCRATCH}/bam_chroms.txt ${PYTHON} ${PARAM_SCRIPT_PATH}/depth.py ${PARAM_DEPTH_SCRATCH}/reads_{1}.bam ${PARAM_DEPTH_SCRATCH}/fn_{1}.bed {1} 20 20 ${PARAM_DEPTH_SCRATCH}/fn_{1}.depth
 
 
@@ -455,7 +462,7 @@ PATH_SAMPLE_OVERLAP_TP="${PARAM_RTG_OVERLAP_SCRATCH}/tp-augmented.vcf.gz"
 PATH_SAMPLE_OVERLAP_FP="${PARAM_RTG_OVERLAP_SCRATCH}/fp-augmented.vcf.gz"
 PATH_SAMPLE_OVERLAP_FN="${PARAM_RTG_OVERLAP_SCRATCH}/fn-augmented.vcf.gz"
 
-echo "  Augmenting VCFs..."
+message "  Augmenting VCFs..."
 ${PYTHON} ${PARAM_SCRIPT_PATH}/add-depth.py ${PATH_SAMPLE_OVERLAP_TP_RAW} ${PARAM_DEPTH_SCRATCH}/tp_ | ${BGZIP} -c > ${PATH_SAMPLE_OVERLAP_TP}
 ${PYTHON} ${PARAM_SCRIPT_PATH}/add-depth.py ${PATH_SAMPLE_OVERLAP_FP_RAW} ${PARAM_DEPTH_SCRATCH}/fp_ | ${BGZIP} -c > ${PATH_SAMPLE_OVERLAP_FP}
 ${PYTHON} ${PARAM_SCRIPT_PATH}/add-depth.py ${PATH_SAMPLE_OVERLAP_FN_RAW} ${PARAM_DEPTH_SCRATCH}/fn_ | ${BGZIP} -c > ${PATH_SAMPLE_OVERLAP_FN}
@@ -468,7 +475,7 @@ ${TABIX} -p vcf ${PATH_SAMPLE_OVERLAP_FN}
 #####################################################################
 # CALCULATIONS FOR REPORT
 #####################################################################
-echo "Performing calculations for report..."
+message "Performing calculations for report..."
 
 # knitr doesn't play well with building knits outside of its working
 # directory.  Currently we get around this with a bit of a kludge, 
@@ -497,7 +504,7 @@ cd ${PARAM_EXEC_PATH}
 #####################################################################
 # REPORT GENERATION
 #####################################################################
-echo "Generating report..."
+message "Generating report..."
 
 cd ${PARAM_KNITR_SCRATCH}
 
@@ -517,11 +524,11 @@ pdflatex -interaction nonstopmode report.tex || true
 
 # Check whether the report.pdf was generated
 if [ ! -e ${PARAM_KNITR_SCRATCH}/report.pdf ]; then
-	echo >&2 "  Error: pdflatex did not successfully generate report.pdf."
-	echo >&2 "  Check ${PARAM_KNITR_SCRATCH}/report.tex and the latex log for errors."
+	message "  Error: pdflatex did not successfully generate report.pdf."
+	message "  Check ${PARAM_KNITR_SCRATCH}/report.tex and the latex log for errors."
 	exit 12
 fi
 
 cp ${PARAM_KNITR_SCRATCH}/report.pdf ${PARAM_OUTPUT_PDF_PATH}
 
-echo "Done."
+message "Done."

@@ -197,6 +197,13 @@ ggplot(marginalizePerformance(class_subsets.performance_thresholded, quote(mutty
     labs(x = "Number of bases inserted (inclusive)", y = "Sensitivity", fill = "Zygosity", colour = "Zygosity", title = "Insertion Detection Performance") + 
     theme_bw() + ylim(0, 1)
 
+# ggplot(marginalizePerformance(class_subsets.performance_thresholded, quote(muttype == "Ins" & zyg %in% c("RA", "AA")), .(zyg, mutsize, depth)), aes(x = depth, y = sens, group = zyg, colour = zyg)) + 
+#     geom_line() + 
+#     geom_ribbon(aes(ymin = sens.lci, ymax = sens.uci, fill = zyg), alpha = 0.25, colour = NA) + 
+#     geom_point(size = 2, shape = 21, fill = "white") + 
+#     labs(x = "Number of bases inserted (inclusive)", y = "Sensitivity", fill = "Zygosity", colour = "Zygosity", title = "Insertion Detection Performance") + 
+#     theme_bw() + ylim(0, 1) + facet_wrap(~ mutsize)
+
 ggplot(
     marginalizePerformance(class_subsets.performance_thresholded, quote(muttype == "Ins" & zyg %in% c("RA", "AA")), .(zyg, mutsize)), 
     aes(x = mutsize, y = ntp + nfn, group = zyg, colour = zyg)) + 
@@ -213,6 +220,13 @@ ggplot(marginalizePerformance(class_subsets.performance_thresholded, quote(mutty
     labs(x = "Number of bases deleted (inclusive)", y = "Sensitivity", fill = "Zygosity", colour = "Zygosity", title = "Deletion Detection Performance") + 
     theme_bw() + ylim(0, 1)
 
+# ggplot(marginalizePerformance(class_subsets.performance_thresholded, quote(muttype == "Del" & zyg %in% c("RA", "AA")), .(zyg, mutsize, depth)), aes(x = depth, y = sens, group = zyg, colour = zyg)) + 
+#     geom_line() + 
+#     geom_ribbon(aes(ymin = sens.lci, ymax = sens.uci, fill = zyg), alpha = 0.25, colour = NA) + 
+#     geom_point(size = 2, shape = 21, fill = "white") + 
+#     labs(x = "Sequence depth (inclusive)", y = "Sensitivity", fill = "Zygosity", colour = "Zygosity", title = "Deletion Detection Performance") + 
+#     theme_bw() + ylim(0, 1) + facet_wrap(~ mutsize)
+
 ggplot(marginalizePerformance(class_subsets.performance_thresholded, quote(muttype == "Del" & zyg %in% c("RA", "AA")), .(zyg, mutsize)), aes(x = mutsize, y = ntp + nfn, group = zyg, colour = zyg)) + 
     geom_line() + 
     geom_point(size = 2, shape = 21, fill = "white") + 
@@ -226,6 +240,7 @@ ggplot(marginalizePerformance(class_subsets.performance_thresholded, quote(mutty
 # probably not the case.
 temp_nfp = marginalizePerformance(class_subsets.performance_thresholded, quote(TRUE), .(depth))
 temp_nfp$approx_fpr = temp_nfp$nfp / (temp_nfp$ntp + temp_nfp$nfn) * sum(temp_nfp$ntp + temp_nfp$nfn) / sum(as.numeric(width(universe$analysis))) * 1e6
+
 ggplot(temp_nfp, aes(x = depth, y = approx_fpr)) + 
     geom_bar(stat = "identity") + 
     labs(x = "Sequence depth (inclusive)", y = "False positives per Mb (approx.)", title = "False positive rate vs depth") + 
@@ -236,21 +251,21 @@ ggplot(temp_nfp, aes(x = depth, y = n)) +
     labs(x = "Sequence depth (inclusive)", y = "Variant count at this depth", title = "Variant count vs depth") + 
     theme_bw()
 
-ggplot(temp_nfp, aes(x = depth, y = n * approx_fpr)) + 
+ggplot(temp_nfp, aes(x = depth, y = nfp)) + 
     geom_bar(stat = "identity") + 
     labs(x = "Sequence depth (inclusive)", y = "False positive count at this depth", title = "False positive count vs depth") + 
     theme_bw()
 
 
 
-false_positive_count = sum(subset(class_subsets.performance_thresholded, muttype == "None")$nfp)
-false_positive_count_subset_size = sum(as.numeric(width(universe$analysis)))
-false_positive_rate_per_Mb = false_positive_count / false_positive_count_subset_size * 1e6
-
-ggplot(data.frame(rate_per_Mb = false_positive_rate_per_Mb), aes(x = 1, y = rate_per_Mb)) + 
-    geom_bar(stat = "identity") + 
-    labs(y = "False positive rate per Mb", title = "False Positive Rate") + 
-    theme_bw()
+# false_positive_count = sum(subset(class_subsets.performance_thresholded, muttype == "None")$nfp)
+# false_positive_count_subset_size = sum(as.numeric(width(universe$analysis)))
+# false_positive_rate_per_Mb = false_positive_count / false_positive_count_subset_size * 1e6
+# 
+# ggplot(data.frame(rate_per_Mb = false_positive_rate_per_Mb), aes(x = 1, y = rate_per_Mb)) + 
+#     geom_bar(stat = "identity") + 
+#     labs(y = "False positive rate per Mb", title = "False Positive Rate") + 
+#     theme_bw()
 @
 
 
