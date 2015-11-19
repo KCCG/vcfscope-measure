@@ -310,4 +310,4 @@ saveRDS(
         regions = regions,
         regions.orig = regions.orig,
         universe = universe), 
-    file = "report_data.rds")
+    file = param$path.rds.output)

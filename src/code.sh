@@ -61,19 +61,10 @@ main() {
   dx get "${DX_ASSETS_ID}:/assets/VariantAnnotation_1.14.6.tar.gz"
   R CMD INSTALL VariantAnnotation_1.14.6.tar.gz
 
-  # ROCR is used in the test harness
-  if [ "${runtests}" == "true" ]; then
-    dx get "${DX_ASSETS_ID}:/assets/ROCR_1.0-7.tar.gz"
-    R CMD INSTALL ROCR_1.0-7.tar.gz
-  fi
-
   #
   # process options
   #
   opts=()
-  if [ "${runtests}" == "true" ]; then
-    opts+=("-t")
-  fi
   if [ -n "${region}" ]; then
     opts+=("-r" "${region_path}")
   fi
@@ -83,12 +74,11 @@ main() {
   #
   mkdir -p ~/out/report/ ~/out/rds
   sample_basename=$(basename ${vcfgz_path} .vcf.gz)
-  ./performance_report.sh -o "/home/dnanexus/out/report/${sample_basename}.valrept.pdf" -d "/home/dnanexus/out/rds/${sample_basename}.valrept.rds" "${opts[@]}" "${vcfgz_path}" "${bam_path}"
+  ./performance_measure.sh "${opts[@]}" "${vcfgz_path}" "${bam_path}" "/home/dnanexus/out/rds/${sample_basename}.valrept.rds"
 
   #
   # upload results
   #
   dx-upload-all-outputs
-  propagate-user-meta vcfgz report
   propagate-user-meta vcfgz rds
 }

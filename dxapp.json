@@ -1,7 +1,7 @@
 {
-    "name": "kccg-performance-reporter",
-    "title": "Performance Reporter (KCCG)",
-    "summary": "Create a WGS performance report from a single-sample VCF of NA12878 calls",
+    "name": "kccg-performance-measure",
+    "title": "Measure Variant Call Performance (KCCG)",
+    "summary": "Calculate WGS performance metrics from a single-sample VCF of NA12878 calls",
     "dxapi": "1.0.0",
     "version": "auto-updated-by-bamboo",
     "resources": "project-Bf525x80YY8XZbFV8kJ50y2f",
@@ -39,32 +39,15 @@
             "class": "file",
             "patterns": [ "*.bed" ],
             "optional": true
-        },
-        {
-            "group": "advanced",
-            "name": "runtests",
-            "label": "Run integration tests?",
-            "help": "Run integration tests during calculations.  For build use only.",
-            "class": "boolean",
-            "default": false
         }
     ],
     "outputSpec": [
         {
             "patterns": [
-                "*.valrept.pdf"
+                "*.perf.rds"
             ],
-            "label": "Validation report PDF",
-            "help": "A PDF of the validation report",
-            "name": "report",
-            "class": "file"
-        },
-        {
-            "patterns": [
-                "*.valrept.rds"
-            ],
-            "label": "Validation report data RDS",
-            "help": "An RDS representation of the data used to generate the validation report",
+            "label": "Performance results RDS",
+            "help": "An RDS (R data serialization) containing performance metrics.",
             "name": "rds",
             "class": "file"
         }
@@ -72,19 +55,21 @@
     "runSpec": {
         "execDepends": [
             { "name": "openjdk-7-jre-headless" },
-            { "name": "texinfo" },
-            { "name": "texlive" },
-            { "name": "latex-xcolor" },
-            { "name": "texlive-latex-extra" },
-            { "name": "ghostscript" },
             { "name": "tabix" }
         ],
         "systemRequirements": {
             "main": {
-                "instanceType": "mem2_ssd1_x4"
+                "instanceType": "mem1_ssd1_x16"
             }
         },
         "file": "src/code.sh",
         "interpreter": "bash"
     }
 }
+
+
+            { "name": "texinfo" },
+            { "name": "texlive" },
+            { "name": "latex-xcolor" },
+            { "name": "texlive-latex-extra" },
+            { "name": "ghostscript" },

@@ -94,12 +94,10 @@ export PARAM_DEPTH_SCRATCH="${PARAM_SCRATCH}/depth"
 
 # Program parameters
 export PARAM_INPUT_VCFGZ_PATH
-export PARAM_INPUT_VCF_SAMPLES
+export PARAM_INPUT_BAM_PATH
 export PARAM_REGION_BED_SUPPLIED
 export PARAM_REGION_BED_PATH
-export PARAM_OUTPUT_PDF_PATH
 export PARAM_OUTPUT_RDS_PATH
-export PARAM_EXTENDED
 export PARAM_VERSION_EXEC_HOST
 export PARAM_VERSION_RTG
 export PARAM_VERSION_JAVA
@@ -125,7 +123,7 @@ export PATH_SAMPLE_OVERLAP_FN
 #####################################################################
 print_usage() {
 cat << EOF
-Usage: ${0##*/} [-o OUTFILE] [-d RDSOUT] [-r BEDFILE] [-t] <VCF> <BAM>
+Usage: ${0##*/} [-r BEDFILE] <VCF> <BAM> <RDSOUT>
 
 Create a single-sample WGS performance report.
 
@@ -133,14 +131,9 @@ Create a single-sample WGS performance report.
     BAM          Mapped NA12878 reads used to generate the VCF calls.
                  An accompanying index (<BAM>.bai) must be present in 
                  the same directory.
-    -o OUTFILE   Write the report to OUTFILE (default: report.pdf)
-    -d RDSOUT    Write performance report data to RDSOUT (default: 
-                 not written)
+    RDSOUT       Write the output performance data to this file.
     -r BEDFILE   Restrict analysis to the regions in BEDFILE only.
                  Default: the full genome is considered.
-    -t           Perfom regression tests and consistency checks 
-                 prior to report generation.  Generally only for
-                 development use.  Default: tests are not performed.
     -h           Display this help and exit.
 
 Version ${CONST_VERSION_SCRIPT}
@@ -154,29 +147,18 @@ OPTIND=1
 PARAM_INPUT_VCFGZ_PATH=""
 PARAM_REGION_BED_SUPPLIED=0
 PARAM_REGION_BED_PATH="NA"
-PARAM_OUTPUT_PDF_PATH="${PARAM_SCRIPT_PATH}/performance_report.pdf"
-PARAM_OUTPUT_RDS_PATH=""
 PARAM_DOTESTS=0
 
-while getopts "r:o:d:ht" opt; do
+while getopts "r:h" opt; do
 	case "$opt" in
 		h)
 			print_usage
 			exit 0
 			;;
-		o)
-			PARAM_OUTPUT_PDF_PATH=$(readlink -f "${OPTARG}")
-			;;
-    d)
-      PARAM_OUTPUT_RDS_PATH=$(readlink -f "${OPTARG}")
-      ;;
 		r)
 			PARAM_REGION_BED_SUPPLIED=1
 			PARAM_REGION_BED_PATH=$(readlink -f "${OPTARG}")
 			;;
-    t)
-      PARAM_DOTESTS=1
-      ;;
 		'?')
 			print_usage >&2
 			exit 1
@@ -186,14 +168,14 @@ done
 
 shift $((OPTIND-1))
 
-if [ $# -ne 2 ]; then
+if [ $# -ne 3 ]; then
 	print_usage >&2
 	exit 1
 fi
 
 PARAM_INPUT_VCFGZ_PATH=$(readlink -f $1)
 PARAM_INPUT_BAM_PATH=$(readlink -f $2)
-
+PARAM_OUTPUT_RDS_PATH=$(readlink -f $3)
 
 #####################################################################
 # PARAMETER CHECKING
@@ -219,8 +201,8 @@ if [ ! -e ${PARAM_INPUT_BAM_PATH}.bai ]; then
   exit 3
 fi
 
-if [ -e ${PARAM_OUTPUT_PDF_PATH} ]; then
-	message "Error: Output file ${PARAM_OUTPUT_PDF_PATH} already exists."
+if [ -e ${PARAM_OUTPUT_RDS_PATH} ]; then
+	message "Error: Output file ${PARAM_OUTPUT_RDS_PATH} already exists."
 	exit 4
 fi
 
@@ -315,7 +297,6 @@ message "  PARAM_INPUT_VCFGZ_PATH=${PARAM_INPUT_VCFGZ_PATH}"
 message "  PARAM_INPUT_BAM_PATH=${PARAM_INPUT_BAM_PATH}"
 message "  PARAM_REGION_BED_SUPPLIED=${PARAM_REGION_BED_SUPPLIED}"
 message "  PARAM_REGION_BED_PATH=${PARAM_REGION_BED_PATH}"
-message "  PARAM_OUTPUT_PDF_PATH=${PARAM_OUTPUT_PDF_PATH}"
 message "  PARAM_OUTPUT_RDS_PATH=${PARAM_OUTPUT_RDS_PATH}"
 message "  PARAM_VERSION_EXEC_HOST=${PARAM_VERSION_EXEC_HOST}"
 message "  PARAM_VERSION_RTG=${PARAM_VERSION_RTG}"
@@ -341,8 +322,7 @@ mkdir -p ${PARAM_DEPTH_SCRATCH}
 #####################################################################
 # CREATE OUTPUT DIRECTORIES
 #####################################################################
-mkdir -p $(dirname ${PARAM_OUTPUT_PDF_PATH})
-[ -e ${PARAM_OUTPUT_RDS_PATH} ] || mkdir -p $(dirname ${PARAM_OUTPUT_RDS_PATH})
+mkdir -p $(dirname ${PARAM_OUTPUT_RDS_PATH})
 
 
 #####################################################################
@@ -493,42 +473,5 @@ cd ${PARAM_KNITR_SCRATCH}
 # to ease debugging.
 export > environment
 ${RSCRIPT} --vanilla report_calculations.R
-
-if [ ${PARAM_DOTESTS} -eq 1 ]; then
-  ${RSCRIPT} --vanilla test-calcs.R
-fi
-
-cd ${PARAM_EXEC_PATH}
-
-
-#####################################################################
-# REPORT GENERATION
-#####################################################################
-message "Generating report..."
-
-cd ${PARAM_KNITR_SCRATCH}
-
-${RSCRIPT} --vanilla -e "library(knitr); knit('report.Rnw', output = 'report.tex')"
-
-# Remove the report.pdf that may be present in the scratch directory,
-# so we can later check whether pdflatex successfully built a report
-# or not.
-rm -f ${PARAM_KNITR_SCRATCH}/report.pdf
-
-# Run pdflatex
-# Latex often 'fails' (returns a nonzero exit status), but still 
-# generates a report.  Keep going when this happens, and test for
-# failure explicitly later.
-pdflatex -interaction nonstopmode report.tex || true
-pdflatex -interaction nonstopmode report.tex || true
-
-# Check whether the report.pdf was generated
-if [ ! -e ${PARAM_KNITR_SCRATCH}/report.pdf ]; then
-	message "  Error: pdflatex did not successfully generate report.pdf."
-	message "  Check ${PARAM_KNITR_SCRATCH}/report.tex and the latex log for errors."
-	exit 12
-fi
-
-cp ${PARAM_KNITR_SCRATCH}/report.pdf ${PARAM_OUTPUT_PDF_PATH}
 
 message "Done."
