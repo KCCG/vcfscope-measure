@@ -66,10 +66,3 @@
         "interpreter": "bash"
     }
 }
-
-
-            { "name": "texinfo" },
-            { "name": "texlive" },
-            { "name": "latex-xcolor" },
-            { "name": "texlive-latex-extra" },
-            { "name": "ghostscript" },
