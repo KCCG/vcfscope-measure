@@ -245,6 +245,8 @@ criteria = list(
         scoreFunc = function(x) (rowRanges(x)$FILTER == "PASS")*1,
         threshold = 0.5)
 )
+param$criterion = "FILTER = PASS"
+param$criterion_latex = "$\\mathrm{FILTER} = \\mathrm{PASS}$")
 
 
 
@@ -305,15 +307,18 @@ stopifnot(sum(class_subsets.performance_thresholded$nfp) + sum(class_subsets.per
 # Calculate input file hashes
 hashes = list()
 hashes$path.test.orig = fileMD5(param$path.test.orig)
-hashes$path.test.subset = fileMD5(param$path.test.subset)
 hashes$path.gold.variants.orig = fileMD5(param$path.gold.variants.orig)
 hashes$path.gold.regions.orig = fileMD5(param$path.gold.regions.orig)
 hashes$path.genome = fileMD5(param$path.genome)
+if (param$region.subset == TRUE)
+    hashes$path.region.subset.path = fileMD5(param$path.region.subset.path)
+else
+    hashes$path.region.subset.path = "N/A"
 
 
 saveRDS(
     list(
-        report = list(gentime = date(), criterion = "FILTER = PASS", criterion_latex = "$\\mathrm{FILTER} = \\mathrm{PASS}$"), 
+        gentime = date(), 
         params = param, 
         hashes = hashes,
         class_subsets.performance_thresholded = class_subsets.performance_thresholded, 
