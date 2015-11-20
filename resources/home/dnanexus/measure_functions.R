@@ -2,6 +2,20 @@ library(inline)
 library(Rcpp)
 
 
+
+readpipe = function(command, n = 1e6) {
+    conn = pipe(command)
+    data = readChar(conn, n)
+    close(conn)
+    data
+}
+
+
+fileMD5 = function(path) {
+    readpipe(sprintf("md5sum %s | sed 's/ .*//'", path))
+}
+
+
 bed2GRanges = function(path, seqinfo)
 {
     # Read first line, to get the number of columns

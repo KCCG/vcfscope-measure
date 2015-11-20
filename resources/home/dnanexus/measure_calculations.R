@@ -302,10 +302,20 @@ stopifnot(sum(colSums(class_subsets.performance_thresholded[,c("ntp", "nfp", "nt
 stopifnot(sum(class_subsets.performance_thresholded$nfp) + sum(class_subsets.performance_thresholded$ntn) == nrow(calls$fp))
 
 
+# Calculate input file hashes
+hashes = list()
+hashes$path.test.orig = fileMD5(param$path.test.orig)
+hashes$path.test.subset = fileMD5(param$path.test.subset)
+hashes$path.gold.variants.orig = fileMD5(param$path.gold.variants.orig)
+hashes$path.gold.regions.orig = fileMD5(param$path.gold.regions.orig)
+hashes$path.genome = fileMD5(param$path.genome)
+
+
 saveRDS(
     list(
         report = list(gentime = date(), criterion = "FILTER = PASS", criterion_latex = "$\\mathrm{FILTER} = \\mathrm{PASS}$"), 
         params = param, 
+        hashes = hashes,
         class_subsets.performance_thresholded = class_subsets.performance_thresholded, 
         regions = regions,
         regions.orig = regions.orig,
