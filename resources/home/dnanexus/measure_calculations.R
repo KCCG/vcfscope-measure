@@ -1,9 +1,9 @@
 ####################################################################
 #  
-#  KCCG WGS Validation Reporter -- Report calculations
+#  KCCG WGS Performance Reporter -- Report calculations
 #  
 #  Usage: 
-#    Rscript --vanilla report_calculations.R
+#    Rscript --vanilla measure_calculations.R
 #  
 #  All parameters are passed via environment variables.  See below
 #  for information on these.

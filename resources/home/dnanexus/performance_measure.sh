@@ -3,15 +3,15 @@ set -e -u -o pipefail
 set +x
 IFS=$'\n\t'
 
+function message {
+  echo >&2 "$(date -u)" "$1"
+}
+
+
 #####################################################################
 # VERSION
 #####################################################################
 export CONST_VERSION_SCRIPT="2.0.0"
-
-
-function message {
-  echo >&2 "$(date -u)" "$1"
-}
 
 
 #####################################################################
@@ -86,10 +86,10 @@ export PARAM_EXEC_PATH=$(pwd)
 
 # Scratch space
 mkdir -p ${PATH_SCRATCH_DEFAULT}
-export PARAM_SCRATCH=$(mktemp -d --tmpdir=${PATH_SCRATCH_DEFAULT} perfrept.XXXXXXXXXX)
+export PARAM_SCRATCH=$(mktemp -d --tmpdir=${PATH_SCRATCH_DEFAULT} perfmeas.XXXXXXXXXX)
 export PARAM_INPUT_SCRATCH="${PARAM_SCRATCH}/input"
 export PARAM_RTG_OVERLAP_SCRATCH="${PARAM_SCRATCH}/overlap"
-export PARAM_KNITR_SCRATCH="${PARAM_SCRATCH}/knitr"
+export PARAM_R_SCRATCH="${PARAM_SCRATCH}/R"
 export PARAM_DEPTH_SCRATCH="${PARAM_SCRATCH}/depth"
 
 # Program parameters
@@ -125,7 +125,7 @@ print_usage() {
 cat << EOF
 Usage: ${0##*/} [-r BEDFILE] <VCF> <BAM> <RDSOUT>
 
-Create a single-sample WGS performance report.
+Perform WGS performance calculations on calls for a single sample.
 
     VCF          Input NA12878 genotype calls, in vcf.gz format.
     BAM          Mapped NA12878 reads used to generate the VCF calls.
@@ -230,7 +230,7 @@ if [ ! -e ${RTG_TOOLS} ]; then
   exit 8
 fi
 
-if [ ! -f ${PARAM_SCRIPT_PATH}/report.Rnw -o ! -f ${PARAM_SCRIPT_PATH}/report_functions.R -o ! -f ${PARAM_SCRIPT_PATH}/report_calculations.R ]; then
+if [ ! -f ${PARAM_SCRIPT_PATH}/measure_functions.R -o ! -f ${PARAM_SCRIPT_PATH}/measure_calculations.R ]; then
   message "Error: Missing at least one required R source file."
   exit 9
 fi
@@ -292,7 +292,7 @@ message "  PARAM_SCRIPT_PATH=${PARAM_SCRIPT_PATH}"
 message "  PARAM_SCRATCH=${PARAM_SCRATCH}"
 message "  PARAM_INPUT_SCRATCH=${PARAM_INPUT_SCRATCH}"
 message "  PARAM_RTG_OVERLAP_SCRATCH=${PARAM_RTG_OVERLAP_SCRATCH}"
-message "  PARAM_KNITR_SCRATCH=${PARAM_KNITR_SCRATCH}"
+message "  PARAM_R_SCRATCH=${PARAM_R_SCRATCH}"
 message "  PARAM_INPUT_VCFGZ_PATH=${PARAM_INPUT_VCFGZ_PATH}"
 message "  PARAM_INPUT_BAM_PATH=${PARAM_INPUT_BAM_PATH}"
 message "  PARAM_REGION_BED_SUPPLIED=${PARAM_REGION_BED_SUPPLIED}"
@@ -457,21 +457,15 @@ ${TABIX} -p vcf ${PATH_SAMPLE_OVERLAP_FN}
 #####################################################################
 message "Performing calculations for report..."
 
-# knitr doesn't play well with building knits outside of its working
-# directory.  Currently we get around this with a bit of a kludge, 
-# by copying the report files to ${PARAM_KNITR_SCRATCH}, then executing in 
-# that directory.
-mkdir -p ${PARAM_KNITR_SCRATCH}
-cp -f ${PARAM_SCRIPT_PATH}/report.Rnw ${PARAM_KNITR_SCRATCH}
-cp -f ${PARAM_SCRIPT_PATH}/report_functions.R ${PARAM_KNITR_SCRATCH}
-cp -f ${PARAM_SCRIPT_PATH}/report_calculations.R ${PARAM_KNITR_SCRATCH}
-cp -f ${PARAM_SCRIPT_PATH}/test-calcs.R ${PARAM_KNITR_SCRATCH}
-cd ${PARAM_KNITR_SCRATCH}
+mkdir -p ${PARAM_R_SCRATCH}
+cp -f ${PARAM_SCRIPT_PATH}/measure_functions.R ${PARAM_R_SCRATCH}
+cp -f ${PARAM_SCRIPT_PATH}/measure_calculations.R ${PARAM_R_SCRATCH}
+cd ${PARAM_R_SCRATCH}
 
 # Run the script.  All options are passed via exported environment 
 # variables.  Also save these variables to a file for later source-ing,
 # to ease debugging.
 export > environment
-${RSCRIPT} --vanilla report_calculations.R
+${RSCRIPT} --vanilla measure_calculations.R
 
 message "Done."
