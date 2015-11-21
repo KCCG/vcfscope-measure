@@ -246,7 +246,7 @@ criteria = list(
         threshold = 0.5)
 )
 param$criterion = "FILTER = PASS"
-param$criterion_latex = "$\\mathrm{FILTER} = \\mathrm{PASS}$")
+param$criterion_latex = "$\\mathrm{FILTER} = \\mathrm{PASS}$"
 
 
 
@@ -310,10 +310,11 @@ hashes$path.test.orig = fileMD5(param$path.test.orig)
 hashes$path.gold.variants.orig = fileMD5(param$path.gold.variants.orig)
 hashes$path.gold.regions.orig = fileMD5(param$path.gold.regions.orig)
 hashes$path.genome = fileMD5(param$path.genome)
-if (param$region.subset == TRUE)
-    hashes$path.region.subset.path = fileMD5(param$path.region.subset.path)
-else
-    hashes$path.region.subset.path = "N/A"
+if (param$region.subset == TRUE) {
+    hashes$region.subset.path = fileMD5(param$region.subset.path)
+} else {
+    hashes$region.subset.path = "N/A"
+}
 
 
 saveRDS(

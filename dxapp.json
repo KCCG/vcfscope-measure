@@ -54,8 +54,7 @@
     ],
     "runSpec": {
         "execDepends": [
-            { "name": "openjdk-7-jre-headless" },
-            { "name": "tabix" }
+            { "name": "openjdk-7-jre-headless" }
         ],
         "systemRequirements": {
             "main": {

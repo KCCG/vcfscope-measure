@@ -13,6 +13,7 @@ main() {
 
   # Move the BAI to the location of the BAM
   mv ${bai_path} ${bam_path}.bai
+  touch ${bam_path}.bai
 
   #
   # Locate the assets bundle, the location of which varies, depending on whether
@@ -74,7 +75,7 @@ main() {
   #
   mkdir -p ~/out/report/ ~/out/rds
   sample_basename=$(basename ${vcfgz_path} .vcf.gz)
-  ./performance_measure.sh "${opts[@]}" "${vcfgz_path}" "${bam_path}" "/home/dnanexus/out/rds/${sample_basename}.valrept.rds"
+  ./performance_measure.sh "${opts[@]}" "${vcfgz_path}" "${bam_path}" "/home/dnanexus/out/rds/${sample_basename}.perfmeas.rds"
 
   #
   # upload results

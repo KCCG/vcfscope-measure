@@ -1,5 +1,5 @@
 #!/bin/bash
-set -e -u -o pipefail
+set -e -x -u -o pipefail
 set +x
 IFS=$'\n\t'
 
@@ -38,7 +38,6 @@ if [ ${IS_DNANEXUS} -eq 1 ]; then
   TABIX=`which tabix`
   BGZIP=`which bgzip`
   BCFTOOLS=`which bcftools`
-  GHOSTSCRIPT=`which gs`
   PARALLEL="`which parallel` --gnu --halt now,fail=1"
   SAMTOOLS=`which samtools`
 
@@ -59,7 +58,6 @@ else
   TABIX="/home/marpin/software/htslib/tabix"
   BGZIP="/home/marpin/software/htslib/bgzip"
   BCFTOOLS="/home/marpin/software/bcftools/bcftools"
-  GHOSTSCRIPT=`which gs`
   PARALLEL="/home/marpin/software/parallel/parallel --gnu --halt now,fail=1"
   SAMTOOLS=`which samtools`
 
@@ -270,7 +268,6 @@ message "  PATH_SCRATCH_DEFAULT=${PATH_SCRATCH_DEFAULT}"
 message "  BEDTOOLS=${BEDTOOLS}"
 message "  BCFTOOLS=${BCFTOOLS}"
 message "  BGZIP=${BGZIP}"
-message "  GHOSTSCRIPT=${GHOSTSCRIPT}"
 message "  JAVA=${JAVA}"
 message "  PARALLEL=${PARALLEL}"
 message "  PYTHON=${PYTHON}"
@@ -387,8 +384,7 @@ PATH_SAMPLE_OVERLAP_FN_RAW="${PARAM_RTG_OVERLAP_SCRATCH}/fn.vcf.gz"
 # right now.)
 if [ ${IS_DNANEXUS} -eq 1 ]; then
   chown -R dnanexus:dnanexus ${PARAM_SCRATCH}
-  chown -R dnanexus:dnanexus $(dirname ${PARAM_OUTPUT_PDF_PATH})
-  [ -e ${PARAM_OUTPUT_RDS_PATH} ] || chown -R dnanexus:dnanexus $(dirname ${PARAM_OUTPUT_RDS_PATH})
+  chown -R dnanexus:dnanexus $(dirname ${PARAM_OUTPUT_RDS_PATH})
 fi
 # DIRTY DIRTY DIRTY
 #####################################################################
