@@ -45,12 +45,15 @@ param$path.fp = env$PATH_SAMPLE_OVERLAP_FP          # param$path.test.subset and
 param$path.fn = env$PATH_SAMPLE_OVERLAP_FN          # param$path.gold.variants.subset
 
 param$genome = env$CONST_REFERENCE_BSGENOME         # The reference genome R package
+param$execution = list()
+param$execution$host = env$PARAM_VERSION_EXEC_HOST  # The host system for this report.
+param$execution$date = date()                       # Execution datestamp
 param$version = list()
 param$version$script = env$CONST_VERSION_SCRIPT     # The validation reporter version string
-param$version$host = env$PARAM_VERSION_EXEC_HOST    # The host system for this report.
 param$version$rtg = env$PARAM_VERSION_RTG           # Software versions.
 param$version$java = env$PARAM_VERSION_JAVA         #
 param$version$bedtools = env$PARAM_VERSION_BEDTOOLS #
+param$version$samtools = env$PARAM_VERSION_SAMTOOLS #
 
 param$path.genome = env$CONST_GENOME_BEDGZ          # The full target genome
 
@@ -319,7 +322,6 @@ if (param$region.subset == TRUE) {
 
 saveRDS(
     list(
-        gentime = date(), 
         params = param, 
         hashes = hashes,
         class_subsets.performance_thresholded = class_subsets.performance_thresholded, 

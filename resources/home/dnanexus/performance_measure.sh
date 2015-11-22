@@ -100,6 +100,7 @@ export PARAM_VERSION_EXEC_HOST
 export PARAM_VERSION_RTG
 export PARAM_VERSION_JAVA
 export PARAM_VERSION_BEDTOOLS
+export PARAM_VERSION_SAMTOOLS
 
 # Temporary file locations
 export PATH_TEST_VARIANTS="${PARAM_INPUT_SCRATCH}/test_variants.vcf.gz"
@@ -257,6 +258,7 @@ PARAM_VERSION_RTG=$(${JAVA} -Xmx${mem_in_mb}m -jar ${RTG_TOOLS} version | grep -
 PARAM_VERSION_RTG="${PARAM_VERSION_RTG} $(${JAVA} -Xmx${mem_in_mb}m -jar ${RTG_TOOLS} version | grep -m1 'Core Version: ' | sed 's/.*: //g')"
 PARAM_VERSION_JAVA=$(${JAVA} -Xmx${mem_in_mb}m -version 2>&1 | head -n 1 | sed -E 's/[^"]+"//;s/"$//')
 PARAM_VERSION_BEDTOOLS=$(${BEDTOOLS} --version | cut -d' ' -f 2)
+PARAM_VERSION_SAMTOOLS=$(${SAMTOOLS} --version | head -n 1 | cut -d' ' -f 2)
 
 
 #####################################################################
@@ -299,6 +301,7 @@ message "  PARAM_VERSION_EXEC_HOST=${PARAM_VERSION_EXEC_HOST}"
 message "  PARAM_VERSION_RTG=${PARAM_VERSION_RTG}"
 message "  PARAM_VERSION_JAVA=${PARAM_VERSION_JAVA}"
 message "  PARAM_VERSION_BEDTOOLS=${PARAM_VERSION_BEDTOOLS}"
+message "  PARAM_VERSION_SAMTOOLS=${PARAM_VERSION_SAMTOOLS}"
 message "  PATH_TEST_VARIANTS=${PATH_TEST_VARIANTS}"
 message "  PATH_TEST_VARIANTS_INDEX=${PATH_TEST_VARIANTS_INDEX}"
 message "  PATH_TEST_READS=${PATH_TEST_READS}"
