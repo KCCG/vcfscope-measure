@@ -91,7 +91,7 @@ calls = list(
 
 # Simple data sanity check: do the vcfs have the same, correct sample name?
 stopifnot(length(header(calls$tp)@samples) == 1 && header(calls$tp)@samples == header(calls$fp)@samples)
-
+param$sample.id = header(calls$tp)@samples
 
 # BEGIN HACK:
 # Get the variant sizes.  This can be done by accessing the CollapsedVCF
