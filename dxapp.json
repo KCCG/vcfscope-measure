@@ -58,7 +58,7 @@
         ],
         "systemRequirements": {
             "main": {
-                "instanceType": "mem1_ssd1_x16"
+                "instanceType": "mem1_ssd1_x32"
             }
         },
         "file": "src/code.sh",
