@@ -314,6 +314,7 @@ classifyDepthVcf = function(vcf)
         else
             return(paste(start, "-", end, sep = "")) },
         interval_start_inclusive, interval_end_inclusive)
+    interval_labels2 = c(interval_labels, "Unknown")
 
     if (nrow(vcf) == 0) 
     {
@@ -323,8 +324,12 @@ classifyDepthVcf = function(vcf)
     {
         depth = geno(vcf)$KCCG_PERF_DP_MIN
         cut_lengths = cut(depth, breaks = breaks, labels = interval_labels, right = FALSE)
-        stopifnot(all(!is.na(cut_lengths)))
-        result_list = lapply(interval_labels2, function(l) Rle(cut_lengths == l))
+        result_list = lapply(interval_labels2, function(l) { 
+            if (l != "Unknown")
+                return(Rle(!is.na(cut_lengths) & cut_lengths == l))
+            else
+                return(Rle(is.na(cut_lengths))) 
+        } )
     }
 
     names(result_list) = interval_labels2
