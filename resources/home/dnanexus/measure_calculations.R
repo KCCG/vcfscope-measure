@@ -78,7 +78,7 @@ genome.seqinfo = seqinfo(genome.bsgenome)
 genome(genome.seqinfo) = param$genome     # To get around disagreement 
         # between the vcfs (which by default use the genome name 
         # abbreviation), and the beds (which use the full name).
-param$genome_version = packageVersion(param$genome)
+param$version$genome = as.character(packageVersion(param$genome))
 
 
 #####################################################################
