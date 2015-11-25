@@ -202,8 +202,8 @@ for (i in setdiff(names(class$muttype$fp), "None"))
     class$muttype$fp[[i]] = class$muttype$fp[[i]] & FALSE
 
 # False positives are in truth mutation size zero
-class$mutsize$fp[["0-4"]] = class$mutsize$fp[["0-4"]] | TRUE
-for (i in setdiff(names(class$mutsize$fp), "0-4"))
+class$mutsize$fp[["0"]] = class$mutsize$fp[["0"]] | TRUE
+for (i in setdiff(names(class$mutsize$fp), "0"))
     class$mutsize$fp[[i]] = class$mutsize$fp[[i]] & FALSE
 
 
