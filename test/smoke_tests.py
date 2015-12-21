@@ -51,11 +51,11 @@ class TestCase(unittest.TestCase):
     def test_AAA_DownloadResultResults(self):
         job_hash = self.job.describe()
         output_hash = job_hash["output"]["rds"]
-        for output in output_hash:
-            f = dxpy.DXFile(output, project=job_hash["project"])
-            print "TestCase: Downloading %s" % f.name
-            dxpy.download_dxfile(f.id, f.name, project=job_hash["project"])
-            self.assertTrue(os.path.isfile(f.name))
+        self.assertTrue(len(output_hash) == 1)
+        f = dxpy.DXFile(output_hash.values()[0], project=job_hash["project"])
+        print "TestCase: Downloading %s" % f.name
+        dxpy.download_dxfile(f.id, f.name, project=job_hash["project"])
+        self.assertTrue(os.path.isfile(f.name))
 
     @classmethod
     def tearDownClass(self):

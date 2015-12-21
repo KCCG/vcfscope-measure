@@ -44,7 +44,7 @@
     "outputSpec": [
         {
             "patterns": [
-                "*.perf.rds"
+                "*.perfmeas.rds"
             ],
             "label": "Performance results RDS",
             "help": "An RDS (R data serialization) containing performance metrics.",
