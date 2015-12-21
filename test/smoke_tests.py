@@ -63,6 +63,6 @@ class TestCase(unittest.TestCase):
 
 
     def test_check_perf_table(self):
-        subprocess.call(['R', '--vanilla', '-e', 'write.csv(readRDS("GKX_30.realigned.recalibrated.hc.vqsr.chr21.perfmeas.rds")$class_subsets.performance_thresholded, file = "GKX_30.realigned.recalibrated.hc.vqsr.chr21.perfmeas.csv"'])
+        subprocess.call(['R', '--vanilla', '-e', 'write.csv(readRDS("GKX_30.realigned.recalibrated.hc.vqsr.chr21.perfmeas.rds")$class_subsets.performance_thresholded, file = "GKX_30.realigned.recalibrated.hc.vqsr.chr21.perfmeas.csv")'])
         md5sum = os.popen("md5sum GKX_30.realigned.recalibrated.hc.vqsr.chr21.perfmeas.csv | sed 's/ .*//'").read.strip()
         self.assertEqual(md5sum, "8114e3688e6b3d0e7e3f2365af5c540c")
