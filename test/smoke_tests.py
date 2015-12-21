@@ -50,7 +50,7 @@ class TestCase(unittest.TestCase):
 
     def test_AAA_DownloadResultResults(self):
         job_hash = self.job.describe()
-        output_hash = job_hash["output"]["depth"]
+        output_hash = job_hash["output"]["rds"]
         for output in output_hash:
             f = dxpy.DXFile(output, project=job_hash["project"])
             print "TestCase: Downloading %s" % f.name
