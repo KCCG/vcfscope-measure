@@ -46,7 +46,7 @@ PID_GIABCOPY=$!
 ## REAL TIME GENOMICS RTG-TOOLS
 
 # Copy over RTG
-cp -r ${RESOURCES_DIR}/RTG/ ${BUNDLE_DIR}/rtg-tools
+cp -r ${RESOURCES_DIR}/RTG/* ${BUNDLE_DIR}/rtg-tools
 
 # Create an RTG-format genome
 (
