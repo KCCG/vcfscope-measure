@@ -1,7 +1,7 @@
 {
-    "name": "kccg-validation-reporter",
-    "title": "Validation Reporter (KCCG)",
-    "summary": "Create a WGS validation report from a VCF of NA12878 calls",
+    "name": "kccg-performance-measure",
+    "title": "Measure Variant Call Performance (KCCG)",
+    "summary": "Calculate WGS performance metrics from a single-sample VCF of NA12878 calls",
     "dxapi": "1.0.0",
     "version": "auto-updated-by-bamboo",
     "resources": "project-Bf525x80YY8XZbFV8kJ50y2f",
@@ -18,6 +18,20 @@
             "patterns": [ "*.vcf.gz" ]
         },
         {
+            "name": "bam",
+            "label": "Mapped reads",
+            "help": "The mapped NA12878 reads used to generate the genotype calls being tested, in bam format.",
+            "class": "file",
+            "patterns": [ "*.bam" ]
+        },
+        {
+            "name": "bai",
+            "label": "Mapped read index",
+            "help": "An index for the mapped reads.",
+            "class": "file",
+            "patterns": [ "*.bai" ]
+        },
+        {
             "group": "advanced",
             "name": "region",
             "label": "Region BED",
@@ -25,75 +39,26 @@
             "class": "file",
             "patterns": [ "*.bed" ],
             "optional": true
-        },
-        {
-            "group": "advanced",
-            "name": "sampleIDs",
-            "label": "VCF sample IDs",
-            "help": "Generate reports for these samples in the VCF only.  Comma-separated list; * indicates all samples.",
-            "class": "string",
-            "optional": true,
-            "default": "*"
-        },
-        {
-            "group": "advanced",
-            "name": "extended",
-            "label": "Extended report?",
-            "help": "Generate an extended report, with threshold and score diagnostics.",
-            "class": "boolean",
-            "default": false
-        },
-        {
-            "group": "advanced",
-            "name": "runtests",
-            "label": "Run integration tests?",
-            "help": "Run integration tests during calculations.  For build use only.",
-            "class": "boolean",
-            "default": false
         }
     ],
     "outputSpec": [
         {
             "patterns": [
-                "*.valrept.pdf"
+                "*.perfmeas.rds"
             ],
-            "label": "Validation report PDF",
-            "help": "A PDF of the validation report",
-            "name": "report",
-            "class": "file"
-        },
-        {
-            "patterns": [
-                "*.valrept.rds"
-            ],
-            "label": "Validation report data RDS",
-            "help": "An RDS representation of the data used to generate the validation report",
+            "label": "Performance results RDS",
+            "help": "An RDS (R data serialization) containing performance metrics.",
             "name": "rds",
-            "class": "file"
-        },
-        {
-            "patterns": [
-                "*.valrept.json"
-            ],
-            "label": "Validation report summary JSON",
-            "help": "A JSON representation of the summary results of the validation report",
-            "name": "json",
             "class": "file"
         }
     ],
     "runSpec": {
         "execDepends": [
-            { "name": "openjdk-7-jre-headless" },
-            { "name": "texinfo" },
-            { "name": "texlive" },
-            { "name": "latex-xcolor" },
-            { "name": "texlive-latex-extra" },
-            { "name": "ghostscript" },
-            { "name": "tabix" }
+            { "name": "openjdk-7-jre-headless" }
         ],
         "systemRequirements": {
             "main": {
-                "instanceType": "mem2_ssd1_x4"
+                "instanceType": "mem1_ssd1_x32"
             }
         },
         "file": "src/code.sh",

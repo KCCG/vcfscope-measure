@@ -1,4 +1,8 @@
 #!/bin/bash
+# test harness to buid an applet, and run a small test
+# usage $0 <run|deploy|rm>
+
+# exit on any error
 set -x -e -o pipefail
 
 function dxlogin {
@@ -6,58 +10,38 @@ function dxlogin {
   dx login --noprojects --token=${bamboo_DX_TOKEN}
 }
 
-function mkproject {
-  proj_id=`dx new project -s ${PROJ_NAME} --brief`
-  dx api ${proj_id} invite '{"invitee":"org-garvan_kccg_developers", "level":"VIEW", "suppressEmailNotification":true}'
+function createproject {
+    proj_id=`dx new project -s ${PROJ_NAME} --brief`
+    dx api ${proj_id} invite '{"invitee":"org-garvan_kccg_developers", "level":"VIEW", "suppressEmailNotification":true}'
 }
 
-function rmproject {
-  dx rmproject -y $PROJ_NAME
+# deploy, but do not publish an app. This can be edited prior to publish()ing
+function build_app {
+  dx build . --version 9.9.7 --app --yes
 }
 
-# Deploy, but do not publish an app, for testing
-function build_smoketest {
-  dx build . --version bamboo_smoketest --app --yes
-}
-
-# Run a basic test of a deployed app.
-# The tests themselves are run by the script (-iruntests=true),
-# and are housed in resources/home/dnanexus/test-calcs.R
-function run_smoketest {
-  vcfgz=project-BVJz7k0098GX43GV9ZPFXVY2:file-Bf9b5qj098GppvyPX1P2K8Kf
-  region=project-BVJz7k0098GX43GV9ZPFXVY2:file-Bf9b5zQ098Ggq5zZ3kf846ZP
-
-  # Case 1: All samples in VCF
-  jobid=$(dx run app-kccg-validation-reporter/bamboo_smoketest -ivcfgz=$vcfgz -iregion=$region -iextended=true -iruntests=true --yes --brief)
-  dx watch -q --no-job-info  -f '{msg}' ${jobid}
-  dx describe ${jobid}
-
-  # Case 2: Specified sample in VCF
-  jobid=$(dx run app-kccg-validation-reporter/bamboo_smoketest -ivcfgz=$vcfgz -iregion=$region -iextended=true -iruntests=true -isampleIDs=NA12878-Vial1_140319_K3 --yes --brief)
-  dx watch -q --no-job-info  -f '{msg}' ${jobid}
-  dx describe ${jobid}
-}
-
-# Deploy and publish an app. This is irreversible (but the release can be deprecated).
+# deploy and publish an app. This is irreversible (but the release can be deprecated).
 function publish_app {
   if [[ -n "${VERSION}" ]]; then
-    dx build . --version ${VERSION} --no-version-autonumbering --no-update --app --publish --yes
+    dx build . --version ${VERSION} --app --publish --yes
   else
     echo >&2 "Error, $$VERSION not set. Looks like you are trying to deploy from a build agent"
     exit 1
   fi
 }
 
+function rmproject {
+  dx rmproject -y $PROJ_NAME
+}
 
-if [[ $1 = "smoketest" ]]; then 
-  dxlogin
-  mkproject
-  build_smoketest
-  run_smoketest
+if [[ $1 = "run" ]]; then 
+    dxlogin
+    createproject
+    build_app
 elif [[ $1 = "publish" ]]; then
-  dxlogin
-  publish_app
-elif [[ $1 = "clean" ]]; then
-  dxlogin
-  rmproject
+    dxlogin
+    publish_app
+elif [[ $1 = "rm" ]]; then
+    dxlogin
+    rmproject
 fi

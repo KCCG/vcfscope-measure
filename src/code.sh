@@ -7,9 +7,13 @@ set -e -x -o pipefail
 
 main() {
   #
-  # Fetch inputs (~/in/vcfgz/*)
+  # Fetch inputs
   #
   dx-download-all-inputs --parallel
+
+  # Move the BAI to the location of the BAM
+  mv ${bai_path} ${bam_path}.bai
+  touch ${bam_path}.bai
 
   #
   # Locate the assets bundle, the location of which varies, depending on whether
@@ -28,7 +32,7 @@ main() {
   #
   mkdir ~/resources
   cd ~/resources
-  dx cat "${DX_ASSETS_ID}:/assets/kccg_validation_reporter_resources_bundle-1.0.tar.gz" | tar zxf - # => functional_regions/* gold_standard/* kccg/* mask_regions/* orig/*
+  dx cat "${DX_ASSETS_ID}:/assets/kccg_performance_reporter_resources_bundle-2.0.tar" | tar xf -
 
   #
   # setup R
@@ -58,20 +62,10 @@ main() {
   dx get "${DX_ASSETS_ID}:/assets/VariantAnnotation_1.14.6.tar.gz"
   R CMD INSTALL VariantAnnotation_1.14.6.tar.gz
 
-  # jsonlite is used to export performance statistics in JSON format
-  dx get "${DX_ASSETS_ID}:/assets/jsonlite_0.9.16.tar.gz"
-  R CMD INSTALL jsonlite_0.9.16.tar.gz
-
   #
   # process options
   #
   opts=()
-  if [ "${extended}" == "true" ]; then
-    opts+=("-x")
-  fi
-  if [ "${runtests}" == "true" ]; then
-    opts+=("-t")
-  fi
   if [ -n "${region}" ]; then
     opts+=("-r" "${region_path}")
   fi
@@ -79,15 +73,13 @@ main() {
   #
   # run report
   #
-  mkdir -p ~/out/report/ ~/out/rds ~/out/json
+  mkdir -p ~/out/report/ ~/out/rds
   sample_basename=$(basename ${vcfgz_path} .vcf.gz)
-  ./validation_report.sh -o "/home/dnanexus/out/report/${sample_basename}.valrept.pdf" -d "/home/dnanexus/out/rds/${sample_basename}.valrept.rds" -j "/home/dnanexus/out/json/${sample_basename}.valrept.json" -s "${sampleIDs}" "${opts[@]}" "${vcfgz_path}"
+  ./performance_measure.sh "${opts[@]}" "${vcfgz_path}" "${bam_path}" "/home/dnanexus/out/rds/${sample_basename}.perfmeas.rds"
 
   #
   # upload results
   #
   dx-upload-all-outputs
-  propagate-user-meta vcfgz report
   propagate-user-meta vcfgz rds
-  propagate-user-meta vcfgz json
 }
