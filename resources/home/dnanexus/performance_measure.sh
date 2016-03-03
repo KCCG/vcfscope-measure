@@ -76,7 +76,7 @@ export CONST_GOLD_CALLS_VCFGZTBI="${PATH_RESOURCES_HEAD}/gold_standard/calls-2.1
 export CONST_GOLD_HARDMASK_VALID_REGIONS_BEDGZ="${PATH_RESOURCES_HEAD}/gold_standard/valid_regions-2.19.bed.gz"
 export CONST_REFERENCE_SDF="${PATH_RESOURCES_HEAD}/reference/hs37d5.sdf/"
 export CONST_GENOME_BEDGZ="${PATH_RESOURCES_HEAD}/reportable_range/genome.bed.gz"
-export CONST_REFERENCE_BSGENOME="BSgenome.HSapiens.1000g.37d5"		# This is a custom package, available at /share/ClusterShare/biodata/contrib/marpin/reference/hs37d5/build/BSgenome.HSapiens.1000g.37d5_1.0.0.tar.gz
+export CONST_REFERENCE_BSGENOME="BSgenome.HSapiens.1000g.37d5"    # This is a custom package, available at /share/ClusterShare/biodata/contrib/marpin/reference/hs37d5/build/BSgenome.HSapiens.1000g.37d5_1.0.0.tar.gz
 
 # Script location
 export PARAM_SCRIPT_PATH=$(readlink -f $(dirname $0))
@@ -101,6 +101,7 @@ export PARAM_VERSION_RTG
 export PARAM_VERSION_JAVA
 export PARAM_VERSION_BEDTOOLS
 export PARAM_VERSION_SAMTOOLS
+export PARAM_STORE_ALL_VARIANTS
 
 # Temporary file locations
 export PATH_TEST_VARIANTS="${PARAM_INPUT_SCRATCH}/test_variants.vcf.gz"
@@ -133,6 +134,7 @@ Perform WGS performance calculations on calls for a single sample.
     RDSOUT       Write the output performance data to this file.
     -r BEDFILE   Restrict analysis to the regions in BEDFILE only.
                  Default: the full genome is considered.
+    -a           Store all region variants in the output RDS.
     -h           Display this help and exit.
 
 Version ${CONST_VERSION_SCRIPT}
@@ -141,35 +143,37 @@ Mark Pinese
 EOF
 }
 
-# Head location for resources bundle
 OPTIND=1
 PARAM_INPUT_VCFGZ_PATH=""
 PARAM_REGION_BED_SUPPLIED=0
 PARAM_REGION_BED_PATH="NA"
-PARAM_DOTESTS=0
+PARAM_STORE_ALL_VARIANTS=0
 
-while getopts "r:h" opt; do
-	case "$opt" in
-		h)
-			print_usage
-			exit 0
-			;;
-		r)
-			PARAM_REGION_BED_SUPPLIED=1
-			PARAM_REGION_BED_PATH=$(readlink -f "${OPTARG}")
-			;;
-		'?')
-			print_usage >&2
-			exit 1
-			;;
-	esac
+while getopts "r:ha" opt; do
+  case "$opt" in
+    h)
+      print_usage
+      exit 0
+      ;;
+    a)
+      PARAM_STORE_ALL_VARIANTS=1
+      ;;
+    r)
+      PARAM_REGION_BED_SUPPLIED=1
+      PARAM_REGION_BED_PATH=$(readlink -f "${OPTARG}")
+      ;;
+    '?')
+      print_usage >&2
+      exit 1
+      ;;
+  esac
 done
 
 shift $((OPTIND-1))
 
 if [ $# -ne 3 ]; then
-	print_usage >&2
-	exit 1
+  print_usage >&2
+  exit 1
 fi
 
 PARAM_INPUT_VCFGZ_PATH=$(readlink -f $1)
@@ -186,8 +190,8 @@ if [ ! -d "${PATH_RESOURCES_HEAD}" ]; then
 fi
 
 if [ ! -e ${PARAM_INPUT_VCFGZ_PATH} ]; then
-	message "Error: Input file ${PARAM_INPUT_VCFGZ_PATH} not found."
-	exit 3
+  message "Error: Input file ${PARAM_INPUT_VCFGZ_PATH} not found."
+  exit 3
 fi
 
 if [ ! -e ${PARAM_INPUT_BAM_PATH} ]; then
@@ -201,8 +205,8 @@ if [ ! -e ${PARAM_INPUT_BAM_PATH}.bai ]; then
 fi
 
 if [ -e ${PARAM_OUTPUT_RDS_PATH} ]; then
-	message "Error: Output file ${PARAM_OUTPUT_RDS_PATH} already exists."
-	exit 4
+  message "Error: Output file ${PARAM_OUTPUT_RDS_PATH} already exists."
+  exit 4
 fi
 
 if [ ${PARAM_REGION_BED_SUPPLIED} -eq 1 ] && [ ! -e ${PARAM_REGION_BED_PATH} ]; then
@@ -297,6 +301,7 @@ message "  PARAM_INPUT_BAM_PATH=${PARAM_INPUT_BAM_PATH}"
 message "  PARAM_REGION_BED_SUPPLIED=${PARAM_REGION_BED_SUPPLIED}"
 message "  PARAM_REGION_BED_PATH=${PARAM_REGION_BED_PATH}"
 message "  PARAM_OUTPUT_RDS_PATH=${PARAM_OUTPUT_RDS_PATH}"
+message "  PARAM_STORE_ALL_VARIANTS=${PARAM_STORE_ALL_VARIANTS}"
 message "  PARAM_VERSION_EXEC_HOST=${PARAM_VERSION_EXEC_HOST}"
 message "  PARAM_VERSION_RTG=${PARAM_VERSION_RTG}"
 message "  PARAM_VERSION_JAVA=${PARAM_VERSION_JAVA}"

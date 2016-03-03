@@ -70,6 +70,10 @@ main() {
     opts+=("-r" "${region_path}")
   fi
 
+  if [ "$store_variants" == "true" ]; then
+    opts+=("-a")
+  fi
+
   #
   # run report
   #
