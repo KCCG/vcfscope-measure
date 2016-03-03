@@ -330,7 +330,8 @@ output_object = list(
     regions.orig = regions.orig,
     universe = universe)
 
-if (param$store_all_variants)
+if (param$store_all_variants) {
     output_object$calls = calls
+}
 
 saveRDS(output_object, file = param$path.rds.output)
