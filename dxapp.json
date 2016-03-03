@@ -39,6 +39,14 @@
             "class": "file",
             "patterns": [ "*.bed" ],
             "optional": true
+        },
+        {
+            "group": "advanced",
+            "name": "store_variants",
+            "label": "Store variants",
+            "help": "Store all region-filtered variant calls in the output RDS.",
+            "class": "boolean",
+            "default": false
         }
     ],
     "outputSpec": [

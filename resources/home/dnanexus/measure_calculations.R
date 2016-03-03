@@ -33,6 +33,7 @@ param$path.test.orig = env$PARAM_INPUT_VCFGZ_PATH                               
 
 param$region.subset = env$PARAM_REGION_BED_SUPPLIED == "1"                      # Subset analysis to a set of genomic regions?
 param$region.subset.path = env$PARAM_REGION_BED_PATH                            # If so, the path to the region bed file
+param$store_all_variants = env$PARAM_STORE_ALL_VARIANTS == "1"                  # Store the full variant calls object in the output RDS
 
 param$path.test.subset = env$PATH_TEST_VARIANTS                                 # The test variant vcf, subset to the bed in param$region.subset.path
 param$path.gold.variants.orig = env$CONST_GOLD_CALLS_VCFGZ                      # Original gold standard variant vcf
@@ -321,12 +322,16 @@ if (param$region.subset == TRUE) {
 }
 
 
-saveRDS(
-    list(
-        params = param, 
-        hashes = hashes,
-        class_subsets.performance_thresholded = class_subsets.performance_thresholded, 
-        regions = regions,
-        regions.orig = regions.orig,
-        universe = universe), 
-    file = param$path.rds.output)
+output_object = list(
+    params = param, 
+    hashes = hashes,
+    class_subsets.performance_thresholded = class_subsets.performance_thresholded, 
+    regions = regions,
+    regions.orig = regions.orig,
+    universe = universe)
+
+if (param$store_all_variants) {
+    output_object$calls = calls
+}
+
+saveRDS(output_object, file = param$path.rds.output)
