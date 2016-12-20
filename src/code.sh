@@ -32,7 +32,7 @@ main() {
   #
   mkdir ~/resources
   cd ~/resources
-  dx cat "${DX_ASSETS_ID}:/assets/kccg_performance_reporter_resources_bundle-2.0.tar" | tar xf -
+  dx cat "${DX_ASSETS_ID}:/assets/vcfscope_reporter_resources_bundle-2.0.tar" | tar xf -
 
   #
   # setup R
@@ -79,7 +79,7 @@ main() {
   #
   mkdir -p ~/out/report/ ~/out/rds
   sample_basename=$(basename ${vcfgz_path} .vcf.gz)
-  ./performance_measure.sh "${opts[@]}" "${vcfgz_path}" "${bam_path}" "/home/dnanexus/out/rds/${sample_basename}.perfmeas.rds"
+  ./vcfscope_measure.sh "${opts[@]}" "${vcfgz_path}" "${bam_path}" "/home/dnanexus/out/rds/${sample_basename}.vcfscope.rds"
 
   #
   # upload results

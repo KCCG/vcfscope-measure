@@ -5,7 +5,7 @@ import dxpy
 import sys
 import subprocess
 
-app_name = "kccg-performance-measure"
+app_name = "vcfscope-measure"
 project_name = os.getenv('PROJ_NAME')
 kccg_project_id = "project-BVJz7k0098GX43GV9ZPFXVY2"
 RUN_JOB_ON_DX = os.getenv('RUN_JOB_ON_DX', "True") != "False"
@@ -31,7 +31,7 @@ class TestCase(unittest.TestCase):
             project_id = dxpy.find_one_project(more_ok=False, name=project_name)["id"]
             run_args = {}
             run_args["project"] = project_id
-            run_args["name"] = "kccg-performance-measure on chr21"
+            run_args["name"] = "vcfscope-measure on chr21"
             run_args["folder"] = "/purge/" + app_name
             input_hash = {}
             input_hash["vcfgz"] = dxpy.dxlink("file-BkkjFkj098Gb2jZ1Yx533JFv", kccg_project_id)
@@ -59,10 +59,10 @@ class TestCase(unittest.TestCase):
 
     @classmethod
     def tearDownClass(self):
-        os.remove("GKX_30.realigned.recalibrated.hc.vqsr.chr21.perfmeas.rds")
+        os.remove("GKX_30.realigned.recalibrated.hc.vqsr.chr21.vcfscope.rds")
 
 
     def test_check_perf_table(self):
-        subprocess.call(['R', '--vanilla', '-e', 'write.csv(readRDS("GKX_30.realigned.recalibrated.hc.vqsr.chr21.perfmeas.rds")$class_subsets.performance_thresholded, file = "GKX_30.realigned.recalibrated.hc.vqsr.chr21.perfmeas.csv")'])
-        md5sum = os.popen("md5sum GKX_30.realigned.recalibrated.hc.vqsr.chr21.perfmeas.csv | sed 's/ .*//'").read().strip()
+        subprocess.call(['R', '--vanilla', '-e', 'write.csv(readRDS("GKX_30.realigned.recalibrated.hc.vqsr.chr21.vcfscope.rds")$class_subsets.performance_thresholded, file = "GKX_30.realigned.recalibrated.hc.vqsr.chr21.vcfscope.csv")'])
+        md5sum = os.popen("md5sum GKX_30.realigned.recalibrated.hc.vqsr.chr21.vcfscope.csv | sed 's/ .*//'").read().strip()
         self.assertEqual(md5sum, "8114e3688e6b3d0e7e3f2365af5c540c")

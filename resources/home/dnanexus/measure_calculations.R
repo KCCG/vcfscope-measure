@@ -1,6 +1,6 @@
 ####################################################################
 #  
-#  KCCG WGS Performance Reporter -- Report calculations
+#  VCFscope Reporter
 #  
 #  Usage: 
 #    Rscript --vanilla measure_calculations.R

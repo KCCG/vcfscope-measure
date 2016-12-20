@@ -5,9 +5,9 @@
 ############################################
 ## LOCATIONS
 
-export RESOURCES_DIR="/directflow/ClinicalGenomicsPipeline/projects/performance-reporter/assets_bundle_generator_resources"
+export RESOURCES_DIR="/directflow/ClinicalGenomicsPipeline/projects/vcfscope-reporter/assets_bundle_generator_resources"
 export JAVA="java"
-BUNDLE_DIR="kccg_performance_reporter_resources_bundle-2.0"
+BUNDLE_DIR="vcfscope_reporter_resources_bundle-2.0"
 
 
 ############################################

@@ -47,7 +47,7 @@ if [ ${IS_DNANEXUS} -eq 1 ]; then
   RTG_VCFEVAL="${JAVA} -Xmx${mem_in_mb}m -jar ${RTG_TOOLS} vcfeval -T ${RTG_THREADS}"
 else
   # Wolfpack settings (marpin only for now)
-  PATH_RESOURCES_HEAD="/directflow/ClinicalGenomicsPipeline/projects/performance-reporter/kccg_performance_reporter_resources_bundle-2.0"
+  PATH_RESOURCES_HEAD="/directflow/ClinicalGenomicsPipeline/projects/vcfscope-reporter/vcfscope_reporter_resources_bundle-2.0"
   PATH_SCRATCH_DEFAULT="/directflow/ClinicalGenomicsPipeline/tmp"
 
   RSCRIPT="/home/marpin/bin/Rscript"
@@ -84,7 +84,7 @@ export PARAM_EXEC_PATH=$(pwd)
 
 # Scratch space
 mkdir -p ${PATH_SCRATCH_DEFAULT}
-export PARAM_SCRATCH=$(mktemp -d --tmpdir=${PATH_SCRATCH_DEFAULT} perfmeas.XXXXXXXXXX)
+export PARAM_SCRATCH=$(mktemp -d --tmpdir=${PATH_SCRATCH_DEFAULT} vcfscope.XXXXXXXXXX)
 export PARAM_INPUT_SCRATCH="${PARAM_SCRATCH}/input"
 export PARAM_RTG_OVERLAP_SCRATCH="${PARAM_SCRATCH}/overlap"
 export PARAM_R_SCRATCH="${PARAM_SCRATCH}/R"

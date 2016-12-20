@@ -1,11 +1,11 @@
 {
-    "name": "kccg-performance-measure",
-    "title": "Measure Variant Call Performance (KCCG)",
-    "summary": "Calculate WGS performance metrics from a single-sample VCF of NA12878 calls",
+    "name": "vcfscope",
+    "title": "VCFscope: Measure Genomic Pipeline Performance",
+    "summary": "Calculate NGS performance metrics from a single-sample VCF of NA12878 calls, and matched BAM file",
     "dxapi": "1.0.0",
     "version": "auto-updated-by-bamboo",
     "resources": "project-Bf525x80YY8XZbFV8kJ50y2f",
-    "contactOrgs": "http://www.garvan.org.au/research/kinghorn-centre-for-clinical-genomics/clinical-genomics",
+    "contactOrgs": "http://www.garvan.org.au/kccg",
     "developers": [ "org-garvan_kccg_developers" ],
     "authorizedUsers": [ "org-garvan_kccg", "org-garvan_kccg_developers" ],
     "categories": [ "Reports", "Statistics" ],
@@ -52,10 +52,10 @@
     "outputSpec": [
         {
             "patterns": [
-                "*.perfmeas.rds"
+                "*.vcfscope.rds"
             ],
-            "label": "Performance results RDS",
-            "help": "An RDS (R data serialization) containing performance metrics.",
+            "label": "VCFscope results RDS",
+            "help": "An RDS (R data serialization) file containing VCFscope performance metrics.",
             "name": "rds",
             "class": "file"
         }
