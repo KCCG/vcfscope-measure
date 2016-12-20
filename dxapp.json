@@ -69,6 +69,11 @@
                 "instanceType": "mem1_ssd1_x32"
             }
         },
+        "assetDepends": [
+            {
+                "id": "record-F1GVyq00YbbyP7627XgJP96v"
+            }
+        ],
         "file": "src/code.sh",
         "interpreter": "bash"
     }
