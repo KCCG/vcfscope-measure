@@ -52,7 +52,7 @@ The app unpacks a tar bundle, which contains:
 
 ## R package dependencies
 * This has been tested extensively with R 3.2.0, and more recently, but to less extent, R 3.2.3. The R package
-dependencies are captured within the Makefile.
+dependencies are captured within the vcfscope-asset/Makefile.
 
 ## Output
 * RDS of performance metrics.
