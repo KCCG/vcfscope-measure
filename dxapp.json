@@ -1,10 +1,10 @@
 {
     "name": "vcfscope",
     "title": "VCFscope: Measure Genomic Pipeline Performance",
-    "summary": "Calculate NGS performance metrics from a single-sample VCF of NA12878 calls, and matched BAM file",
+    "summary": "Calculate variant calling performance metrics from a single-sample VCF of NA12878 calls, and matched BAM file",
     "dxapi": "1.0.0",
     "version": "auto-updated-by-bamboo",
-    "resources": "project-Bf525x80YY8XZbFV8kJ50y2f",
+    "resources": "project-F1GG4100pVjJqZP0B1P9X9Vy",
     "contactOrgs": "http://www.garvan.org.au/kccg",
     "developers": [ "org-garvan_kccg_developers" ],
     "authorizedUsers": [ "org-garvan_kccg", "org-garvan_kccg_developers" ],
