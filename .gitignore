@@ -12,3 +12,5 @@ figure/*
 *.bed.gz
 *.bed.gz.tbi
 utils/createAssetsBundle/kccg_performance_reporter_resources_bundle-*
+*.pyc
+venv

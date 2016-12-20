@@ -1,5 +1,5 @@
 {
-    "name": "vcfscope",
+    "name": "vcfscope-measure",
     "title": "VCFscope: Measure Genomic Pipeline Performance",
     "summary": "Calculate variant calling performance metrics from a single-sample VCF of NA12878 calls, and matched BAM file",
     "dxapi": "1.0.0",

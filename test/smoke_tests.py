@@ -17,7 +17,8 @@ RUN_JOB_ON_DX = os.getenv('RUN_JOB_ON_DX', "True") != "False"
 # source venv/bin/activate
 # pip install -r requirements.txt
 #
-# export RUN_JOB_ON_DX=False
+# export RUN_JOB_ON_DX=True
+# export PROJ_NAME=NEX-VALREP-JOB1-38_master
 # nosetests
 #
 class TestCase(unittest.TestCase):
