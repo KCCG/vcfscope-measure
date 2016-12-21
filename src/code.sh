@@ -31,8 +31,12 @@ main() {
   # Stream and unpack assets bundle
   #
   mkdir ~/resources
-  cd ~/resources
-  dx cat "${DX_ASSETS_ID}:/assets/vcfscope_reporter_resources_bundle-2.0.tar" | tar xf -
+  dx cat "${DX_ASSETS_ID}:/assets/vcfscope_reporter_resources_bundle-2.0.tar" | tar -xv -C ~/resources -f -
+
+  # debug
+  ldd /usr/local/lib/R/bin/exec/R
+  #file /usr/lib/x86_64-linux-gnu/libicuuc.so.52
+  ls /usr/local/lib/x86_64-linux-gnu
 
   #
   # process options

@@ -30,8 +30,8 @@ if [ ${IS_DNANEXUS} -eq 1 ]; then
   PATH_RESOURCES_HEAD="/home/dnanexus/resources"
   PATH_SCRATCH_DEFAULT="/tmp"
 
-  RSCRIPT="/home/dnanexus/bin/Rscript"
-  R="/home/dnanexus/bin/R"
+  RSCRIPT="/usr/bin/Rscript"
+  R="/usr/bin/R"
   JAVA=`which java`
   PYTHON=`which python`
   BEDTOOLS=`which bedtools`
