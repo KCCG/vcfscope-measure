@@ -75,6 +75,8 @@
             }
         ],
         "file": "src/code.sh",
-        "interpreter": "bash"
+        "interpreter": "bash",
+        "distribution": "Ubuntu",
+        "release": "14.04"
     }
 }
