@@ -7,6 +7,11 @@ set -e -x -o pipefail
 
 main() {
   #
+  # ensure we're using custom R 3.2.3, not the default R 3.2.0 in /usr/bin/R
+  #
+  test $(which R) == "/usr/local/bin/R"
+
+  #
   # Fetch inputs
   #
   dx-download-all-inputs --parallel
@@ -32,11 +37,6 @@ main() {
   #
   mkdir ~/resources
   dx cat "${DX_ASSETS_ID}:/assets/vcfscope_reporter_resources_bundle-2.0.tar" | tar -xv -C ~/resources -f -
-
-  # debug
-  ldd /usr/local/lib/R/bin/exec/R
-  #file /usr/lib/x86_64-linux-gnu/libicuuc.so.52
-  ls /usr/local/lib/x86_64-linux-gnu
 
   #
   # process options
