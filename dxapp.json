@@ -69,7 +69,14 @@
                 "instanceType": "mem1_ssd1_x32"
             }
         },
+        "assetDepends": [
+            {
+                "id": "record-F1JXX1j09267BZF2PF5X6pY1"
+            }
+        ],
         "file": "src/code.sh",
-        "interpreter": "bash"
+        "interpreter": "bash",
+        "distribution": "Ubuntu",
+        "release": "14.04"
     }
 }

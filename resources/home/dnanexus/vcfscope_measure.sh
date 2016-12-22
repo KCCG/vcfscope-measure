@@ -30,8 +30,8 @@ if [ ${IS_DNANEXUS} -eq 1 ]; then
   PATH_RESOURCES_HEAD="/home/dnanexus/resources"
   PATH_SCRATCH_DEFAULT="/tmp"
 
-  RSCRIPT="/home/dnanexus/bin/Rscript"
-  R="/home/dnanexus/bin/R"
+  RSCRIPT=`which Rscript`
+  R=`which R`
   JAVA=`which java`
   PYTHON=`which python`
   BEDTOOLS=`which bedtools`
@@ -251,7 +251,7 @@ fi
 #####################################################################
 # R PACKAGE CHECKING
 #####################################################################
-${R} --vanilla --slave -e "if (!(\"${CONST_REFERENCE_BSGENOME}\" %in% installed.packages(.Library))) stop(\"${CONST_REFERENCE_BSGENOME} package not installed\")"
+${R} --vanilla --slave -e "if (!(\"${CONST_REFERENCE_BSGENOME}\" %in% installed.packages())) stop(\"${CONST_REFERENCE_BSGENOME} package not installed\")"
 
 
 #####################################################################

@@ -7,7 +7,7 @@ import subprocess
 
 app_name = "vcfscope-measure"
 project_name = os.getenv('PROJ_NAME')
-kccg_project_id = "project-BVJz7k0098GX43GV9ZPFXVY2"
+project_id = "project-F1GG4100pVjJqZP0B1P9X9Vy"
 RUN_JOB_ON_DX = os.getenv('RUN_JOB_ON_DX', "True") != "False"
 
 #
@@ -18,7 +18,7 @@ RUN_JOB_ON_DX = os.getenv('RUN_JOB_ON_DX', "True") != "False"
 # pip install -r requirements.txt
 #
 # export RUN_JOB_ON_DX=True
-# export PROJ_NAME=NEX-VALREP-JOB1-38_master
+# export PROJ_NAME="VCFscope resources"
 # nosetests
 #
 class TestCase(unittest.TestCase):
@@ -29,22 +29,22 @@ class TestCase(unittest.TestCase):
             if not project_name:
                 print "'PROJ_NAME' environment variable must be defined!"
                 sys.exit(1)
-            project_id = dxpy.find_one_project(more_ok=False, name=project_name)["id"]
+            working_project_id = dxpy.find_one_project(more_ok=False, name=project_name)["id"]
             run_args = {}
-            run_args["project"] = project_id
+            run_args["project"] = working_project_id
             run_args["name"] = "vcfscope-measure on chr21"
             run_args["folder"] = "/purge/" + app_name
             input_hash = {}
-            input_hash["vcfgz"] = dxpy.dxlink("file-BkkjFkj098Gb2jZ1Yx533JFv", kccg_project_id)
-            input_hash["bam"] = dxpy.dxlink("file-Bkkjj5Q098Gkvkb3Xx5Pxj1J", kccg_project_id)
-            input_hash["bai"] = dxpy.dxlink("file-Bkkjj5Q098GzYx2bG5YJ3z34", kccg_project_id)
-            input_hash["region"] = dxpy.dxlink("file-Bkkj22Q098Gz5yK1Q955G5gX", kccg_project_id)
+            input_hash["vcfgz"] = dxpy.dxlink("file-BkkjFkj098Gb2jZ1Yx533JFv", project_id)
+            input_hash["bam"] = dxpy.dxlink("file-Bkkjj5Q098Gkvkb3Xx5Pxj1J", project_id)
+            input_hash["bai"] = dxpy.dxlink("file-Bkkjj5Q098GzYx2bG5YJ3z34", project_id)
+            input_hash["region"] = dxpy.dxlink("file-Bkkj22Q098Gz5yK1Q955G5gX", project_id)
 
             app = dxpy.DXApp(name=app_name, alias="9.9.7")
             cls.job = app.run(input_hash, **run_args)
 
         else:
-            job_id = "job-Bkkjv3j098GfBQ63GxY099vP"
+            job_id = "job-F1JpY9Q0pVj0BgpYBp14f31Q"
             cls.job = dxpy.DXJob(job_id)
 
         cls.job.wait_on_done()

@@ -7,6 +7,11 @@ set -e -x -o pipefail
 
 main() {
   #
+  # ensure we're using custom R 3.2.3, not the default R 3.2.0 in /usr/bin/R
+  #
+  test $(which R) == "/usr/local/bin/R"
+
+  #
   # Fetch inputs
   #
   dx-download-all-inputs --parallel
@@ -31,36 +36,7 @@ main() {
   # Stream and unpack assets bundle
   #
   mkdir ~/resources
-  cd ~/resources
-  dx cat "${DX_ASSETS_ID}:/assets/vcfscope_reporter_resources_bundle-2.0.tar" | tar xf -
-
-  #
-  # setup R
-  #
-  cd ~
-  # This R is Aaron's R-3.2.0 with pre-installed packages, with the following 
-  # additional packages pre-installed:
-  # CRAN: inline, RSQLite, png, gsalib
-  # BioC: VariantAnnotation, GenomicRanges, BSgenome
-  dx cat "${DX_ASSETS_ID}:/assets/R-3.2.0.compiled.packages_v2.tar.gz" | tar -zxf -
-  export PATH="$PWD/bin:$PATH"
-  export RHOME=${HOME} # This is needed to make RScript work, since it was compiled in a different dir.
-
-  dx get "${DX_ASSETS_ID}:/assets/BSgenome.HSapiens.1000g.37d5_1.0.0.tar.gz"
-  R CMD INSTALL BSgenome.HSapiens.1000g.37d5_1.0.0.tar.gz
-
-  dx get "${DX_ASSETS_ID}:/assets/testthat_0.10.0.tar.gz"
-  dx get "${DX_ASSETS_ID}:/assets/memoise_0.2.1.tar.gz"
-  dx get "${DX_ASSETS_ID}:/assets/crayon_1.3.0.tar.gz"
-  dx get "${DX_ASSETS_ID}:/assets/digest_0.6.8.tar.gz"
-  R CMD INSTALL digest_0.6.8.tar.gz
-  R CMD INSTALL memoise_0.2.1.tar.gz
-  R CMD INSTALL crayon_1.3.0.tar.gz
-  R CMD INSTALL testthat_0.10.0.tar.gz
-
-  # An updated VariantAnnotation package is required to handle HAS2.0 VCFs
-  dx get "${DX_ASSETS_ID}:/assets/VariantAnnotation_1.14.6.tar.gz"
-  R CMD INSTALL VariantAnnotation_1.14.6.tar.gz
+  dx cat "${DX_ASSETS_ID}:/assets/vcfscope_reporter_resources_bundle-2.0.tar" | tar -xv -C ~/resources -f -
 
   #
   # process options
@@ -75,9 +51,9 @@ main() {
   fi
 
   #
-  # run report
+  # run vcfscope_measure.sh to create an rds (ie R data file)
   #
-  mkdir -p ~/out/report/ ~/out/rds
+  mkdir -p ~/out/rds
   sample_basename=$(basename ${vcfgz_path} .vcf.gz)
   ./vcfscope_measure.sh "${opts[@]}" "${vcfgz_path}" "${bam_path}" "/home/dnanexus/out/rds/${sample_basename}.vcfscope.rds"
 
