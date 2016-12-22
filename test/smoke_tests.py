@@ -29,9 +29,9 @@ class TestCase(unittest.TestCase):
             if not project_name:
                 print "'PROJ_NAME' environment variable must be defined!"
                 sys.exit(1)
-            project_id = dxpy.find_one_project(more_ok=False, name=project_name)["id"]
+            working_project_id = dxpy.find_one_project(more_ok=False, name=project_name)["id"]
             run_args = {}
-            run_args["project"] = project_id
+            run_args["project"] = working_project_id
             run_args["name"] = "vcfscope-measure on chr21"
             run_args["folder"] = "/purge/" + app_name
             input_hash = {}
