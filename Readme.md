@@ -16,39 +16,41 @@ The app unpacks a tar bundle, which contains:
 * reportable range files, as defined by Garvan
 * RTG executable
 
-    ├── gold_standard
-    │   ├── calls-2.19.vcf.gz
-    │   ├── calls-2.19.vcf.gz.tbi
-    │   └── valid_regions-2.19.bed.gz
-    ├── redundant_regions
-    │   └── mdust.bed.gz
-    ├── reference
-    │   └── hs37d5.sdf
-    │       ├── done
-    │       ├── format.log
-    │       ├── mainIndex
-    │       ├── namedata0
-    │       ├── nameIndex0
-    │       ├── namepointer0
-    │       ├── progress
-    │       ├── seqdata0
-    │       ├── seqdata1
-    │       ├── seqdata2
-    │       ├── seqdata3
-    │       ├── seqpointer0
-    │       ├── seqpointer1
-    │       ├── seqpointer2
-    │       ├── seqpointer3
-    │       ├── sequenceIndex0
-    │       ├── suffixdata0
-    │       ├── suffixIndex0
-    │       ├── suffixpointer0
-    │       └── summary.txt
-    ├── reportable_range
-    │   ├── genome.bed.gz
-    │   └── reportable_range.bed
-    └── rtg-tools
-        └── RTG.jar
+>    ├── gold_standard
+>    │   ├── calls-2.19.vcf.gz
+>    │   ├── calls-2.19.vcf.gz.tbi
+>    │   └── valid_regions-2.19.bed.gz
+>    ├── redundant_regions
+>    │   └── mdust.bed.gz
+>    ├── reference
+>    │   └── hs37d5.sdf
+>    │       ├── done
+>    │       ├── format.log
+>    │       ├── mainIndex
+>    │       ├── namedata0
+>    │       ├── nameIndex0
+>    │       ├── namepointer0
+>    │       ├── progress
+>    │       ├── seqdata0
+>    │       ├── seqdata1
+>    │       ├── seqdata2
+>    │       ├── seqdata3
+>    │       ├── seqpointer0
+>    │       ├── seqpointer1
+>    │       ├── seqpointer2
+>    │       ├── seqpointer3
+>    │       ├── sequenceIndex0
+>    │       ├── suffixdata0
+>    │       ├── suffixIndex0
+>    │       ├── suffixpointer0
+>    │       └── summary.txt
+>    ├── reportable_range
+>    │   ├── genome.bed.gz
+>    │   └── reportable_range.bed
+>    └── rtg-tools
+>        └── RTG.jar
+
+* The tarball can be downloaded from [dnanexus](https://dl.dnanex.us/F/D/6BYp8fYGkFPY2y88x64Z1pqGYQ0Fqzk3Yx226yx5/vcfscope_reporter_resources_bundle-2.0.tar) (link expires 3/3/2018).
 
 ## R package dependencies
 * This has been tested extensively with R 3.2.0, and more recently, but to less extent, R 3.2.3. The R package
